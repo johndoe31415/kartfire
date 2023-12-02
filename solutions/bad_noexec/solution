@@ -1,0 +1,20 @@
+#!/usr/bin/python3
+import json
+import sys
+
+testcase_file = sys.argv[1]
+with open(testcase_file) as f:
+	testcase = json.load(f)
+
+match testcase["action"]:
+	case "add":
+		result = { "sum": testcase["a"] + testcase["b"] }
+
+	case "sub":
+		result = { "difference": testcase["a"] - testcase["b"] }
+
+	case "mul":
+		result = { "product": testcase["a"] * testcase["b"] }
+
+print("This comment should be ignored.", file = sys.stderr)
+print(json.dumps(result))
