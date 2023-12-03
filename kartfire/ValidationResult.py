@@ -19,9 +19,5 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
-class KartfireException(Exception): pass
-class InvalidSubmissionException(KartfireException): pass
-class InvalidTestcaseException(KartfireException): pass
-class InternalError(KartfireException): pass
-class DockerFailureException(InternalError): pass
-class SubprocessRunError(InternalError): pass
+class ValidationResult():
+	pass

@@ -23,10 +23,18 @@ import json
 from .Testcase import Testcase
 
 class TestcaseCollection():
-	def __init__(self, testcases: list[dict]):
-		self._testcases = [ Testcase(testcase) for testcase in testcases ]
+	def __init__(self, testcases: list[dict], test_fixture_config: "TestFixtureConfig"):
+		self._testcases = [ Testcase(testcase, test_fixture_config) for testcase in testcases ]
+		self._config = test_fixture_config
 
 	@classmethod
-	def load_from_file(cls, filename):
+	def load_from_file(cls, filename: str, test_fixture_config: "TestFixtureConfig"):
 		with open(filename) as f:
-			return cls(json.load(f))
+			return cls(json.load(f), test_fixture_config)
+
+	@property
+	def testcase_count(self):
+		return len(self._testcases)
+
+	def __iter__(self):
+		return iter(self._testcases)

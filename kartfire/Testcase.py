@@ -22,9 +22,10 @@
 import json
 from .Enums import TestcaseStatus
 from .Exceptions import InvalidTestcaseException
+from .Tools import JSONTools
 
 class Testcase():
-	def __init__(self, testcase: dict):
+	def __init__(self, testcase: dict, test_fixture_config: "TestFixtureConfig"):
 		if not isinstance(testcase, dict):
 			raise InvalidTestcaseException("Testcase definition must be a dictionary.")
 		if "testcase_data" not in testcase:
@@ -36,7 +37,18 @@ class Testcase():
 		if "action" not in testcase["testcase_data"]:
 			raise InvalidTestcaseException("Testcase definition is missing the 'testcase_data.action' key.")
 		self._tc = testcase
-		self._status = TestcaseStatus.Skipped
+		self._config = test_fixture_config
+
+	@property
+	def client_data(self):
+		return {
+			"testcase_data": self.testcase_data,
+			"runtime_allowance_secs": self.runtime_allowance_secs,
+		}
+
+	@property
+	def testcase_id(self):
+		return JSONTools.jsonhash(self.testcase_data)
 
 	@property
 	def testcase_data(self):
@@ -48,12 +60,12 @@ class Testcase():
 
 	@property
 	def runtime_allowance_secs(self):
+		return (self.runtime_allowance_secs_unscaled * self._config.reference_time_factor) + self._config.minimum_testcase_time
+
+	@property
+	def runtime_allowance_secs_unscaled(self):
 		return self._tc["runtime_allowance_secs"]
 
 	@property
 	def action(self):
 		return self.testcase_data["action"]
-
-	@property
-	def status(self):
-		return self._status

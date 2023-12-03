@@ -19,7 +19,11 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
+import time
+import tempfile
 import json
+import asyncio
+import subprocess
 from .Exceptions import DockerFailureException
 from .Tools import ExecTools
 
@@ -36,7 +40,7 @@ class DockerRun():
 				cmd += [ "--network", "nonat", "--dns", "0.0.0.0", "--dns-search", "localdomain" ]
 #		cmd += [ "--name", f"testrun-{student['id'].lower()}" ]
 		if max_memory_mib is not None:
-			cmd += [ "--memory={max_memory_mib}m" ]
+			cmd += [ f"--memory={max_memory_mib}m" ]
 		cmd += [ docker_image_name ]
 		cmd += command
 		self._container_id = (await ExecTools.async_check_output(cmd)).decode("ascii").rstrip("\r\n")
@@ -46,9 +50,19 @@ class DockerRun():
 		output = await ExecTools.async_check_output(cmd)
 		return json.loads(output)[0]
 
+	async def cpdata(self, content: bytes, container_filename: str):
+		with tempfile.NamedTemporaryFile() as f:
+			f.write(content)
+			f.flush()
+			await self.cp(f.name, container_filename)
+
 	async def cp(self, local_filename: str, container_filename: str):
 		cmd = [ self._docker_executable, "cp", local_filename, f"{self._container_id}:{container_filename}" ]
-		await ExecTools.async_check_call(cmd)
+		await ExecTools.async_check_call(cmd, stdout = subprocess.DEVNULL)
+
+	async def start(self):
+		cmd = [ self._docker_executable, "start", self._container_id ]
+		await ExecTools.async_check_call(cmd, stdout = subprocess.DEVNULL)
 
 	async def wait(self):
 		cmd = [ self._docker_executable, "wait", self._container_id ]

@@ -20,6 +20,7 @@
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
 import json
+import multiprocessing
 
 class TestFixtureConfig():
 	def __init__(self, config: dict | None = None):
@@ -35,6 +36,10 @@ class TestFixtureConfig():
 	@property
 	def docker_executable(self):
 		return self._config.get("docker_executable", "docker")
+
+	@property
+	def docker_container(self):
+		return self._config.get("docker_container", "ghcr.io/johndoe31415/labwork-docker:master")
 
 	@property
 	def setup_name(self):
@@ -54,7 +59,7 @@ class TestFixtureConfig():
 
 	@property
 	def max_concurrent_processes(self):
-		return self._config.get("max_concurrent_processes", 8)
+		return self._config.get("max_concurrent_processes", multiprocessing.cpu_count())
 
 	@property
 	def max_build_time_secs(self):
@@ -67,3 +72,7 @@ class TestFixtureConfig():
 	@property
 	def reference_time_factor(self):
 		return self._config.get("reference_time_factor", 10)
+
+	@property
+	def allow_network(self):
+		return self._config.get("allow_network", False)

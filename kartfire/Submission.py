@@ -20,13 +20,36 @@
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
 import os
+import tempfile
 from .Exceptions import InvalidSubmissionException
+from .DockerRun import DockerRun
+from .ValidationResult import ValidationResult
+from .Tools import ExecTools, JSONTools
 
 class Submission():
 	def __init__(self, submission_directory):
 		self._submission_dir = os.path.realpath(submission_directory)
 		if not os.path.isdir(self._submission_dir):
 			raise InvalidSubmissionException(f"{self._submission_dir} is not a directory")
+		self._validation_result = ValidationResult()
 
-	def _create_submission_tarfile(self, tarfile_name):
-		pass
+	async def _create_submission_tarfile(self, tarfile_name):
+		await ExecTools.async_check_call([ "tar", "-C", self._submission_dir, "-c", "-f", tarfile_name, "." ])
+
+	async def run(self, runner: "TestcaseRunner"):
+		dut_params = {
+			"max_build_time_secs": runner.config.max_build_time_secs,
+			"limit_stdout_bytes": 5000,
+		}
+
+		docker = DockerRun(docker_executable = runner.config.docker_executable)
+		await docker.create(docker_image_name = runner.config.docker_container, command = [ "/container_testrunner", JSONTools.encode_b64(dut_params) ], max_memory_mib = runner.config.max_memory_mib, allow_network = runner.config.allow_network)
+		await docker.cp("container_testrunner", "/container_testrunner")			# TODO
+		with tempfile.NamedTemporaryFile(suffix = ".tar") as tmp:
+			await self._create_submission_tarfile(tmp.name)
+			await docker.cp(tmp.name, "/dut.tar")
+		await docker.cpdata(runner.client_testcase_data, "/dut.json")
+		await docker.start()
+
+		finished = await docker.wait_timeout(runner.total_maximum_runtime_secs)
+

@@ -1,0 +1,57 @@
+[
+	{
+		"testcase_data": {
+			"action": "sum",
+			"a": 3,
+			"b": 99
+		},
+		"testcase_answer": {
+			"sum": 102
+		},
+		"runtime_allowance_secs": 0.1
+	},
+	{
+		"testcase_data": {
+			"action": "sum",
+			"a": 0,
+			"b": 0
+		},
+		"testcase_answer": {
+			"sum": 0
+		},
+		"runtime_allowance_secs": 0.1
+	},
+	{
+		"testcase_data": {
+			"action": "sum",
+			"a": 33,
+			"b": 99
+		},
+		"testcase_answer": {
+			"sum": 132
+		},
+		"runtime_allowance_secs": 0.1
+	},
+	{
+		"testcase_data": {
+			"action": "difference",
+			"a": 33,
+			"b": 99
+		},
+		"testcase_answer": {
+			"product": -66
+		},
+		"runtime_allowance_secs": 0.1
+	},
+	{
+		"testcase_data": {
+			"action": "mul",
+			"a": 33,
+			"b": 99
+		},
+		"testcase_answer": {
+			"product": 3267
+		},
+		"runtime_allowance_secs": 0.1
+	}
+]
