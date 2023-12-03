@@ -1,6 +1,7 @@
 {
-	"setup": "setup",
-	"solution": "solution",
+	"docker_executable": "docker",
+	"setup_name": "setup",
+	"solution_name": "solution",
 	"max_memory_mib": 1024,
 	"host_memory_usage_percent": 125,
 	"max_concurrent_processes": 24,

@@ -32,6 +32,10 @@ class TestFixtureConfig():
 			return cls(json.load(f))
 
 	@property
+	def docker_executable(self):
+		return self._config.get("docker_executable", "docker")
+
+	@property
 	def setup_name(self):
 		return self._config.get("setup_name", "setup")
 

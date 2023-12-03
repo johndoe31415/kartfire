@@ -22,5 +22,16 @@
 
 import enum
 
-class TestcaseStatus(enum.IntEnum):
-	Skipped = enum.auto()
+class TestcaseStatus(enum.Enum):
+	Skipped = "skipped"
+	Passed = "passed"
+	FailedWrongAnswer = "failed_wrong_answer"
+	FailedErrorStatusCode = "failed_error_status_code"
+	FailedTimeout = "failed_timeout"
+
+class TestrunStatus(enum.Enum):
+	Skipped = "skipped"
+	Errored = "errored"
+	Timeout = "container_timeout"
+	BuildFailure = "build_failure"
+	Completed = "completed"

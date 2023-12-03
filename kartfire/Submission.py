@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 #	kartfire - The X.509 Swiss Army Knife white-hat certificate toolkit
 #	Copyright (C) 2023-2023 Johannes Bauer
 #
@@ -20,14 +19,14 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
-import json
-from .Enums import TestcaseStatus
+import os
+from .Exceptions import InvalidSubmissionException
 
-class Testcase():
-	def __init__(self, testcase: dict):
-		self._tc = testcase
-		self._status = TestcaseStatus.skipped
+class Submission():
+	def __init__(self, submission_directory):
+		self._submission_dir = os.path.realpath(submission_directory)
+		if not os.path.isdir(self._submission_dir):
+			raise InvalidSubmissionException(f"{self._submission_dir} is not a directory")
 
-	@property
-	def status(self):
-		return self._status
+	def _create_submission_tarfile(self, tarfile_name):
+		pass

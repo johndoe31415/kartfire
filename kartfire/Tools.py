@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 #	kartfire - The X.509 Swiss Army Knife white-hat certificate toolkit
 #	Copyright (C) 2023-2023 Johannes Bauer
 #
@@ -20,14 +19,27 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
-import json
-from .Enums import TestcaseStatus
+class GitTools():
+	@classmethod
+	def gitinfo(cls, dirname):
+		if not os.path.isdir(f"{dirname}/.git"):
+			return None
+		return {
+			"branch": cls._get_branch_name(dirname),
+			"commit": cls._get_commit_id(dirname),
+			"date": cls._get_commit_date(dirname),
+		}
+		result["shortcommit"] = result["commit"][:8]
+		return result
 
-class Testcase():
-	def __init__(self, testcase: dict):
-		self._tc = testcase
-		self._status = TestcaseStatus.skipped
+	@classmethod
+	def _git_branch_name(cls, dirname):
+			return subprocess.check_output([ "git", "-C", dirname, "branch", "--show-current" ]).decode().rstrip("\r\n")
 
-	@property
-	def status(self):
-		return self._status
+	@classmethod
+	def _git_commit_id(cls, dirname):
+			return subprocess.check_output([ "git", "-C", dirname, "rev-parse", "HEAD" ]).decode().rstrip("\r\n")
+
+	@classmethod
+	def _git_commit_date(cls, dirname):
+			return subprocess.check_output([ "git", "-C", dirname, "show", "--no-patch", "--format=%ci", "HEAD" ]).decode().rstrip("\r\n")
