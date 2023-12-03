@@ -19,10 +19,6 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
-class TestcaseRunner():
-	def __init__(self, testcase_collections: list["TestcaseCollection"], test_fixture_config: "TestFixtureConfig"):
-		self._testcase_collections = testcase_collections
-		self._config = test_fixture_config
-
-	def run(self, submissions: list["Submission"]):
-		pass
+class KartfireException(Exception): pass
+class InvalidSubmissionException(KartfireException): pass
+class InvalidTestcaseException(KartfireException): pass

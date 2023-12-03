@@ -23,7 +23,7 @@ import json
 from .Testcase import Testcase
 
 class TestcaseCollection():
-	def __init__(self, testcases: list):
+	def __init__(self, testcases: list[dict]):
 		self._testcases = [ Testcase(testcase) for testcase in testcases ]
 
 	@classmethod

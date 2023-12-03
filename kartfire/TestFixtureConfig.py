@@ -22,7 +22,9 @@
 import json
 
 class TestFixtureConfig():
-	def __init__(self, config: dict):
+	def __init__(self, config: dict | None = None):
+		if config is None:
+			config = { }
 		self._config = config
 
 	@classmethod

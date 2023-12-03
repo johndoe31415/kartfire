@@ -21,11 +21,38 @@
 
 import json
 from .Enums import TestcaseStatus
+from .Exceptions import InvalidTestcaseException
 
 class Testcase():
 	def __init__(self, testcase: dict):
+		if not isinstance(testcase, dict):
+			raise InvalidTestcaseException("Testcase definition must be a dictionary.")
+		if "testcase_data" not in testcase:
+			raise InvalidTestcaseException("Testcase definition is missing the 'testcase_data' key.")
+		if "testcase_answer" not in testcase:
+			raise InvalidTestcaseException("Testcase definition is missing the 'testcase_answer' key.")
+		if "runtime_allowance_secs" not in testcase:
+			raise InvalidTestcaseException("Testcase definition is missing the 'runtime_allowance_secs' key.")
+		if "action" not in testcase["testcase_data"]:
+			raise InvalidTestcaseException("Testcase definition is missing the 'testcase_data.action' key.")
 		self._tc = testcase
-		self._status = TestcaseStatus.skipped
+		self._status = TestcaseStatus.Skipped
+
+	@property
+	def testcase_data(self):
+		return self._tc["testcase_data"]
+
+	@property
+	def testcase_answer(self):
+		return self._tc["testcase_answer"]
+
+	@property
+	def runtime_allowance_secs(self):
+		return self._tc["runtime_allowance_secs"]
+
+	@property
+	def action(self):
+		return self.testcase_data["action"]
 
 	@property
 	def status(self):
