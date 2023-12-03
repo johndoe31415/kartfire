@@ -30,7 +30,7 @@ class TestcaseStatus(enum.Enum):
 
 class TestrunStatus(enum.Enum):
 	Skipped = "skipped"
-	Errored = "errored"
+	ErrorUnparsable = "error_unparsable"
+	ErrorStatusCode = "error_nonzero_status_code"
 	Timeout = "container_timeout"
-	BuildFailure = "build_failure"
 	Completed = "completed"

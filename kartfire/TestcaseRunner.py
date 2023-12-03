@@ -49,6 +49,7 @@ class TestcaseRunner():
 		timeout = 30
 		timeout += self._config.max_build_time_secs
 		timeout += sum(testcase.runtime_allowance_secs for testcase in self)
+		timeout = round(timeout)
 		return timeout
 
 	@functools.cached_property
@@ -68,15 +69,20 @@ class TestcaseRunner():
 		return concurrent
 
 	async def _run_submission(self, submission: "Submission"):
-		await submission.run(self)
+		validation_result = await submission.run(self)
+		print(validation_result)
+		return validation_result
 
 	async def _run(self, submissions: list["Submission"]):
-		_log.debug("Now testing %d submission(s)", len(submissions))
+		batch_count = (len(submissions) + self._concurrent_process_count - 1) // self._concurrent_process_count
+		wctime_mins = round((self.total_maximum_runtime_secs * batch_count) / 60)
+		_log.debug("Now testing %d submission(s) against %d testcases, maximum runtime per submission is %d:%02d minutes:seconds; worst case total runtime is %d:%02d hours:minutes", len(submissions), self.testcase_count, self.total_maximum_runtime_secs // 60, self.total_maximum_runtime_secs % 60, wctime_mins // 60, wctime_mins % 60)
 		tasks = [ ]
 		for submission in submissions:
 			task = asyncio.create_task(self._run_submission(submission))
 			tasks.append(task)
-		await asyncio.gather(*tasks)
+		validation_results = await asyncio.gather(*tasks)
+		print(validation_results)
 
 	def run(self, submissions: list["Submission"]):
 		asyncio.run(self._run(submissions))

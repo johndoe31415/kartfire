@@ -19,5 +19,34 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
+import json
+from .Enums import TestrunStatus
+
 class ValidationResult():
-	pass
+	def __init__(self):
+		self._status = TestrunStatus.Skipped
+		self._logs = None
+		self._parsed = None
+
+	@property
+	def status(self):
+		return self._status
+
+	@status.setter
+	def status(self, value: TestrunStatus):
+		self._status = value
+
+	@property
+	def logs(self):
+		return self._logs
+
+	@logs.setter
+	def logs(self, value: bytes):
+		self._logs = value
+		try:
+			self._parsed = json.loads(self._logs)
+		except json.decoder.JSONDecodeError:
+			self.status = TestrunStatus.ErrorUnparsable
+
+	def __repr__(self):
+		return f"ValidationResult<{self.status.name}>"

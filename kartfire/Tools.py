@@ -88,6 +88,7 @@ class ExecTools():
 
 	@classmethod
 	async def async_check_communicate(cls, cmd: list):
+#		print(cmd)
 		proc = await asyncio.create_subprocess_exec(*cmd, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
 		(stdout, stderr) = await proc.communicate()
 		if proc.returncode != 0:
@@ -96,6 +97,7 @@ class ExecTools():
 
 	@classmethod
 	async def async_check_call(cls, cmd: list, stdout = None, stderr = None):
+#		print(cmd)
 		proc = await asyncio.create_subprocess_exec(*cmd, stdout = stdout, stderr = stderr)
 		result = await proc.wait()
 		if result != 0:

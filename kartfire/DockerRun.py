@@ -66,27 +66,26 @@ class DockerRun():
 
 	async def wait(self):
 		cmd = [ self._docker_executable, "wait", self._container_id ]
-		await ExecTools.async_check_call(cmd)
+		return int(await ExecTools.async_check_output(cmd))
 
 	async def logs(self):
 		cmd = [ self._docker_executable, "logs", self._container_id ]
-		await ExecTools.async_check_call(cmd)
+		return await ExecTools.async_check_output(cmd)
 
 	async def stop(self):
-		cmd = [ self._docker_executable, "logs", self._container_id ]
-		await ExecTools.async_check_call(cmd)
+		cmd = [ self._docker_executable, "stop", self._container_id ]
+		await ExecTools.async_check_call(cmd, stdout = subprocess.DEVNULL)
 
 	async def rm(self):
 		cmd = [ self._docker_executable, "rm", self._container_id ]
-		await ExecTools.async_check_call(cmd)
+		await ExecTools.async_check_call(cmd, stdout = subprocess.DEVNULL)
 
 	async def wait_timeout(self, timeout: float, check_interval: float = 1.0):
 		end_time = time.time() + timeout
 		while True:
 			inspection_result = await self.inspect()
 			if inspection_result["State"]["Status"] != "running":
-				await self.wait()
-				return True
+				return await self.wait()
 			if time.time() > end_time:
-				return False
+				return None
 			await asyncio.sleep(check_interval)
