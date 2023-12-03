@@ -1,4 +1,4 @@
-#	kartfire - The X.509 Swiss Army Knife white-hat certificate toolkit
+#	kartfire - Test framework to consistently run submission files
 #	Copyright (C) 2023-2023 Johannes Bauer
 #
 #	This file is part of kartfire.
