@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 #	kartfire - The X.509 Swiss Army Knife white-hat certificate toolkit
 #	Copyright (C) 2023-2023 Johannes Bauer
 #
