@@ -22,12 +22,19 @@
 import json
 from .Enums import TestrunStatus
 
-class ValidationResult():
+class TestrunnerOutput():
 	def __init__(self):
 		self._status = TestrunStatus.Skipped
 		self._stdout = None
 		self._stderr = None
 		self._parsed = None
+
+	@property
+	def testcase_count(self):
+		if self._parsed is not None:
+			return len(self._parsed["testcase_results"])
+		else:
+			return 0
 
 	@property
 	def status(self):
@@ -56,5 +63,9 @@ class ValidationResult():
 			print("=" * 120)
 			print(self._stderr.decode("ascii", errors = "ignore"))
 
+	def __iter__(self):
+		if self._parsed is not None:
+			return iter(self._parsed["testcase_results"])
+
 	def __repr__(self):
-		return f"ValidationResult<{self.status.name}>"
+		return f"TestrunnerOutput<{self.status.name}>"

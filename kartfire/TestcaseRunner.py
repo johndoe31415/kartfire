@@ -25,6 +25,7 @@ import functools
 import json
 from .Tools import SystemTools
 from .Exceptions import InternalError
+from .SubmissionEvaluation import SubmissionEvaluation
 
 _log = logging.getLogger(__spec__.name)
 
@@ -39,6 +40,11 @@ class TestcaseRunner():
 	@property
 	def config(self):
 		return self._config
+
+
+	@functools.cached_property
+	def actions(self):
+		return set(testcase.action for testcase in self)
 
 	@functools.cached_property
 	def testcase_count(self):
@@ -69,9 +75,11 @@ class TestcaseRunner():
 		return concurrent
 
 	async def _run_submission(self, submission: "Submission"):
-		validation_result = await submission.run(self)
-		print(validation_result)
-		return validation_result
+		testrunner_output = await submission.run(self)
+		submission_evaluation = SubmissionEvaluation(testrunner_output, self)
+		print(json.dumps(submission_evaluation.to_dict()))
+		print()
+		return submission_evaluation
 
 	async def _run(self, submissions: list["Submission"]):
 		batch_count = (len(submissions) + self._concurrent_process_count - 1) // self._concurrent_process_count
@@ -81,8 +89,7 @@ class TestcaseRunner():
 		for submission in submissions:
 			task = asyncio.create_task(self._run_submission(submission))
 			tasks.append(task)
-		validation_results = await asyncio.gather(*tasks)
-		print(validation_results)
+		submission_evaluations = await asyncio.gather(*tasks)
 
 	def run(self, submissions: list["Submission"]):
 		asyncio.run(self._run(submissions))

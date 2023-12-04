@@ -69,3 +69,11 @@ class Testcase():
 	@property
 	def action(self):
 		return self.testcase_data["action"]
+
+	def to_dict(self):
+		return {
+			"id": self.testcase_id,
+			"testcase_data": self.testcase_data,
+			"testcase_answer": self.testcase_answer,
+			"runtime_allowance_secs": self.runtime_allowance_secs,
+		}

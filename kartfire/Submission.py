@@ -25,7 +25,7 @@ import contextlib
 from .Exceptions import InvalidSubmissionException
 from .DockerRun import DockerRun
 from .Tools import ExecTools, JSONTools
-from .ValidationResult import ValidationResult
+from .TestrunnerOutput import TestrunnerOutput
 from .Enums import TestrunStatus
 
 class Submission():
@@ -55,7 +55,7 @@ class Submission():
 			"solution_name": runner.config.solution_name,
 		}
 
-		validation_result = ValidationResult()
+		testrunner_output = TestrunnerOutput()
 		async with self._start_docker_instance(runner.config) as docker:
 			await docker.create(docker_image_name = runner.config.docker_container, command = [ local_container_testrunner, JSONTools.encode_b64(dut_params) ], max_memory_mib = runner.config.max_memory_mib, allow_network = runner.config.allow_network)
 			await docker.cp("container_testrunner", local_container_testrunner)			# TODO source
@@ -65,18 +65,18 @@ class Submission():
 			await docker.cpdata(runner.client_testcase_data, dut_params["local_testcase_json_file"])
 			await docker.start()
 
-			validation_result.status = TestrunStatus.Completed
+			testrunner_output.status = TestrunStatus.Completed
 			finished = await docker.wait_timeout(runner.total_maximum_runtime_secs)
 			if finished is None:
 				# Docker container time timed out
-				validation_result.status = TestrunStatus.Timeout
-				return validation_result
+				testrunner_output.status = TestrunStatus.Timeout
+				return testrunner_output
 
 			logs = await docker.logs()
-			validation_result.logs = logs
-			validation_result.dump(verbose = True)
+			testrunner_output.logs = logs
+#			testrunner_output.dump(verbose = True)
 			if finished != 0:
 				# Docker container errored
-				validation_result.status = TestrunStatus.ErrorStatusCode
-				return validation_result
-			return validation_result
+				testrunner_output.status = TestrunStatus.ErrorStatusCode
+				return testrunner_output
+			return testrunner_output

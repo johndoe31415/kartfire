@@ -22,11 +22,12 @@
 import enum
 
 class TestcaseStatus(enum.Enum):
-	Skipped = "skipped"
 	Passed = "passed"
 	FailedWrongAnswer = "failed_wrong_answer"
+	FailedUnparsableAnswer = "failed_unparsable"
 	FailedErrorStatusCode = "failed_error_status_code"
 	FailedTimeout = "failed_timeout"
+	FailedRunError = "failed_run_error"
 
 class TestrunStatus(enum.Enum):
 	Skipped = "skipped"

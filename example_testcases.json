@@ -1,7 +1,7 @@
 [
 	{
 		"testcase_data": {
-			"action": "sum",
+			"action": "add",
 			"a": 3,
 			"b": 99
 		},
@@ -12,7 +12,7 @@
 	},
 	{
 		"testcase_data": {
-			"action": "sum",
+			"action": "add",
 			"a": 0,
 			"b": 0
 		},
@@ -23,7 +23,7 @@
 	},
 	{
 		"testcase_data": {
-			"action": "sum",
+			"action": "add",
 			"a": 33,
 			"b": 99
 		},
@@ -34,12 +34,12 @@
 	},
 	{
 		"testcase_data": {
-			"action": "difference",
+			"action": "sub",
 			"a": 33,
 			"b": 99
 		},
 		"testcase_answer": {
-			"product": -66
+			"difference": -66
 		},
 		"runtime_allowance_secs": 0.1
 	},
