@@ -20,24 +20,105 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
+import os
 import base64
 import json
 import sys
 import time
+import subprocess
+import contextlib
+import tempfile
+import stat
 
 if len(sys.argv) < 2:
 	print(f"{sys.argv[0]}: No argument given.", file = sys.stderr)
 	sys.exit(1)
 
 class ContainerTestrunner():
+	_LOCAL_DUT_DIR = "/dut"
+	_LOCAL_TC_FILENAME = "/testcase.json"
+
 	def __init__(self, config):
+		with contextlib.suppress(FileExistsError):
+			os.makedirs(self._LOCAL_DUT_DIR)
 		self._config = config
+		with open(self._config["local_testcase_json_file"]) as f:
+			self._testcases = json.load(f)
+		self._tc_results = [ ]
+
+	def _exec(self, cmd, timeout):
+		t0 = time.time()
+		had_timeout = False
+		exception_msg = None
+		stdout = bytes()
+		stderr = bytes()
+		returncode = None
+		try:
+			result = subprocess.run(cmd, stdout = subprocess.PIPE, stderr = subprocess.PIPE, timeout = timeout)
+			stdout = result.stdout
+			stderr = result.stderr
+			returncode = result.returncode
+			if returncode == -9:
+				exception_msg = "Out of memory, process terminated."
+		except subprocess.TimeoutExpired as e:
+			had_timeout = True
+			exception_msg = f"{e.__class__.__name__} when trying execution: {str(e)}"
+		except PermissionError as e:
+			perms = stat.S_IMODE(os.stat(cmd[0]).st_mode)
+			missing_exec = (perms & 0o111) == 0
+			exception_msg = f"{e.__class__.__name__} when trying execution of {cmd[0]} (permissions {perms:#o}{' - missing execution bit!' if missing_exec else ''}): {str(e)}"
+		except OSError as e:
+			exception_msg = f"{e.__class__.__name__} when trying execution: {str(e)}"
+		runtime_secs = time.time() - t0
+
+		return {
+			"stdout": stdout[-self._config["limit_stdout_bytes"] : ],
+			"stderr": stderr[-self._config["limit_stdout_bytes"] : ],
+			"stdout_length": len(stdout),
+			"stderr_length": len(stderr),
+			"returncode": returncode,
+			"runtime_secs": runtime_secs,
+			"timeout": had_timeout,
+			"exception_msg": exception_msg,
+		}
+
+	def _unpack_files(self):
+		subprocess.check_call([ "tar", "-x", "-C", self._LOCAL_DUT_DIR, "-f", self._config["local_testcase_tar_file"] ])
+
+	def _run_setup(self):
+		setup_exec = f"{self._LOCAL_DUT_DIR}/{self._config['setup_name']}"
+		if os.path.exists(setup_exec):
+			return self._exec([ setup_exec ], timeout = self._config["max_setup_time_secs"])
+
+	def _run_testcase(self, testcase):
+		with open(self._LOCAL_TC_FILENAME, "w") as f:
+			json.dump(testcase["testcase_data"], f)
+		solution_exec = f"{self._LOCAL_DUT_DIR}/{self._config['solution_name']}"
+		return self._exec([ solution_exec, self._LOCAL_TC_FILENAME ], timeout = testcase["runtime_allowance_secs"])
 
 	def run(self):
-		 pass
+		t0 = time.time()
+		result = {
+			"setup": None,
+			"testcase_results": [ ],
+		}
+		self._unpack_files()
+		result["setup"] = self._run_setup()
+		for testcase in self._testcases:
+			result["testcase_results"].append(self._run_testcase(testcase))
+		result["runtime_secs"] = time.time() - t0
+		return result
+
+
+def serializer(obj):
+	if isinstance(obj, bytes):
+		return base64.b64encode(obj).decode("ascii")
+	elif isinstance(obj, enum.Enum):
+		return obj.value
+	else:
+		raise TypeError(obj)
 
 config = json.loads(base64.b64decode(sys.argv[1].encode("ascii")))
 ctr = ContainerTestrunner(config)
-ctr.run()
-
-print(json.dumps(config))
+result = ctr.run()
+print(json.dumps(result, default = serializer))

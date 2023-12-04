@@ -47,7 +47,7 @@ class TestcaseRunner():
 	@functools.cached_property
 	def total_maximum_runtime_secs(self):
 		timeout = 30
-		timeout += self._config.max_build_time_secs
+		timeout += self._config.max_setup_time_secs
 		timeout += sum(testcase.runtime_allowance_secs for testcase in self)
 		timeout = round(timeout)
 		return timeout

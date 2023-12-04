@@ -70,7 +70,7 @@ class DockerRun():
 
 	async def logs(self):
 		cmd = [ self._docker_executable, "logs", self._container_id ]
-		return await ExecTools.async_check_output(cmd)
+		return await ExecTools.async_check_communicate(cmd)
 
 	async def stop(self):
 		cmd = [ self._docker_executable, "stop", self._container_id ]

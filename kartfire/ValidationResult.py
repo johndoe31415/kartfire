@@ -25,7 +25,8 @@ from .Enums import TestrunStatus
 class ValidationResult():
 	def __init__(self):
 		self._status = TestrunStatus.Skipped
-		self._logs = None
+		self._stdout = None
+		self._stderr = None
 		self._parsed = None
 
 	@property
@@ -38,15 +39,22 @@ class ValidationResult():
 
 	@property
 	def logs(self):
-		return self._logs
+		return (self._stdout, self._stderr)
 
 	@logs.setter
-	def logs(self, value: bytes):
-		self._logs = value
+	def logs(self, value: tuple[bytes]):
+		(self._stdout, self._stderr) = value
 		try:
-			self._parsed = json.loads(self._logs)
+			self._parsed = json.loads(self._stdout)
 		except json.decoder.JSONDecodeError:
 			self.status = TestrunStatus.ErrorUnparsable
+
+	def dump(self, verbose = False):
+		print(self)
+		if (self.status not in [ TestrunStatus.Skipped, TestrunStatus.Completed, TestrunStatus.Timeout ]) or verbose:
+			print(self._stdout.decode("ascii", errors = "ignore"))
+			print("=" * 120)
+			print(self._stderr.decode("ascii", errors = "ignore"))
 
 	def __repr__(self):
 		return f"ValidationResult<{self.status.name}>"

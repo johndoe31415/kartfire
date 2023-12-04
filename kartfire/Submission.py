@@ -45,19 +45,24 @@ class Submission():
 		await docker.rm()
 
 	async def run(self, runner: "TestcaseRunner"):
+		local_container_testrunner = "/container_testrunner"
 		dut_params = {
-			"max_build_time_secs": runner.config.max_build_time_secs,
-			"limit_stdout_bytes": 5000,
+			"limit_stdout_bytes": 8 * 1024,
+			"local_testcase_json_file": "/dut.json",
+			"local_testcase_tar_file": "/dut.tar",
+			"setup_name": runner.config.setup_name,
+			"max_setup_time_secs": runner.config.max_setup_time_secs,
+			"solution_name": runner.config.solution_name,
 		}
 
 		validation_result = ValidationResult()
 		async with self._start_docker_instance(runner.config) as docker:
-			await docker.create(docker_image_name = runner.config.docker_container, command = [ "/container_testrunner", JSONTools.encode_b64(dut_params) ], max_memory_mib = runner.config.max_memory_mib, allow_network = runner.config.allow_network)
-			await docker.cp("container_testrunner", "/container_testrunner")			# TODO
+			await docker.create(docker_image_name = runner.config.docker_container, command = [ local_container_testrunner, JSONTools.encode_b64(dut_params) ], max_memory_mib = runner.config.max_memory_mib, allow_network = runner.config.allow_network)
+			await docker.cp("container_testrunner", local_container_testrunner)			# TODO source
 			with tempfile.NamedTemporaryFile(suffix = ".tar") as tmp:
 				await self._create_submission_tarfile(tmp.name)
-				await docker.cp(tmp.name, "/dut.tar")
-			await docker.cpdata(runner.client_testcase_data, "/dut.json")
+				await docker.cp(tmp.name, dut_params["local_testcase_tar_file"])
+			await docker.cpdata(runner.client_testcase_data, dut_params["local_testcase_json_file"])
 			await docker.start()
 
 			validation_result.status = TestrunStatus.Completed
@@ -67,9 +72,11 @@ class Submission():
 				validation_result.status = TestrunStatus.Timeout
 				return validation_result
 
-			validation_result.logs = await docker.logs()
+			logs = await docker.logs()
+			validation_result.logs = logs
+			validation_result.dump(verbose = True)
 			if finished != 0:
 				# Docker container errored
-				validation_result.status = TestrunStatus.ErrorReturnCode
+				validation_result.status = TestrunStatus.ErrorStatusCode
 				return validation_result
 			return validation_result

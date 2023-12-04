@@ -16,5 +16,8 @@ match testcase["action"]:
 	case "mul":
 		result = { "product": testcase["a"] * testcase["b"] }
 
+	case _:
+		raise Exception(f"Unsupported testcase action: {testcase['action']}")
+
 print("This comment should be ignored.", file = sys.stderr)
 print(json.dumps(result))

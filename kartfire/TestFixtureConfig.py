@@ -62,8 +62,8 @@ class TestFixtureConfig():
 		return self._config.get("max_concurrent_processes", multiprocessing.cpu_count())
 
 	@property
-	def max_build_time_secs(self):
-		return self._config.get("max_build_time_secs", 30)
+	def max_setup_time_secs(self):
+		return self._config.get("max_setup_time_secs", 30)
 
 	@property
 	def minimum_testcase_time(self):
