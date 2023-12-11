@@ -35,7 +35,8 @@ class TestcaseRunner():
 		_log.debug("Successfully loaded %d testcase collection(s)", len(self._testcase_collections))
 		self._config = test_fixture_config
 		self._concurrent_process_count = self._determine_concurrent_process_count()
-		self._process_semaphore = asyncio.Semaphore(self._concurrent_process_count)
+		self._process_semaphore = None
+		asyncio.Semaphore(self._concurrent_process_count)
 
 	@property
 	def config(self):
@@ -75,13 +76,15 @@ class TestcaseRunner():
 		return concurrent
 
 	async def _run_submission(self, submission: "Submission"):
-		testrunner_output = await submission.run(self)
-		submission_evaluation = SubmissionEvaluation(testrunner_output, self)
-		print(json.dumps(submission_evaluation.to_dict()))
-		print()
+		async with self._process_semaphore:
+			_log.info("Starting testing of submission %s", submission)
+			testrunner_output = await submission.run(self)
+			submission_evaluation = SubmissionEvaluation(testrunner_output, self, submission)
 		return submission_evaluation
 
 	async def _run(self, submissions: list["Submission"]):
+		self._process_semaphore = asyncio.Semaphore(self._concurrent_process_count)
+
 		batch_count = (len(submissions) + self._concurrent_process_count - 1) // self._concurrent_process_count
 		wctime_mins = round((self.total_maximum_runtime_secs * batch_count) / 60)
 		_log.debug("Now testing %d submission(s) against %d testcases, maximum runtime per submission is %d:%02d minutes:seconds; worst case total runtime is %d:%02d hours:minutes", len(submissions), self.testcase_count, self.total_maximum_runtime_secs // 60, self.total_maximum_runtime_secs % 60, wctime_mins // 60, wctime_mins % 60)
@@ -90,9 +93,10 @@ class TestcaseRunner():
 			task = asyncio.create_task(self._run_submission(submission))
 			tasks.append(task)
 		submission_evaluations = await asyncio.gather(*tasks)
+		return submission_evaluations
 
 	def run(self, submissions: list["Submission"]):
-		asyncio.run(self._run(submissions))
+		return asyncio.run(self._run(submissions))
 
 	def __iter__(self):
 		for testcase_collection in self._testcase_collections:

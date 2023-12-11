@@ -20,7 +20,9 @@
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
 import os
+import json
 import tempfile
+import functools
 import contextlib
 from .Exceptions import InvalidSubmissionException
 from .DockerRun import DockerRun
@@ -33,6 +35,17 @@ class Submission():
 		self._submission_dir = os.path.realpath(submission_directory)
 		if not os.path.isdir(self._submission_dir):
 			raise InvalidSubmissionException(f"{self._submission_dir} is not a directory")
+
+	@functools.cached_property
+	def meta_info(self):
+		meta = { }
+		if os.path.isdir(f"{self._submission_dir}/.git"):
+			meta["git"] = GitTools.gitinfo(self._submission_dir)
+		json_filename = f"{self._submission_dir}.json"
+		if os.path.isfile(json_filename):
+			with open(json_filename) as f:
+				meta["json"] = json.load(f)
+		return meta
 
 	async def _create_submission_tarfile(self, tarfile_name):
 		await ExecTools.async_check_call([ "tar", "-C", self._submission_dir, "-c", "-f", tarfile_name, "." ])
@@ -80,3 +93,19 @@ class Submission():
 				testrunner_output.status = TestrunStatus.ErrorStatusCode
 				return testrunner_output
 			return testrunner_output
+
+	def to_dict(self):
+		return {
+			"dirname": self._submission_dir,
+			"meta": self.meta_info,
+		}
+
+	def __str__(self):
+		short_dir = os.path.basename(self._submission_dir)
+		meta = self.meta_info
+		if ("json" in meta) and ("text" in meta["json"]):
+			return f"{short_dir}: {meta['json']['text']}"
+		elif "git" in meta:
+			return f"{short_dir}: {meta['git']['branch']} / {meta['git']['commit'][:8]}"
+		else:
+			return short_dir

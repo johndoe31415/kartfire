@@ -36,4 +36,5 @@ class ActionRun(BaseAction):
 		testcase_collections = [ TestcaseCollection.load_from_file(tc_filename, test_fixture_config) for tc_filename in self._args.testcase_file ]
 		submissions = [ Submission(submission) for submission in self._args.submission ]
 		tcr = TestcaseRunner(testcase_collections = testcase_collections, test_fixture_config = test_fixture_config)
-		tcr.run(submissions)
+		result = tcr.run(submissions)
+		print(result)

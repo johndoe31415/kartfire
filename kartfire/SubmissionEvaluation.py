@@ -24,9 +24,10 @@ from .TestcaseEvaluation import TestcaseEvaluation
 from .Enums import TestrunStatus
 
 class SubmissionEvaluation():
-	def __init__(self, testrunner_output: "TestrunnerOutput", runner: "TestcaseRunner"):
+	def __init__(self, testrunner_output: "TestrunnerOutput", runner: "TestcaseRunner", submission: "Submission"):
 		self._testrunner_output = testrunner_output
 		self._runner = runner
+		self._submission = submission
 
 	@property
 	def testcase_count(self):
@@ -64,6 +65,7 @@ class SubmissionEvaluation():
 
 	def to_dict(self):
 		return {
+			"dut": self._submission.to_dict(),
 			"status": self._testrunner_output.status.name,
 			"testcase_count_total": self.testcase_count,
 			"results": [ tc_eval.to_dict() for tc_eval in self.testcase_evaluation ],
