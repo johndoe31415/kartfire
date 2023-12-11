@@ -19,7 +19,9 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
+import json
 import logging
+import datetime
 from .TestFixtureConfig import TestFixtureConfig
 from .TestcaseRunner import TestcaseRunner
 from .TestcaseCollection import TestcaseCollection
@@ -36,5 +38,12 @@ class ActionRun(BaseAction):
 		testcase_collections = [ TestcaseCollection.load_from_file(tc_filename, test_fixture_config) for tc_filename in self._args.testcase_file ]
 		submissions = [ Submission(submission) for submission in self._args.submission ]
 		tcr = TestcaseRunner(testcase_collections = testcase_collections, test_fixture_config = test_fixture_config)
-		result = tcr.run(submissions)
-		print(result)
+		submission_evaluations = tcr.run(submissions)
+
+		if self._args.output_file is not None:
+			outfile = self._args.output_file
+		else:
+			outfile = f"testrun_{datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}.json"
+
+		with open(outfile, "w") as f:
+			json.dump([ submission_evaluation.to_dict() for submission_evaluation in submission_evaluations ], f)
