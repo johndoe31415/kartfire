@@ -20,40 +20,22 @@
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
 import sys
-import logging
-from .FriendlyArgumentParser import FriendlyArgumentParser
-from .TestFixtureConfig import TestFixtureConfig
-from .TestcaseRunner import TestcaseRunner
-from .TestcaseCollection import TestcaseCollection
-from .Submission import Submission
+from .MultiCommand import MultiCommand
+from .ActionRun import ActionRun
 
 def main():
-	def _setup_logging(verbosity):
-		if verbosity == 0:
-			loglevel = logging.WARNING
-		elif verbosity == 1:
-			loglevel = logging.INFO
-		else:
-			loglevel = logging.DEBUG
-		logging.basicConfig(format = "{name:>40s} [{levelname:.2s}]: {message}", style = "{", level = loglevel)
+	mc = MultiCommand(description = "Kartfire container testing framework CLI tool.", run_method = True)
 
-	parser = FriendlyArgumentParser(description = "Kartfire test running application.")
-	parser.add_argument("-c", "--test-fixture-config", metavar = "filename", help = "Specify a specific test fixture configuration to use.")
-	parser.add_argument("-f", "--testcase-file", metavar = "filename", action = "append", required = True, help = "Testcase definition JSON file. Can be given multiple times to join testcases. Mandatory argument.")
-	parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
-	parser.add_argument("submission", nargs = "+", help = "Directory/directories that should be run as a testcase inside containers.")
-	args = parser.parse_args(sys.argv[1:])
+	def genparser(parser):
+		parser.add_argument("-c", "--test-fixture-config", metavar = "filename", help = "Specify a specific test fixture configuration to use.")
+		parser.add_argument("-f", "--testcase-file", metavar = "filename", action = "append", required = True, help = "Testcase definition JSON file. Can be given multiple times to join testcases. Mandatory argument.")
+		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
+		parser.add_argument("submission", nargs = "+", help = "Directory/directories that should be run as a testcase inside containers.")
+	mc.register("run", "Run a testcase battery", genparser, action = ActionRun)
 
-	_setup_logging(args.verbose)
+	returncode = mc.run(sys.argv[1:])
+	return (returncode or 0)
 
-	if args.test_fixture_config is not None:
-		test_fixture_config = TestFixtureConfig.load_from_file(args.test_fixture_config)
-	else:
-		test_fixture_config = TestFixtureConfig()
-	testcase_collections = [ TestcaseCollection.load_from_file(tc_filename, test_fixture_config) for tc_filename in args.testcase_file ]
-	submissions = [ Submission(submission) for submission in args.submission ]
-	tcr = TestcaseRunner(testcase_collections = testcase_collections, test_fixture_config = test_fixture_config)
-	tcr.run(submissions)
 
 if __name__ == "__main__":
-	main()
+	sys.exit(main())
