@@ -46,4 +46,11 @@ class ActionRun(BaseAction):
 			outfile = f"testrun_{datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}.json"
 
 		with open(outfile, "w") as f:
-			json.dump([ submission_evaluation.to_dict() for submission_evaluation in submission_evaluations ], f)
+			result_file = {
+				"meta": {
+					"type": "testcase_results",
+					"created_utc": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+				},
+				"content": [ submission_evaluation.to_dict() for submission_evaluation in submission_evaluations ],
+			}
+			json.dump(result_file, f)

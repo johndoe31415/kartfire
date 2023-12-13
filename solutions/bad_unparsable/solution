@@ -1,0 +1,23 @@
+#!/usr/bin/python3
+import json
+import sys
+
+testcase_file = sys.argv[1]
+with open(testcase_file) as f:
+	testcase = json.load(f)
+
+match testcase["action"]:
+	case "add":
+		result = { "sum": testcase["a"] + testcase["b"] }
+
+	case "sub":
+		result = { "difference": testcase["a"] - testcase["b"] }
+
+	case "mul":
+		result = { "product": testcase["a"] * testcase["b"] }
+
+	case _:
+		raise Exception(f"Unsupported testcase action: {testcase['action']}")
+
+print("This comment unfortunately appears on stdout.")
+print(json.dumps(result))

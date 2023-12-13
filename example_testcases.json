@@ -1,57 +1,62 @@
-[
-	{
-		"testcase_data": {
-			"action": "add",
-			"a": 3,
-			"b": 99
-		},
-		"testcase_answer": {
-			"sum": 102
-		},
-		"runtime_allowance_secs": 0.1
+{
+	"meta": {
+		"type": "testcases"
 	},
-	{
-		"testcase_data": {
-			"action": "add",
-			"a": 0,
-			"b": 0
+	"content": [
+		{
+			"testcase_data": {
+				"action": "add",
+				"a": 3,
+				"b": 99
+			},
+			"testcase_answer": {
+				"sum": 102
+			},
+			"runtime_allowance_secs": 0.1
 		},
-		"testcase_answer": {
-			"sum": 0
+		{
+			"testcase_data": {
+				"action": "add",
+				"a": 0,
+				"b": 0
+			},
+			"testcase_answer": {
+				"sum": 0
+			},
+			"runtime_allowance_secs": 0.1
 		},
-		"runtime_allowance_secs": 0.1
-	},
-	{
-		"testcase_data": {
-			"action": "add",
-			"a": 33,
-			"b": 99
+		{
+			"testcase_data": {
+				"action": "add",
+				"a": 33,
+				"b": 99
+			},
+			"testcase_answer": {
+				"sum": 132
+			},
+			"runtime_allowance_secs": 0.1
 		},
-		"testcase_answer": {
-			"sum": 132
+		{
+			"testcase_data": {
+				"action": "sub",
+				"a": 33,
+				"b": 99
+			},
+			"testcase_answer": {
+				"difference": -66
+			},
+			"runtime_allowance_secs": 0.1
 		},
-		"runtime_allowance_secs": 0.1
-	},
-	{
-		"testcase_data": {
-			"action": "sub",
-			"a": 33,
-			"b": 99
-		},
-		"testcase_answer": {
-			"difference": -66
-		},
-		"runtime_allowance_secs": 0.1
-	},
-	{
-		"testcase_data": {
-			"action": "mul",
-			"a": 33,
-			"b": 99
-		},
-		"testcase_answer": {
-			"product": 3267
-		},
-		"runtime_allowance_secs": 0.1
-	}
-]
+		{
+			"testcase_data": {
+				"action": "mul",
+				"a": 33,
+				"b": 99
+			},
+			"testcase_answer": {
+				"product": 3267
+			},
+			"runtime_allowance_secs": 0.1
+		}
+	]
+}

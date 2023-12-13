@@ -25,3 +25,4 @@ class InvalidTestcaseException(KartfireException): pass
 class InternalError(KartfireException): pass
 class DockerFailureException(InternalError): pass
 class SubprocessRunError(InternalError): pass
+class UnsupportedFileException(KartfireException): pass

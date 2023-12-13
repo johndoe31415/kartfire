@@ -120,10 +120,12 @@ class TestcaseEvaluation():
 	def to_dict(self):
 		result = {
 			"status": self.status.name,
-			"details": self.details,
+			"runtime_secs": self.runtime_secs,
 			"testcase": self._testcase.to_dict(),
 			"received_answer": self.received_answer,
 		}
+		if self.details is not None:
+			result["details"] = self.details
 		if self.status != TestcaseStatus.Passed:
 			result["proc_details"] = self.proc_details
 		return result

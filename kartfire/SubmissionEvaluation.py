@@ -44,13 +44,14 @@ class SubmissionEvaluation():
 
 	def _compute_breakdown(self, testcase_subset):
 		ctr = collections.Counter(testcase.status for testcase in testcase_subset)
+		testcase_count = sum(ctr.values())
 		result = { }
 		total_cnt = 0
 		for (status, count) in ctr.items():
 			total_cnt += count
 			result[status.name] = {
 				"cnt": count,
-				"%": count / self.testcase_count * 100,
+				"%": count / testcase_count * 100,
 			}
 		result["Total"] = total_cnt
 		return result

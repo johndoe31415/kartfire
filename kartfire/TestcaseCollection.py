@@ -21,6 +21,7 @@
 
 import json
 from .Testcase import Testcase
+from .Exceptions import UnsupportedFileException
 
 class TestcaseCollection():
 	def __init__(self, testcases: list[dict], test_fixture_config: "TestFixtureConfig"):
@@ -30,7 +31,11 @@ class TestcaseCollection():
 	@classmethod
 	def load_from_file(cls, filename: str, test_fixture_config: "TestFixtureConfig"):
 		with open(filename) as f:
-			return cls(json.load(f), test_fixture_config)
+			json_file = json.load(f)
+			if json_file["meta"]["type"] == "testcases":
+				return cls(json_file["content"], test_fixture_config)
+			else:
+				raise UnsupportedFileException("Unsupported file type \"{json_file['meta']['type']}\" provided.")
 
 	@property
 	def testcase_count(self):
