@@ -74,7 +74,7 @@ class Submission():
 				"local_dut_dir":				"/dut",
 				"local_testcase_filename":		"/local_testcases.json",
 			},
-			"testcases": runner.guest_testcase_data,
+			"testbatches": list(runner.guest_testbatch_data),
 		}
 
 		testrunner_output = TestrunnerOutput()

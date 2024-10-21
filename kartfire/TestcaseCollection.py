@@ -51,5 +51,15 @@ class TestcaseCollection():
 	def testcase_count(self):
 		return len(self._testcases_by_name)
 
+	def get_batched(self, max_batch_size: int = 1):
+		batch = [ ]
+		for testcase in self:
+			batch.append(testcase)
+			if len(batch) >= max_batch_size:
+				yield batch
+				batch = [ ]
+		if len(batch) > 0:
+			yield batch
+
 	def __iter__(self):
 		return iter(self._testcases_by_name.values())

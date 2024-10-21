@@ -52,12 +52,12 @@ class ContainerTestrunner():
 		return self._config["meta"]
 
 	@property
-	def testcases(self) -> list:
-		return self._config["testcases"]
+	def testbatches(self) -> list:
+		return self._config["testbatches"]
 
 	@property
-	def testcase_count(self):
-		return len(self.testcases)
+	def testbatch_count(self):
+		return len(self.testbatches)
 
 	def _exec(self, cmd, timeout):
 		t0 = time.time()
@@ -103,18 +103,18 @@ class ContainerTestrunner():
 		if os.path.exists(setup_exec):
 			return self._exec([ setup_exec ], timeout = self.meta["max_setup_time_secs"])
 
-	def _run_testcases(self, testcases: list[dict]):
+	def _run_testbatch(self, testbatch: list[dict]):
 		with open(self.meta["local_testcase_filename"], "w") as f:
 			local_json_content = {
-				"testcases": { testcase["name"]: testcase["testcase_data"] for testcase in testcases },
+				"testcases": { testcase["name"]: testcase["testcase_data"] for testcase in testbatch },
 			}
 			json.dump(local_json_content, f)
 		solution_exec = f"{self.meta['local_dut_dir']}/{self.meta['solution_name']}"
-		total_allowance = sum(testcase["runtime_allowance_secs"] for testcase in testcases)
-		testcase_results = self._exec([ solution_exec, self.meta["local_testcase_filename"] ], timeout = total_allowance)
+		total_allowance = sum(testcase["runtime_allowance_secs"] for testcase in testbatch)
+		testbatch_results = self._exec([ solution_exec, self.meta["local_testcase_filename"] ], timeout = total_allowance)
 		return {
-			"testcases": [ testcase["name"] for testcase in testcases ],
-			"results": testcase_results,
+			"testcases": [ testcase["name"] for testcase in testbatch ],
+			"results": testbatch_results,
 		}
 
 	def run(self):
@@ -125,10 +125,10 @@ class ContainerTestrunner():
 		}
 		self._unpack_files()
 		result["setup"] = self._run_setup()
-		for (testcase_no, testcase) in enumerate(self.testcases, 1):
-			self.logmsg(f"Running testcase {testcase_no} / {self.testcase_count}: {testcase}")
-			result_data = self._run_testcases([ testcase ])
-			self.logmsg(f"Result of testcase {testcase_no} / {self.testcase_count}: {result_data}")
+		for (testbatch_no, testbatch) in enumerate(self.testbatches, 1):
+			self.logmsg(f"Running testbatch {testbatch_no} / {self.testbatch_count} with {len(testbatch)} testcases: {testbatch}")
+			result_data = self._run_testbatch(testbatch)
+			self.logmsg(f"Finished testbatch {testbatch_no} / {self.testbatch_count}: {result_data}")
 			result["testcase_results"].append(result_data)
 		result["runtime_secs"] = time.time() - t0
 		return result

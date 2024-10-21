@@ -70,10 +70,14 @@ class TestcaseRunner():
 		return timeout
 
 	@functools.cached_property
-	def guest_testcase_data(self):
+	def guest_testbatch_data(self):
 		"""This is the test data that ends up directly inside the runner. It
-		may not contain the correct answers."""
-		return [ testcase.guest_data for testcase in self ]
+		may not contain the correct answers. Automatically groups collections
+		in own batches and packs up to testbatch_maxsize testcases into each
+		batch."""
+		for collection in self._testcase_collections:
+			for batch in collection.get_batched(self._config.testbatch_maxsize):
+				yield [ testcase.guest_data for testcase in batch ]
 
 	def _determine_concurrent_process_count(self):
 		host_memory_mib = SystemTools.get_host_memory_mib()
