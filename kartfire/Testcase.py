@@ -1,5 +1,5 @@
 #	kartfire - Test framework to consistently run submission files
-#	Copyright (C) 2023-2023 Johannes Bauer
+#	Copyright (C) 2023-2024 Johannes Bauer
 #
 #	This file is part of kartfire.
 #
@@ -25,7 +25,8 @@ from .Exceptions import InvalidTestcaseException
 from .Tools import JSONTools
 
 class Testcase():
-	def __init__(self, testcase: dict, test_fixture_config: "TestFixtureConfig"):
+	def __init__(self, name: str, testcase: dict, test_fixture_config: "TestFixtureConfig"):
+		self._name = name
 		if not isinstance(testcase, dict):
 			raise InvalidTestcaseException("Testcase definition must be a dictionary.")
 		if "testcase_data" not in testcase:
@@ -40,8 +41,15 @@ class Testcase():
 		self._config = test_fixture_config
 
 	@property
-	def client_data(self):
+	def name(self):
+		return self._name
+
+	@property
+	def guest_data(self):
+		"""This is the data that the guest receives inside the runner. May not
+		contain solution data."""
 		return {
+			"name": self.name,
 			"testcase_data": self.testcase_data,
 			"runtime_allowance_secs": self.runtime_allowance_secs,
 		}

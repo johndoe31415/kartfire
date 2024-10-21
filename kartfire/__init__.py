@@ -1,5 +1,5 @@
 #	kartfire - Test framework to consistently run submission files
-#	Copyright (C) 2023-2023 Johannes Bauer
+#	Copyright (C) 2023-2024 Johannes Bauer
 #
 #	This file is part of kartfire.
 #
@@ -18,3 +18,5 @@
 #	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
+
+VERSION = "0.0.1rc0"

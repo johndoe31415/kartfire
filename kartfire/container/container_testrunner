@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #	kartfire - Test framework to consistently run submission files
-#	Copyright (C) 2023-2023 Johannes Bauer
+#	Copyright (C) 2023-2024 Johannes Bauer
 #
 #	This file is part of kartfire.
 #
@@ -29,22 +29,35 @@ import subprocess
 import contextlib
 import tempfile
 import stat
+import collections
 
 if len(sys.argv) < 2:
 	print(f"{sys.argv[0]}: No argument given.", file = sys.stderr)
 	sys.exit(1)
 
 class ContainerTestrunner():
-	_LOCAL_DUT_DIR = "/dut"
-	_LOCAL_TC_FILENAME = "/testcase.json"
-
-	def __init__(self, config):
+	def __init__(self, config_filename: str):
+		with open(config_filename) as f:
+			self._config = json.load(f)
 		with contextlib.suppress(FileExistsError):
-			os.makedirs(self._LOCAL_DUT_DIR)
-		self._config = config
-		with open(self._config["local_testcase_json_file"]) as f:
-			self._testcases = json.load(f)
-		self._tc_results = [ ]
+			os.makedirs(self.meta["local_dut_dir"])
+		self._tc_results = { }
+
+	def logmsg(self, msg: str):
+		if self.meta.get("debug"):
+			print(msg, file = sys.stderr)
+
+	@property
+	def meta(self) -> dict:
+		return self._config["meta"]
+
+	@property
+	def testcases(self) -> list:
+		return self._config["testcases"]
+
+	@property
+	def testcase_count(self):
+		return len(self.testcases)
 
 	def _exec(self, cmd, timeout):
 		t0 = time.time()
@@ -72,8 +85,8 @@ class ContainerTestrunner():
 		runtime_secs = time.time() - t0
 
 		return {
-			"stdout": stdout[-self._config["limit_stdout_bytes"] : ],
-			"stderr": stderr[-self._config["limit_stdout_bytes"] : ],
+			"stdout": stdout[-self.meta["limit_stdout_bytes"] : ],
+			"stderr": stderr[-self.meta["limit_stdout_bytes"] : ],
 			"stdout_length": len(stdout),
 			"stderr_length": len(stderr),
 			"returncode": returncode,
@@ -83,18 +96,26 @@ class ContainerTestrunner():
 		}
 
 	def _unpack_files(self):
-		subprocess.check_call([ "tar", "-x", "-C", self._LOCAL_DUT_DIR, "-f", self._config["local_testcase_tar_file"] ])
+		subprocess.check_call([ "tar", "-x", "-C", self.meta["local_dut_dir"], "-f", self.meta["local_testcase_tar_file"] ])
 
 	def _run_setup(self):
-		setup_exec = f"{self._LOCAL_DUT_DIR}/{self._config['setup_name']}"
+		setup_exec = f"{self.meta['local_dut_dir']}/{self.meta['setup_name']}"
 		if os.path.exists(setup_exec):
-			return self._exec([ setup_exec ], timeout = self._config["max_setup_time_secs"])
+			return self._exec([ setup_exec ], timeout = self.meta["max_setup_time_secs"])
 
-	def _run_testcase(self, testcase):
-		with open(self._LOCAL_TC_FILENAME, "w") as f:
-			json.dump(testcase["testcase_data"], f)
-		solution_exec = f"{self._LOCAL_DUT_DIR}/{self._config['solution_name']}"
-		return self._exec([ solution_exec, self._LOCAL_TC_FILENAME ], timeout = testcase["runtime_allowance_secs"])
+	def _run_testcases(self, testcases: list[dict]):
+		with open(self.meta["local_testcase_filename"], "w") as f:
+			local_json_content = {
+				"testcases": { testcase["name"]: testcase["testcase_data"] for testcase in testcases },
+			}
+			json.dump(local_json_content, f)
+		solution_exec = f"{self.meta['local_dut_dir']}/{self.meta['solution_name']}"
+		total_allowance = sum(testcase["runtime_allowance_secs"] for testcase in testcases)
+		testcase_results = self._exec([ solution_exec, self.meta["local_testcase_filename"] ], timeout = total_allowance)
+		return {
+			"testcases": [ testcase["name"] for testcase in testcases ],
+			"results": testcase_results,
+		}
 
 	def run(self):
 		t0 = time.time()
@@ -104,11 +125,13 @@ class ContainerTestrunner():
 		}
 		self._unpack_files()
 		result["setup"] = self._run_setup()
-		for testcase in self._testcases:
-			result["testcase_results"].append(self._run_testcase(testcase))
+		for (testcase_no, testcase) in enumerate(self.testcases, 1):
+			self.logmsg(f"Running testcase {testcase_no} / {self.testcase_count}: {testcase}")
+			result_data = self._run_testcases([ testcase ])
+			self.logmsg(f"Result of testcase {testcase_no} / {self.testcase_count}: {result_data}")
+			result["testcase_results"].append(result_data)
 		result["runtime_secs"] = time.time() - t0
 		return result
-
 
 def serializer(obj):
 	if isinstance(obj, bytes):
@@ -118,7 +141,7 @@ def serializer(obj):
 	else:
 		raise TypeError(obj)
 
-config = json.loads(base64.b64decode(sys.argv[1].encode("ascii")))
-ctr = ContainerTestrunner(config)
+config_filename = sys.argv[1]
+ctr = ContainerTestrunner(config_filename)
 result = ctr.run()
 print(json.dumps(result, default = serializer))

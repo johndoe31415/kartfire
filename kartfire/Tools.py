@@ -1,5 +1,5 @@
 #	kartfire - Test framework to consistently run submission files
-#	Copyright (C) 2023-2023 Johannes Bauer
+#	Copyright (C) 2023-2024 Johannes Bauer
 #
 #	This file is part of kartfire.
 #
@@ -97,8 +97,12 @@ class ExecTools():
 
 	@classmethod
 	async def async_check_call(cls, cmd: list, stdout = None, stderr = None):
-#		print(cmd)
-		proc = await asyncio.create_subprocess_exec(*cmd, stdout = stdout, stderr = stderr)
-		result = await proc.wait()
+		result = await cls.async_call(cmd = cmd, stdout = stdout, stderr = stderr)
 		if result != 0:
 			raise SubprocessRunError(f"Command failed to execute, returncode {result}: {CmdlineEscape().cmdline(cmd)}")
+
+	@classmethod
+	async def async_call(cls, cmd: list, stdout = None, stderr = None):
+		proc = await asyncio.create_subprocess_exec(*cmd, stdout = stdout, stderr = stderr)
+		result = await proc.wait()
+		return result

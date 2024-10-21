@@ -1,5 +1,5 @@
 #	kartfire - Test framework to consistently run submission files
-#	Copyright (C) 2023-2023 Johannes Bauer
+#	Copyright (C) 2023-2024 Johannes Bauer
 #
 #	This file is part of kartfire.
 #
@@ -19,19 +19,27 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
+import os
 import json
 import multiprocessing
 
 class TestFixtureConfig():
+	_DEFAULT_FIXTURE_FILENAME = "kartfire_test_fixture.json"
+
 	def __init__(self, config: dict | None = None):
 		if config is None:
 			config = { }
 		self._config = config
 
 	@classmethod
-	def load_from_file(cls, filename):
-		with open(filename) as f:
-			return cls(json.load(f))
+	def load_from_file(cls, filename: str | None):
+		if filename is not None:
+			with open(filename) as f:
+				return cls(json.load(f))
+		elif (filename is None) and os.path.isfile(cls._DEFAULT_FIXTURE_FILENAME):
+			return cls.load_from_file(cls._DEFAULT_FIXTURE_FILENAME)
+		else:
+			return cls()
 
 	@property
 	def docker_executable(self):
@@ -76,3 +84,15 @@ class TestFixtureConfig():
 	@property
 	def allow_network(self):
 		return self._config.get("allow_network", False)
+
+	@property
+	def interactive(self):
+		return self._config.get("interactive", False)
+
+	@interactive.setter
+	def interactive(self, value: bool):
+		self._config["interactive"] = value
+
+	@property
+	def testbatch_maxsize(self):
+		return self._config.get("testbatch_maxsize", 1)

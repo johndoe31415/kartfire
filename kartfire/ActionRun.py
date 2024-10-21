@@ -1,5 +1,5 @@
 #	kartfire - Test framework to consistently run submission files
-#	Copyright (C) 2023-2023 Johannes Bauer
+#	Copyright (C) 2023-2024 Johannes Bauer
 #
 #	This file is part of kartfire.
 #
@@ -19,6 +19,7 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
+import os
 import json
 import logging
 import datetime
@@ -30,13 +31,12 @@ from .BaseAction import BaseAction
 
 class ActionRun(BaseAction):
 	def run(self):
-		if self._args.test_fixture_config is not None:
-			test_fixture_config = TestFixtureConfig.load_from_file(self._args.test_fixture_config)
-		else:
-			test_fixture_config = TestFixtureConfig()
+		test_fixture_config = TestFixtureConfig.load_from_file(self._args.test_fixture_config)
+		if self._args.interactive:
+			test_fixture_config.interactive = True
 
 		testcase_collections = [ TestcaseCollection.load_from_file(tc_filename, test_fixture_config) for tc_filename in self._args.testcase_file ]
-		submissions = [ Submission(submission) for submission in self._args.submission ]
+		submissions = [ Submission(submission) for submission in self._args.submission if os.path.isdir(submission) ]
 		tcr = TestcaseRunner(testcase_collections = testcase_collections, test_fixture_config = test_fixture_config)
 		submission_evaluations = tcr.run(submissions)
 

@@ -1,5 +1,5 @@
 #	kartfire - Test framework to consistently run submission files
-#	Copyright (C) 2023-2023 Johannes Bauer
+#	Copyright (C) 2023-2024 Johannes Bauer
 #
 #	This file is part of kartfire.
 #
@@ -32,16 +32,26 @@ _log = logging.getLogger(__spec__.name)
 class TestcaseRunner():
 	def __init__(self, testcase_collections: list["TestcaseCollection"], test_fixture_config: "TestFixtureConfig"):
 		self._testcase_collections = testcase_collections
+		self._testcases_by_name = self._get_all_testcases_by_name()
+		self._test_fixture_config = test_fixture_config
 		_log.debug("Successfully loaded %d testcase collection(s)", len(self._testcase_collections))
 		self._config = test_fixture_config
 		self._concurrent_process_count = self._determine_concurrent_process_count()
 		self._process_semaphore = None
 		asyncio.Semaphore(self._concurrent_process_count)
 
+	def _get_all_testcases_by_name(self) -> dict[str, "Testcase"]:
+		testcase_names = { }
+		for testcase_collection in self._testcase_collections:
+			collection_names = testcase_collection.testcases_by_name
+			if len(set(testcase_names) & set(collection_names)) > 0:
+				raise InternalError("Duplicate test case names (same name in multiple collections).")
+			testcase_names.update(collection_names)
+		return testcase_names
+
 	@property
 	def config(self):
 		return self._config
-
 
 	@functools.cached_property
 	def actions(self):
@@ -60,9 +70,10 @@ class TestcaseRunner():
 		return timeout
 
 	@functools.cached_property
-	def client_testcase_data(self):
-		client_testcases = [ testcase.client_data for testcase in self ]
-		return json.dumps(client_testcases).encode("ascii")
+	def guest_testcase_data(self):
+		"""This is the test data that ends up directly inside the runner. It
+		may not contain the correct answers."""
+		return [ testcase.guest_data for testcase in self ]
 
 	def _determine_concurrent_process_count(self):
 		host_memory_mib = SystemTools.get_host_memory_mib()
@@ -78,7 +89,7 @@ class TestcaseRunner():
 	async def _run_submission(self, submission: "Submission"):
 		async with self._process_semaphore:
 			_log.info("Starting testing of submission %s", submission)
-			testrunner_output = await submission.run(self)
+			testrunner_output = await submission.run(self, interactive = self._test_fixture_config.interactive)
 			submission_evaluation = SubmissionEvaluation(testrunner_output, self, submission)
 		return submission_evaluation
 
@@ -97,6 +108,9 @@ class TestcaseRunner():
 
 	def run(self, submissions: list["Submission"]):
 		return asyncio.run(self._run(submissions))
+
+	def __getitem__(self, testcase_name: str) -> "Testcase":
+		return self._testcases_by_name[testcase_name]
 
 	def __iter__(self):
 		for testcase_collection in self._testcase_collections:

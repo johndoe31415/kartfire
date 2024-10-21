@@ -1,5 +1,5 @@
 #	kartfire - Test framework to consistently run submission files
-#	Copyright (C) 2023-2023 Johannes Bauer
+#	Copyright (C) 2023-2024 Johannes Bauer
 #
 #	This file is part of kartfire.
 #
@@ -24,14 +24,19 @@ import enum
 class TestcaseStatus(enum.Enum):
 	Passed = "passed"
 	FailedWrongAnswer = "failed_wrong_answer"
-	FailedUnparsableAnswer = "failed_unparsable"
-	FailedErrorStatusCode = "failed_error_status_code"
-	FailedTimeout = "failed_timeout"
-	FailedRunError = "failed_run_error"
+	NoAnswerProvided = "no_answer_provided"
+	TestbatchFailedError = "testbatch_failed"
+
+class TestbatchStatus(enum.Enum):
+	ErrorTestrunFailed = "error_run_failed"
+	ErrorUnparsable = "error_unparsable"
+	ErrorStatusCode = "error_nonzero_status_code"
+	ProcessTimeout = "process_timeout"
+	Completed = "completed"
 
 class TestrunStatus(enum.Enum):
 	Skipped = "skipped"
 	ErrorUnparsable = "error_unparsable"
 	ErrorStatusCode = "error_nonzero_status_code"
-	Timeout = "container_timeout"
+	ContainerTimeout = "container_timeout"
 	Completed = "completed"

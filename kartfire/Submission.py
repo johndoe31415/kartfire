@@ -1,5 +1,5 @@
 #	kartfire - Test framework to consistently run submission files
-#	Copyright (C) 2023-2023 Johannes Bauer
+#	Copyright (C) 2023-2024 Johannes Bauer
 #
 #	This file is part of kartfire.
 #
@@ -31,10 +31,14 @@ from .TestrunnerOutput import TestrunnerOutput
 from .Enums import TestrunStatus
 
 class Submission():
-	def __init__(self, submission_directory):
+	def __init__(self, submission_directory: str):
 		self._submission_dir = os.path.realpath(submission_directory)
 		if not os.path.isdir(self._submission_dir):
 			raise InvalidSubmissionException(f"{self._submission_dir} is not a directory")
+
+	@property
+	def container_testrunner_filename(self):
+		return os.path.realpath(os.path.dirname(__file__)) + "/container/container_testrunner"
 
 	@functools.cached_property
 	def meta_info(self):
@@ -57,32 +61,44 @@ class Submission():
 		await docker.stop()
 		await docker.rm()
 
-	async def run(self, runner: "TestcaseRunner"):
+	async def run(self, runner: "TestcaseRunner", interactive: bool = False):
 		local_container_testrunner = "/container_testrunner"
-		dut_params = {
-			"limit_stdout_bytes": 8 * 1024,
-			"local_testcase_json_file": "/dut.json",
-			"local_testcase_tar_file": "/dut.tar",
-			"setup_name": runner.config.setup_name,
-			"max_setup_time_secs": runner.config.max_setup_time_secs,
-			"solution_name": runner.config.solution_name,
+		local_container_parameter_filename = "/container_testrunner.json"
+		container_parameters = {
+			"meta": {
+				"limit_stdout_bytes":			128 * 1024,
+				"local_testcase_tar_file":		"/dut.tar",
+				"setup_name":					runner.config.setup_name,
+				"max_setup_time_secs":			runner.config.max_setup_time_secs,
+				"solution_name":				runner.config.solution_name,
+				"local_dut_dir":				"/dut",
+				"local_testcase_filename":		"/local_testcases.json",
+			},
+			"testcases": runner.guest_testcase_data,
 		}
 
 		testrunner_output = TestrunnerOutput()
 		async with self._start_docker_instance(runner.config) as docker:
-			await docker.create(docker_image_name = runner.config.docker_container, command = [ local_container_testrunner, JSONTools.encode_b64(dut_params) ], max_memory_mib = runner.config.max_memory_mib, allow_network = runner.config.allow_network)
-			await docker.cp("container_testrunner", local_container_testrunner)			# TODO source
+			command = [ local_container_testrunner, local_container_parameter_filename ]
+			if interactive:
+				print(f"Would have run: {' '.join(command)}")
+				command = [ "/bin/bash" ]
+
+			await docker.create(docker_image_name = runner.config.docker_container, command = command, max_memory_mib = runner.config.max_memory_mib, allow_network = runner.config.allow_network, interactive = interactive)
+			await docker.cp(self.container_testrunner_filename, local_container_testrunner)
 			with tempfile.NamedTemporaryFile(suffix = ".tar") as tmp:
 				await self._create_submission_tarfile(tmp.name)
-				await docker.cp(tmp.name, dut_params["local_testcase_tar_file"])
-			await docker.cpdata(runner.client_testcase_data, dut_params["local_testcase_json_file"])
+				await docker.cp(tmp.name, container_parameters["meta"]["local_testcase_tar_file"])
+			await docker.cpdata(json.dumps(container_parameters).encode("utf-8"), local_container_parameter_filename)
 			await docker.start()
+			if interactive:
+				await docker.attach()
 
 			testrunner_output.status = TestrunStatus.Completed
 			finished = await docker.wait_timeout(runner.total_maximum_runtime_secs)
 			if finished is None:
 				# Docker container time timed out
-				testrunner_output.status = TestrunStatus.Timeout
+				testrunner_output.status = TestrunStatus.ContainerTimeout
 				return testrunner_output
 
 			logs = await docker.logs()

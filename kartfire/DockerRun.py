@@ -1,5 +1,5 @@
 #	kartfire - Test framework to consistently run submission files
-#	Copyright (C) 2023-2023 Johannes Bauer
+#	Copyright (C) 2023-2024 Johannes Bauer
 #
 #	This file is part of kartfire.
 #
@@ -32,12 +32,14 @@ class DockerRun():
 		self._docker_executable = docker_executable
 		self._container_id = None
 
-	async def create(self, docker_image_name: str, command: list, max_memory_mib: int | None = None, allow_network: bool = False):
+	async def create(self, docker_image_name: str, command: list, max_memory_mib: int | None = None, allow_network: bool = False, interactive: bool = False):
 		assert(self._container_id is None)
 		# Start docker container
 		cmd = [ self._docker_executable, "create" ]
 		if not allow_network:
-				cmd += [ "--network", "nonat", "--dns", "0.0.0.0", "--dns-search", "localdomain" ]
+			cmd += [ "--network", "nonat", "--dns", "0.0.0.0", "--dns-search", "localdomain" ]
+		if interactive:
+			cmd += [ "--tty", "--interactive" ]
 #		cmd += [ "--name", f"testrun-{student['id'].lower()}" ]
 		if max_memory_mib is not None:
 			cmd += [ f"--memory={max_memory_mib}m" ]
@@ -63,6 +65,10 @@ class DockerRun():
 	async def start(self):
 		cmd = [ self._docker_executable, "start", self._container_id ]
 		await ExecTools.async_check_call(cmd, stdout = subprocess.DEVNULL)
+
+	async def attach(self):
+		cmd = [ self._docker_executable, "attach", self._container_id ]
+		await ExecTools.async_call(cmd)
 
 	async def wait(self):
 		cmd = [ self._docker_executable, "wait", self._container_id ]

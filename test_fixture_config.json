@@ -1,4 +1,5 @@
 {
+	"testbatch_maxsize": 100,
 	"docker_executable": "docker",
 	"docker_container": "ghcr.io/johndoe31415/labwork-docker:master",
 	"setup_name": "setup",

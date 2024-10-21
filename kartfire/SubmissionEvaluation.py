@@ -1,5 +1,5 @@
 #	kartfire - Test framework to consistently run submission files
-#	Copyright (C) 2023-2023 Johannes Bauer
+#	Copyright (C) 2023-2024 Johannes Bauer
 #
 #	This file is part of kartfire.
 #
@@ -20,7 +20,7 @@
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
 import collections
-from .TestcaseEvaluation import TestcaseEvaluation
+from .TestbatchEvaluation import TestbatchEvaluation
 from .Enums import TestrunStatus
 
 class SubmissionEvaluation():
@@ -37,10 +37,10 @@ class SubmissionEvaluation():
 			return 0
 
 	@property
-	def testcase_evaluation(self):
-		if (self._testrunner_output.status == TestrunStatus.Completed) and (self._testrunner_output.testcase_count == self._runner.testcase_count):
-			for (testcase, runner_testcase_output) in zip(self._runner, self._testrunner_output):
-				yield TestcaseEvaluation(testcase, runner_testcase_output)
+	def testbatch_evaluation(self):
+		if self._testrunner_output.status == TestrunStatus.Completed:
+			for testbatch_results in self._testrunner_output:
+				yield TestbatchEvaluation(self._runner, testbatch_results)
 
 	def _compute_breakdown(self, testcase_subset):
 		ctr = collections.Counter(testcase.status for testcase in testcase_subset)
@@ -58,10 +58,11 @@ class SubmissionEvaluation():
 
 	def _compute_breakdowns(self):
 		result = {
-			"*": self._compute_breakdown(self.testcase_evaluation),
+			"*": self._compute_breakdown(self.testbatch_evaluation),
 		}
 		for action in self._runner.actions:
-			result[action] = self._compute_breakdown(testcase_eval for testcase_eval in self.testcase_evaluation if testcase_eval.testcase.action == action),
+			result[action] = self._compute_breakdown(testcase_eval for testcase_eval in self.testbatch_evaluation if testcase_eval.testcase.action == action)
+		print(result)
 		return result
 
 	def to_dict(self):
@@ -69,8 +70,8 @@ class SubmissionEvaluation():
 			"dut": self._submission.to_dict(),
 			"status": self._testrunner_output.status.name,
 			"testcase_count_total": self.testcase_count,
-			"results": [ tc_eval.to_dict() for tc_eval in self.testcase_evaluation ],
-			"breakdown": self._compute_breakdowns(),
+			"testbatches": [ testbatch_eval.to_dict() for testbatch_eval in self.testbatch_evaluation ],
+#			"breakdown": self._compute_breakdowns(),
 		}
 
 	def __repr__(self):

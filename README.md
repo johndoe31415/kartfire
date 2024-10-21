@@ -1,10 +1,10 @@
 # KArTFire
 kartfire is the "Known-Answer-Testing Framework". It is intended to run a
-number of student's solutions inside a well-defined runtime environment defined
-by a Docker container. The solutions can be programming-language agnostic
-(i.e., compiled and interpreted languages are supported, depending on the
-target container) and it is intended to deal with a wide array of faulty
-solutions:
+number of student's solutions inside a well-defined, network-isolated runtime
+environment defined by a Docker container. The solutions can be
+programming-language agnostic (i.e., compiled and interpreted languages are
+supported, depending on the target container) and it is intended to deal with a
+wide array of faulty solutions:
 
   * Solutions that do not produce any output or that produce unparsable output
   * Solutions that terminate with error codes
