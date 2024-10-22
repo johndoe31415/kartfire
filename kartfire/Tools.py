@@ -50,25 +50,43 @@ class GitTools():
 	def gitinfo(cls, dirname):
 		if not os.path.isdir(f"{dirname}/.git"):
 			return None
-		return {
-			"branch": cls._git_branch_name(dirname),
-			"commit": cls._git_commit_id(dirname),
-			"date": cls._git_commit_date(dirname),
+		result = {
+			"empty": cls._is_repo_empty(dirname),
+			"branch": cls._get_branch_name(dirname),
 		}
-		result["shortcommit"] = result["commit"][:8]
+		result["has_branch"] = cls._has_branch(dirname, result["branch"])
+
+		if (not result["empty"]) and result["has_branch"]:
+			result.update({
+				"commit": cls._get_commit_id(dirname),
+				"date": cls._get_commit_date(dirname),
+			})
+			result["shortcommit"] = result["commit"][:8]
 		return result
 
 	@classmethod
-	def _git_branch_name(cls, dirname):
-			return subprocess.check_output([ "git", "-C", dirname, "branch", "--show-current" ]).decode().rstrip("\r\n")
+	def _is_repo_empty(cls, dirname):
+		return subprocess.check_output([ "git", "-C", dirname, "rev-list", "--all", "-n", "1" ]).decode().rstrip("\r\n") == ""
 
 	@classmethod
-	def _git_commit_id(cls, dirname):
-			return subprocess.check_output([ "git", "-C", dirname, "rev-parse", "HEAD" ]).decode().rstrip("\r\n")
+	def _has_commit_date(cls, dirname):
+		return subprocess.check_output([ "git", "-C", dirname, "show", "--no-patch", "--format=%ci", "HEAD" ]).decode().rstrip("\r\n")
 
 	@classmethod
-	def _git_commit_date(cls, dirname):
-			return subprocess.check_output([ "git", "-C", dirname, "show", "--no-patch", "--format=%ci", "HEAD" ]).decode().rstrip("\r\n")
+	def _get_branch_name(cls, dirname):
+		return subprocess.check_output([ "git", "-C", dirname, "branch", "--show-current" ]).decode().rstrip("\r\n")
+
+	@classmethod
+	def _get_commit_id(cls, dirname):
+		return subprocess.check_output([ "git", "-C", dirname, "rev-parse", "HEAD" ]).decode().rstrip("\r\n")
+
+	@classmethod
+	def _get_commit_date(cls, dirname):
+		return subprocess.check_output([ "git", "-C", dirname, "show", "--no-patch", "--format=%ci", "HEAD" ]).decode().rstrip("\r\n")
+
+	@classmethod
+	def _has_branch(cls, dirname: str, branch_name: str):
+		return subprocess.run([ "git", "-C", dirname, "show-ref", "--verify", "--quiet", f"refs/heads/{branch_name}" ], stdout = subprocess.DEVNULL).returncode == 0
 
 class SystemTools():
 	_TOTAL_MEM_RE = re.compile(r"MemTotal:\s*(?P<mem_kib>\d+)\s*kB")
