@@ -27,6 +27,7 @@ import logging
 import datetime
 import collections
 import copy
+import random
 import itertools
 from .TestFixtureConfig import TestFixtureConfig
 from .TestcaseRunner import TestcaseRunner
@@ -65,6 +66,26 @@ class SubstitutionElement():
 				for count in range(self._content.get("count", 1)):
 					rand_data = os.urandom(self._content["length"])
 					yield base64.b64encode(rand_data).decode("ascii")
+
+			case "int-set":
+				minlen = self._content.get("minlen", 0)
+				maxlen = self._content.get("maxlen", 32)
+				minval = self._content.get("minval", 0)
+				maxval = self._content.get("maxval", 255)
+				shuffle = self._content.get("shuffle", True)
+				count = self._content.get("count", 1)
+				for _ in range(count):
+					result = set()
+					length = random.randint(minlen, maxlen)
+					while len(result) < length:
+						result.add(random.randint(minlen, maxlen))
+
+					result = list(result)
+					if shuffle:
+						random.shuffle(result)
+					else:
+						result.sort()
+					yield result
 
 			case _:
 				raise ValueError(f"Unknown substitution type: {self.subs_type}")
