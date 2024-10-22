@@ -42,7 +42,7 @@ def main():
 		parser.add_argument("-c", "--test-fixture-config", metavar = "filename", help = "Specify a specific test fixture configuration to use. If omitted, tries to look in the local directory for a file named 'kartfire_test_fixture.json' before falling back to default values.")
 		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
 		parser.add_argument("reference_submission_dir", help = "Directory that contains the reference solution.")
-		parser.add_argument("testcase_filename", help = "Testcase definition JSON file that should be filled with the reference answers.")
+		parser.add_argument("testcase_filename", nargs = "+", help = "Testcase definition JSON file(s) that should be filled with the reference answers.")
 	mc.register("reference", "Collect reference answers from a known-good solution", genparser, action = ActionReference)
 
 	def genparser(parser):

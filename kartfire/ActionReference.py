@@ -30,9 +30,9 @@ from .Submission import Submission
 from .BaseAction import BaseAction
 
 class ActionReference(BaseAction):
-	def run(self):
+	def _run_testcase_filename(self, testcase_filename: str):
 		test_fixture_config = TestFixtureConfig.load_from_file(self._args.test_fixture_config)
-		testcase_collection = TestcaseCollection.load_from_file(self._args.testcase_filename, test_fixture_config)
+		testcase_collection = TestcaseCollection.load_from_file(testcase_filename, test_fixture_config)
 		reference_submission = Submission(self._args.reference_submission_dir)
 		tcr = TestcaseRunner(testcase_collections = [ testcase_collection ], test_fixture_config = test_fixture_config)
 		submission_evaluations = tcr.run([ reference_submission ])
@@ -49,10 +49,10 @@ class ActionReference(BaseAction):
 					new_answer_cnt += 1
 
 		total_answer_cnt = have_answer_cnt + new_answer_cnt
-		print(f"Already had correct answer for {have_answer_cnt} / {total_answer_cnt} testcases, found {new_answer_cnt} new.")
+		print(f"{testcase_filename}: Already had correct answer for {have_answer_cnt} / {total_answer_cnt} testcases, found {new_answer_cnt} new.")
 
 		if new_answer_cnt == 0:
-			print("No new test case answers to add.")
+			print(f"{testcase_filename}: No new test case answers to add.")
 		else:
 			if self._args.commit:
 				for testbatch_evaluation in evaluation.testbatch_evaluation:
@@ -62,6 +62,10 @@ class ActionReference(BaseAction):
 							testcase.testcase_answer = testcase_evaluation.received_answer
 
 
-				testcase_collection.write_to_file(self._args.testcase_filename)
+				testcase_collection.write_to_file(testcase_filename)
 			else:
-				print(f"Not commiting results to {self._args.testcase_filename}.")
+				print(f"{testcase_filename}: Not commiting results.")
+
+	def run(self):
+		for testcase_filename in self._args.testcase_filename:
+			self._run_testcase_filename(testcase_filename)
