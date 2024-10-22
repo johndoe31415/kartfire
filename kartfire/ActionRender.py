@@ -63,8 +63,17 @@ class SubstitutionElement():
 				yield from enumeration
 
 			case "rand-base64":
-				for count in range(self._content.get("count", 1)):
-					rand_data = os.urandom(self._content["length"])
+				count = self._content.get("count", 1)
+
+				for count in range(count):
+					if "length" in self._content:
+						length = self._content["length"]
+					else:
+						length = random.randint(self._content["minlength"], self._content["maxlength"])
+					if "lengthmul" in self._content:
+						length *= self._content["lengthmul"]
+
+					rand_data = os.urandom(length)
 					yield base64.b64encode(rand_data).decode("ascii")
 
 			case "int-set":
