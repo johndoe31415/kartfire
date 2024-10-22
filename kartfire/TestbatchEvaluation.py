@@ -89,6 +89,14 @@ class TestbatchEvaluation():
 		return len(self._result["testcases"])
 
 	@functools.cached_property
+	def passed_testcase_count(self):
+		return len([ 1 for testcase_evaluation in self if testcase_evaluation.status == TestcaseStatus.Passed ])
+
+	@property
+	def failed_testcase_count(self):
+		return self.testcase_count - self.passed_testcase_count
+
+	@functools.cached_property
 	def answer_count(self):
 		if self._status != TestbatchStatus.Completed:
 			return 0
@@ -101,7 +109,10 @@ class TestbatchEvaluation():
 	def details(self):
 		match self._status:
 			case TestbatchStatus.ErrorTestrunFailed:
-				return f"Testbatch failed, unable to start third-party executable (exec failed)."
+				if (self.proc_details is not None) and (self.proc_details["exception_msg"] is not None):
+					return f"Testbatch failed: {self.proc_details['exception_msg']}"
+				else:
+					return f"Testbatch failed for unspecified reason."
 
 			case TestbatchStatus.ErrorUnparsable:
 				return f"Testbatch failed, JSON output was not parsable."
@@ -157,7 +168,7 @@ class TestbatchEvaluation():
 				testcase_status = TestcaseStatus.NoAnswerProvided
 		return TestcaseEvaluation(self, testcase, received_answer, testcase_status)
 
-	@property
+	@functools.cached_property
 	def proc_details(self):
 		if self._result is None:
 			return None

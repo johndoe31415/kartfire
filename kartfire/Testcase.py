@@ -59,6 +59,10 @@ class Testcase():
 		return JSONTools.jsonhash(self.testcase_data)
 
 	@property
+	def action(self):
+		return self.testcase_data.get("action")
+
+	@property
 	def testcase_data(self):
 		return self._tc["testcase_data"]
 

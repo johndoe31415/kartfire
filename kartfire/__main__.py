@@ -24,6 +24,7 @@ from .MultiCommand import MultiCommand
 from .ActionRun import ActionRun
 from .ActionReference import ActionReference
 from .ActionRender import ActionRender
+from .ActionEmail import ActionEmail
 
 def main():
 	mc = MultiCommand(description = "Kartfire container testing framework CLI tool.", run_method = True)
@@ -51,6 +52,13 @@ def main():
 		parser.add_argument("template_filename", help = "Template input file that should be rendered.")
 		parser.add_argument("testcase_filename", help = "Testcase definition JSON file that is produced from the template.")
 	mc.register("render", "Render a testcase file from a template", genparser, action = ActionRender)
+
+	def genparser(parser):
+		parser.add_argument("-f", "--force", action = "store_true", help = "Overwrite output file if it already exists.")
+		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
+		parser.add_argument("testrun_filename", help = "JSON data that was output from the test run.")
+		parser.add_argument("makomailer_filename", help = "Makomailer output that should be created.")
+	mc.register("email", "Create a Makomailer template file from a output run", genparser, action = ActionEmail)
 
 	returncode = mc.run(sys.argv[1:])
 	return (returncode or 0)
