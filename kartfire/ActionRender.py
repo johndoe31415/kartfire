@@ -124,6 +124,9 @@ class ActionRender(BaseAction):
 
 		with open(self._args.template_filename) as f:
 			self._template = json.load(f, object_pairs_hook = collections.OrderedDict)
+		if self._template["meta"]["type"] != "template":
+			print(f"Not a template: {self._args.testcase_filename}", file = sys.stderr)
+			return 1
 
 		self._context = self._template.get("template", { })
 
@@ -133,9 +136,11 @@ class ActionRender(BaseAction):
 				rendered_testcases.append(rendered_instance)
 
 		print(f"Rendered {len(self._template['content'])} templates to {len(rendered_testcases)} testcases.")
+		self._template["meta"]["type"] = "testcases"
+		self._template["content"] = rendered_testcases
 		if "template" in self._template:
 			del self._template["template"]
-		self._template["content"] = rendered_testcases
+
 		with open(self._args.testcase_filename, "w") as f:
 			json.dump(self._template, f, indent = "\t")
 			print(file = f)
