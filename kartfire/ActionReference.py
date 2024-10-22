@@ -28,6 +28,7 @@ from .TestcaseRunner import TestcaseRunner
 from .TestcaseCollection import TestcaseCollection
 from .Submission import Submission
 from .BaseAction import BaseAction
+from .Enums import TestrunStatus, TestbatchStatus, TestcaseStatus
 
 class ActionReference(BaseAction):
 	def _run_testcase_filename(self, testcase_filename: str):
@@ -37,11 +38,23 @@ class ActionReference(BaseAction):
 		tcr = TestcaseRunner(testcase_collections = [ testcase_collection ], test_fixture_config = test_fixture_config)
 		submission_evaluations = tcr.run([ reference_submission ])
 
+
 		have_answer_cnt = 0
 		new_answer_cnt = 0
 		evaluation = submission_evaluations[0]
+		if evaluation.testrun_status != TestrunStatus.Completed:
+			print(f"{testcase_filename}: Refusing to use a reference with testrun status {evaluation.testrun_status.name}")
+			return
+
 		for testbatch_evaluation in evaluation.testbatch_evaluation:
+			if testbatch_evaluation.status != TestbatchStatus.Completed:
+				print(f"{testcase_filename}: Refusing to use a reference with testbatch status {testbatch_evaluation.status.name}")
+				return
 			for testcase_evaluation in testbatch_evaluation:
+				if testcase_evaluation.status not in [ TestcaseStatus.Passed, TestcaseStatus.FailedWrongAnswer ]:
+					print(f"{testcase_filename}: Refusing to use a reference with testcase status {testcase_evaluation.status.name}")
+					return
+
 				testcase = testcase_evaluation.testcase
 				if testcase.testcase_answer == testcase_evaluation.received_answer:
 					have_answer_cnt += 1

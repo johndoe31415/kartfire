@@ -32,6 +32,10 @@ class TestcaseEvaluation():
 		self._status = testcase_status
 
 	@property
+	def testbatch(self) -> "Testcase":
+		return self._testbatch
+
+	@property
 	def testcase(self) -> "Testcase":
 		return self._testcase
 
@@ -43,7 +47,7 @@ class TestcaseEvaluation():
 	def received_answer(self) -> dict:
 		return self._received_answer
 
-	@functools.cached_property
+	@property
 	def details(self):
 		match self.status:
 			case TestcaseStatus.Passed:
@@ -57,26 +61,6 @@ class TestcaseEvaluation():
 
 			case TestcaseStatus.TestbatchFailedError:
 				return f"Testcase \"{self.testcase.name}\" failed because contained testbatch failed: {self.testbatch.details}"
-
-
-#			case TestcaseStatus.FailedTimeout:
-#				return f"Timeout after {self._output['runtime_secs']:.1f} secs (allowance was {self._testcase.runtime_allowance_secs:.1f} secs)."
-
-#			case TestcaseStatus.FailedErrorStatusCode:
-#				if self._output["exception_msg"] is not None:
-#					return f"Process terminated with status code {self._output['returncode']}: {self._output['exception_msg']}"
-#				else:
-#					return f"Process terminated with status code {self._output['returncode']}."
-#			case TestcaseStatus.FailedWrongAnswer:
-#				return "Wrong answer received."
-
-#			case TestcaseStatus.FailedRunError:
-#				if self._output["exception_msg"] is not None:
-#					return f"Run failed: {self._output['exception_msg']}"
-#				else:
-#					return "Run failed for unknown reason."
-
-
 
 	def to_dict(self):
 		result = {
@@ -115,7 +99,21 @@ class TestbatchEvaluation():
 
 	@property
 	def details(self):
-		return "TODOOOOOOOOOOO"
+		match self._status:
+			case TestbatchStatus.ErrorTestrunFailed:
+				return f"Testbatch failed (no output whatsoever)."
+
+			case TestbatchStatus.ErrorUnparsable:
+				return f"Testbatch failed, JSON output was not parsable."
+
+			case TestbatchStatus.ErrorStatusCode:
+				return f"Testbatch failed, subordinate process exited with status code {self._result['results']['returncode']}"
+
+			case TestbatchStatus.ProcessTimeout:
+				return f"Testbatch failed, timed out."
+
+			case TestbatchStatus.Completed:
+				return None
 
 	def _determine_testbatch_status(self):
 		if self._result is None:

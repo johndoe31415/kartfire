@@ -30,6 +30,10 @@ class SubmissionEvaluation():
 		self._submission = submission
 
 	@property
+	def testrun_status(self):
+		return self._testrunner_output.status
+
+	@property
 	def testcase_count(self):
 		return sum(testbatch_evaluation.testcase_count for testbatch_evaluation in self.testbatch_evaluation)
 
@@ -38,20 +42,6 @@ class SubmissionEvaluation():
 		if self._testrunner_output.status == TestrunStatus.Completed:
 			for testbatch_results in self._testrunner_output:
 				yield TestbatchEvaluation(self._runner, testbatch_results)
-
-	def _compute_breakdown(self, testcase_subset):
-		ctr = collections.Counter(testcase.status for testcase in testcase_subset)
-		testcase_count = sum(ctr.values())
-		result = { }
-		total_cnt = 0
-		for (status, count) in ctr.items():
-			total_cnt += count
-			result[status.name] = {
-				"cnt": count,
-				"%": count / testcase_count * 100,
-			}
-		result["Total"] = total_cnt
-		return result
 
 	def _compute_breakdowns(self):
 		breakdown = collections.Counter()
@@ -64,11 +54,11 @@ class SubmissionEvaluation():
 	def to_dict(self):
 		return {
 			"dut": self._submission.to_dict(),
-			"testrun_status": self._testrunner_output.status.name,
+			"testrun_status": self.testrun_status.name,
 			"testcase_count_total": self.testcase_count,
 			"testbatches": [ testbatch_eval.to_dict() for testbatch_eval in self.testbatch_evaluation ],
 			"breakdown": self._compute_breakdowns(),
 		}
 
 	def __repr__(self):
-		return str(self.to_dict())
+		return f"SubmissionEvaluation<{str(self.to_dict())}>"
