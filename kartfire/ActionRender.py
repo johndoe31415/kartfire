@@ -78,7 +78,7 @@ class SubstitutionElement():
 					result = set()
 					length = random.randint(minlen, maxlen)
 					while len(result) < length:
-						result.add(random.randint(minlen, maxlen))
+						result.add(random.randint(minval, maxval))
 
 					result = list(result)
 					if shuffle:
