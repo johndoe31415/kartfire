@@ -76,6 +76,7 @@ class Submission():
 				"solution_name":				runner.config.solution_name,
 				"local_dut_dir":				"/dut",
 				"local_testcase_filename":		"/local_testcases.json",
+				"debug":						interactive,
 			},
 			"testbatches": runner.guest_testbatch_data,
 		}
@@ -103,9 +104,9 @@ class Submission():
 			if finished is None:
 				# Docker container time timed out
 				testrunner_output.status = TestrunStatus.ContainerTimeout
-				_log.debug("Doocker container with submission %s timed out after %d seconds", str(self), runner.total_maximum_runtime_secs)
+				_log.debug("Docker container with submission %s timed out after %d seconds", str(self), runner.total_maximum_runtime_secs)
 				return testrunner_output
-			_log.debug("Doocker container with submission %s exited normally.", str(self))
+			_log.debug("Docker container with submission %s exited normally.", str(self))
 
 			logs = await docker.logs()
 			testrunner_output.logs = logs
@@ -128,6 +129,11 @@ class Submission():
 		if ("json" in meta) and ("text" in meta["json"]):
 			return f"{short_dir}: {meta['json']['text']}"
 		elif "git" in meta:
-			return f"{short_dir}: {meta['git']['branch']} / {meta['git']['commit'][:8]}"
+			if meta["git"]["empty"]:
+				return f"{short_dir}: empty Git repository"
+			elif not meta["git"]["has_branch"]:
+				return f"{short_dir}: no branch {meta['git']['branch']}"
+			else:
+				return f"{short_dir}: {meta['git']['branch']} / {meta['git']['commit'][:8]}"
 		else:
 			return short_dir

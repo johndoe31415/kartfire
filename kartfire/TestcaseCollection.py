@@ -50,10 +50,10 @@ class TestcaseCollection():
 	def load_from_file(cls, filename: str, test_fixture_config: "TestFixtureConfig"):
 		with open(filename) as f:
 			json_file = json.load(f)
-			if json_file["meta"]["type"] == "testcases":
-				return cls(testcase_data = json_file, test_fixture_config = test_fixture_config)
-			else:
-				raise UnsupportedFileException("Unsupported file type \"{json_file['meta']['type']}\" provided.")
+		if json_file["meta"]["type"] == "testcases":
+			return cls(testcase_data = json_file, test_fixture_config = test_fixture_config)
+		else:
+			raise UnsupportedFileException("Unsupported file type \"{json_file['meta']['type']}\" provided.")
 
 	def write_to_file(self, filename: str):
 		with open(filename, "w") as f:

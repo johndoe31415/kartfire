@@ -101,7 +101,7 @@ class TestbatchEvaluation():
 	def details(self):
 		match self._status:
 			case TestbatchStatus.ErrorTestrunFailed:
-				return f"Testbatch failed (no output whatsoever)."
+				return f"Testbatch failed, unable to start third-party executable (exec failed)."
 
 			case TestbatchStatus.ErrorUnparsable:
 				return f"Testbatch failed, JSON output was not parsable."
@@ -162,16 +162,18 @@ class TestbatchEvaluation():
 		if self._result is None:
 			return None
 		else:
-			stdout = base64.b64decode(self._result["stdout"])
-			stderr = base64.b64decode(self._result["stderr"])
+			stdout = base64.b64decode(self._result["results"]["stdout"])
+			stderr = base64.b64decode(self._result["results"]["stderr"])
 			return {
 				"stdout": stdout.decode("utf-8", errors = "replace"),
-				"stdout_length": self._result["stdout_length"],
-				"stdout_truncated": len(stdout) != self._result["stdout_length"],
+				"stdout_length": self._result["results"]["stdout_length"],
+				"stdout_truncated": len(stdout) != self._result["results"]["stdout_length"],
 
 				"stderr": stderr.decode("utf-8", errors = "replace"),
-				"stderr_length": self._result["stderr_length"],
-				"stderr_truncated": len(stderr) != self._result["stderr_length"],
+				"stderr_length": self._result["results"]["stderr_length"],
+				"stderr_truncated": len(stderr) != self._result["results"]["stderr_length"],
+
+				"exception_msg": self._result["results"]["exception_msg"],
 			}
 
 	def __iter__(self):
@@ -179,8 +181,11 @@ class TestbatchEvaluation():
 			yield self.get_testcase_result(testcase_name)
 
 	def to_dict(self):
-		return {
+		result = {
 			"testbatch_status": self.status.name,
 			"runtime_secs": self.runtime_secs,
 			"testcases": [ testcase_evaluation.to_dict() for testcase_evaluation in self ],
 		}
+		if self.status != TestbatchStatus.Completed:
+			result["proc_details"] = self.proc_details
+		return result
