@@ -77,9 +77,7 @@ class TestcaseRunner():
 		batch."""
 		testbatch = [ ]
 		for collection in self._testcase_collections:
-			print("col")
 			for batch in collection.get_batched(self._config.testbatch_maxsize):
-				print(batch)
 				testbatch.append([ testcase.guest_data for testcase in batch ])
 		return testbatch
 
