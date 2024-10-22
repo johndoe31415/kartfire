@@ -31,10 +31,7 @@ class SubmissionEvaluation():
 
 	@property
 	def testcase_count(self):
-		if (self._testrunner_output.status == TestrunStatus.Completed) and (self._testrunner_output.testcase_count == self._runner.testcase_count):
-			return self._testrunner_output.testcase_count
-		else:
-			return 0
+		return sum(testbatch_evaluation.testcase_count for testbatch_evaluation in self.testbatch_evaluation)
 
 	@property
 	def testbatch_evaluation(self):
@@ -57,21 +54,20 @@ class SubmissionEvaluation():
 		return result
 
 	def _compute_breakdowns(self):
-		result = {
-			"*": self._compute_breakdown(self.testbatch_evaluation),
-		}
-		for action in self._runner.actions:
-			result[action] = self._compute_breakdown(testcase_eval for testcase_eval in self.testbatch_evaluation if testcase_eval.testcase.action == action)
-		print(result)
-		return result
+		breakdown = collections.Counter()
+		for testbatch_evaluation in self.testbatch_evaluation:
+			for testcase in testbatch_evaluation:
+				breakdown[testcase.status] += 1
+		breakdown = { enumitem.name: value for (enumitem, value) in breakdown.items() }
+		return breakdown
 
 	def to_dict(self):
 		return {
 			"dut": self._submission.to_dict(),
-			"status": self._testrunner_output.status.name,
+			"testrun_status": self._testrunner_output.status.name,
 			"testcase_count_total": self.testcase_count,
 			"testbatches": [ testbatch_eval.to_dict() for testbatch_eval in self.testbatch_evaluation ],
-#			"breakdown": self._compute_breakdowns(),
+			"breakdown": self._compute_breakdowns(),
 		}
 
 	def __repr__(self):
