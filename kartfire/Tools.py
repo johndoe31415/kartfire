@@ -19,6 +19,7 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
+import os
 import re
 import hashlib
 import base64
@@ -50,9 +51,9 @@ class GitTools():
 		if not os.path.isdir(f"{dirname}/.git"):
 			return None
 		return {
-			"branch": cls._get_branch_name(dirname),
-			"commit": cls._get_commit_id(dirname),
-			"date": cls._get_commit_date(dirname),
+			"branch": cls._git_branch_name(dirname),
+			"commit": cls._git_commit_id(dirname),
+			"date": cls._git_commit_date(dirname),
 		}
 		result["shortcommit"] = result["commit"][:8]
 		return result
