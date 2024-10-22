@@ -39,6 +39,10 @@ class TestcaseEvaluation():
 	def status(self) -> TestcaseStatus:
 		return self._status
 
+	@property
+	def received_answer(self) -> dict:
+		return self._received_answer
+
 	@functools.cached_property
 	def details(self):
 		match self.status:

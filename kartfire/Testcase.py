@@ -66,6 +66,10 @@ class Testcase():
 	def testcase_answer(self):
 		return self._tc["testcase_answer"]
 
+	@testcase_answer.setter
+	def testcase_answer(self, correct_answer: dict):
+		self._tc["testcase_answer"] = correct_answer
+
 	@property
 	def runtime_allowance_secs(self):
 		return (self.runtime_allowance_secs_unscaled * self._config.reference_time_factor) + self._config.minimum_testcase_time

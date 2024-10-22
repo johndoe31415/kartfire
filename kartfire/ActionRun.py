@@ -36,7 +36,7 @@ class ActionRun(BaseAction):
 			test_fixture_config.interactive = True
 
 		testcase_collections = [ TestcaseCollection.load_from_file(tc_filename, test_fixture_config) for tc_filename in self._args.testcase_file ]
-		submissions = [ Submission(submission) for submission in self._args.submission if os.path.isdir(submission) ]
+		submissions = [ Submission(submission_dir) for submission_dir in self._args.submission_dir if os.path.isdir(submission_dir) ]
 		tcr = TestcaseRunner(testcase_collections = testcase_collections, test_fixture_config = test_fixture_config)
 		submission_evaluations = tcr.run(submissions)
 

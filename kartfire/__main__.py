@@ -22,6 +22,8 @@
 import sys
 from .MultiCommand import MultiCommand
 from .ActionRun import ActionRun
+from .ActionReference import ActionReference
+from .ActionRender import ActionRender
 
 def main():
 	mc = MultiCommand(description = "Kartfire container testing framework CLI tool.", run_method = True)
@@ -32,8 +34,23 @@ def main():
 		parser.add_argument("-f", "--testcase-file", metavar = "filename", action = "append", required = True, help = "Testcase definition JSON file. Can be given multiple times to join testcases. Mandatory argument.")
 		parser.add_argument("-o", "--output-file", metavar = "filename", help = "Write the JSON results to this file. If not given, an automatic name according to the testrun is chosen.")
 		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
-		parser.add_argument("submission", nargs = "+", help = "Directory/directories that should be run as a testcase inside containers.")
+		parser.add_argument("submission_dir", nargs = "+", help = "Directory/directories that should be run as a testcase inside containers.")
 	mc.register("run", "Run a testcase battery", genparser, action = ActionRun)
+
+	def genparser(parser):
+		parser.add_argument("-C", "--commit", action = "store_true", help = "Write back results to the test case file.")
+		parser.add_argument("-c", "--test-fixture-config", metavar = "filename", help = "Specify a specific test fixture configuration to use. If omitted, tries to look in the local directory for a file named 'kartfire_test_fixture.json' before falling back to default values.")
+		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
+		parser.add_argument("reference_submission_dir", help = "Directory that contains the reference solution.")
+		parser.add_argument("testcase_filename", help = "Testcase definition JSON file that should be filled with the reference answers.")
+	mc.register("reference", "Collect reference answers from a known-good solution", genparser, action = ActionReference)
+
+	def genparser(parser):
+		parser.add_argument("-f", "--force", action = "store_true", help = "Overwrite output file if it already exists.")
+		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
+		parser.add_argument("template_filename", help = "Template input file that should be rendered.")
+		parser.add_argument("testcase_filename", help = "Testcase definition JSON file that is produced from the template.")
+	mc.register("render", "Render a testcase file from a template", genparser, action = ActionRender)
 
 	returncode = mc.run(sys.argv[1:])
 	return (returncode or 0)
