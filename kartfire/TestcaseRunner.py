@@ -75,9 +75,13 @@ class TestcaseRunner():
 		may not contain the correct answers. Automatically groups collections
 		in own batches and packs up to testbatch_maxsize testcases into each
 		batch."""
+		testbatch = [ ]
 		for collection in self._testcase_collections:
+			print("col")
 			for batch in collection.get_batched(self._config.testbatch_maxsize):
-				yield [ testcase.guest_data for testcase in batch ]
+				print(batch)
+				testbatch.append([ testcase.guest_data for testcase in batch ])
+		return testbatch
 
 	def _determine_concurrent_process_count(self):
 		host_memory_mib = SystemTools.get_host_memory_mib()

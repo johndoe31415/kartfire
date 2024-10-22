@@ -1,5 +1,5 @@
 #	kartfire - Test framework to consistently run submission files
-#	Copyright (C) 2023-2023 Johannes Bauer
+#	Copyright (C) 2023-2024 Johannes Bauer
 #
 #	This file is part of kartfire.
 #
@@ -58,10 +58,9 @@ class TestrunnerOutput():
 
 	def dump(self, verbose = False):
 		print(self)
-		if (self.status not in [ TestrunStatus.Skipped, TestrunStatus.Completed, TestrunStatus.Timeout ]) or verbose:
-			print(self._stdout.decode("ascii", errors = "ignore"))
-			print("=" * 120)
-			print(self._stderr.decode("ascii", errors = "ignore"))
+		print(self._stdout.decode("ascii", errors = "ignore"))
+		print("=" * 120)
+		print(self._stderr.decode("ascii", errors = "ignore"))
 
 	def __iter__(self):
 		if self._parsed is not None:

@@ -24,11 +24,14 @@ import json
 import tempfile
 import functools
 import contextlib
+import logging
 from .Exceptions import InvalidSubmissionException
 from .DockerRun import DockerRun
 from .Tools import ExecTools, JSONTools
 from .TestrunnerOutput import TestrunnerOutput
 from .Enums import TestrunStatus
+
+_log = logging.getLogger(__spec__.name)
 
 class Submission():
 	def __init__(self, submission_directory: str):
@@ -74,7 +77,7 @@ class Submission():
 				"local_dut_dir":				"/dut",
 				"local_testcase_filename":		"/local_testcases.json",
 			},
-			"testbatches": list(runner.guest_testbatch_data),
+			"testbatches": runner.guest_testbatch_data,
 		}
 
 		testrunner_output = TestrunnerOutput()
@@ -84,6 +87,7 @@ class Submission():
 				print(f"Would have run: {' '.join(command)}")
 				command = [ "/bin/bash" ]
 
+			_log.debug("Creating docker container to run submission %s", str(self))
 			await docker.create(docker_image_name = runner.config.docker_container, command = command, max_memory_mib = runner.config.max_memory_mib, allow_network = runner.config.allow_network, interactive = interactive)
 			await docker.cp(self.container_testrunner_filename, local_container_testrunner)
 			with tempfile.NamedTemporaryFile(suffix = ".tar") as tmp:
@@ -99,11 +103,13 @@ class Submission():
 			if finished is None:
 				# Docker container time timed out
 				testrunner_output.status = TestrunStatus.ContainerTimeout
+				_log.debug("Doocker container with submission %s timed out after %d seconds", str(self), runner.total_maximum_runtime_secs)
 				return testrunner_output
+			_log.debug("Doocker container with submission %s exited normally.", str(self))
 
 			logs = await docker.logs()
 			testrunner_output.logs = logs
-#			testrunner_output.dump(verbose = True)
+			#testrunner_output.dump(verbose = True)
 			if finished != 0:
 				# Docker container errored
 				testrunner_output.status = TestrunStatus.ErrorStatusCode
