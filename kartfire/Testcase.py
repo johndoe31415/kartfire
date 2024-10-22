@@ -32,7 +32,7 @@ class Testcase():
 		if "testcase_data" not in testcase:
 			raise InvalidTestcaseException("Testcase definition is missing the 'testcase_data' key.")
 		if "testcase_answer" not in testcase:
-			raise InvalidTestcaseException("Testcase definition is missing the 'testcase_answer' key.")
+			testcase["testcase_answer"] = { }
 		if "runtime_allowance_secs" not in testcase:
 			raise InvalidTestcaseException("Testcase definition is missing the 'runtime_allowance_secs' key.")
 		if "action" not in testcase["testcase_data"]:

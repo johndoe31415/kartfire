@@ -19,6 +19,7 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
+import sys
 import os
 import base64
 import json
@@ -34,13 +35,14 @@ from .Submission import Submission
 from .BaseAction import BaseAction
 
 class SubstitutionElement():
-	def __init__(self, content: dict):
+	def __init__(self, content: dict, context: dict):
 		self._content = content
+		self._context = context
 		self._enacted_value = None
 
 	@property
 	def subs_type(self):
-		return self._content["_subs"]
+		return self._content["_sub"]
 
 	@property
 	def enacted_value(self):
@@ -51,10 +53,21 @@ class SubstitutionElement():
 		self._enacted_value = value
 
 	def __iter__(self):
-		if self.subs_type == "int3":
-			yield from [ 1, 2, 3 ]
-		else:
-			yield from [ "A", "B", "C" ]
+		match self.subs_type:
+			case "enumeration":
+				name = self._content["name"]
+				enumeration = self._context.get("enumerations", { }).get(name)
+				if enumeration is None:
+					raise ValueError(f"No such enumeration: {name}")
+				yield from enumeration
+
+			case "rand-base64":
+				for count in range(self._content.get("count", 1)):
+					rand_data = os.urandom(self._content["length"])
+					yield base64.b64encode(rand_data).decode("ascii")
+
+			case _:
+				raise ValueError(f"Unknown substitution type: {self.subs_type}")
 
 class ActionRender(BaseAction):
 	def _replace_substitution_elements(self, element):
@@ -63,8 +76,8 @@ class ActionRender(BaseAction):
 		elif isinstance(element, list):
 			return [ self._replace_substitution_elements(item) for item in element ]
 		elif isinstance(element, dict):
-			if "_subs" in element:
-				return SubstitutionElement(element)
+			if "_sub" in element:
+				return SubstitutionElement(element, context = self._context)
 			else:
 				return collections.OrderedDict((key, self._replace_substitution_elements(value)) for (key, value) in element.items())
 		else:
@@ -105,22 +118,24 @@ class ActionRender(BaseAction):
 			yield copy.deepcopy(instance)
 
 	def run(self):
+		if (not self._args.force) and os.path.exists(self._args.testcase_filename):
+			print(f"Refusing to overwrite: {self._args.testcase_filename}", file = sys.stderr)
+			return 1
+
 		with open(self._args.template_filename) as f:
 			self._template = json.load(f, object_pairs_hook = collections.OrderedDict)
 
-		x = {
-			"foo": "bar",
-			"zahl": 1234,
-			"array": [ 1, 2, 3, 4 ],
-			"blah": [ "vor", { "_subs": "alpha3" }, "nach" ],
-			"blah2": { "moo": [ 1, 2, { "_subs": "int3" } ], "blah": { "_subs": "int3" } },
-		}
-		for variant in self._render(x):
-			print(variant)
+		self._context = self._template.get("template", { })
 
-#		rendered_testcases = [ ]
-#		for testcase_definition in self._template["content"]:
-#			rendered_testcases += list(self._render_recursive(testcase_definition))
+		rendered_testcases = [ ]
+		for testcase_definition in self._template["content"]:
+			for rendered_instance in self._render(testcase_definition):
+				rendered_testcases.append(rendered_instance)
 
-#		print(f"Rendered {len(self._template['content'])} templates to {len(rendered_testcases)} testcases.")
-
+		print(f"Rendered {len(self._template['content'])} templates to {len(rendered_testcases)} testcases.")
+		if "template" in self._template:
+			del self._template["template"]
+		self._template["content"] = rendered_testcases
+		with open(self._args.testcase_filename, "w") as f:
+			json.dump(self._template, f, indent = "\t")
+			print(file = f)

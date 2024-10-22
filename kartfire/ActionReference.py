@@ -55,11 +55,12 @@ class ActionReference(BaseAction):
 			print("No new test case answers to add.")
 		else:
 			if self._args.commit:
-
 				for testbatch_evaluation in evaluation.testbatch_evaluation:
 					for testcase_evaluation in testbatch_evaluation:
+						testcase = testcase_evaluation.testcase
 						if testcase.testcase_answer != testcase_evaluation.received_answer:
 							testcase.testcase_answer = testcase_evaluation.received_answer
+
 
 				testcase_collection.write_to_file(self._args.testcase_filename)
 			else:
