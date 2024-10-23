@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 #
 #	MultiCommand - Provide an openssl-style multi-command abstraction
-#	Copyright (C) 2011-2022 Johannes Bauer
+#	Copyright (C) 2011-2024 Johannes Bauer
 #
 #	This file is part of pycommon.
 #
@@ -26,6 +26,7 @@
 import sys
 import collections
 import textwrap
+import logging
 
 from .FriendlyArgumentParser import FriendlyArgumentParser
 from .PrefixMatcher import PrefixMatcher
@@ -134,27 +135,56 @@ class MultiCommand():
 			result = result.run()
 		return result
 
+class BaseAction():
+	def __init__(self, cmd, args):
+		self._cmd = cmd
+		self._args = args
+
+	@property
+	def cmd(self):
+		return self._cmd
+
+	@property
+	def args(self):
+		return self._args
+
+	def run(self):
+		raise NotImplementedError(self.__class__.__name__)
+
+class LoggingAction(BaseAction):
+	def __init__(self, cmd, args):
+		super().__init__(cmd, args)
+		if self.args.verbose == 0:
+			loglevel = logging.WARNING
+		elif self.args.verbose == 1:
+			loglevel = logging.INFO
+		elif self.args.verbose >= 2:
+			loglevel = logging.DEBUG
+		logging.basicConfig(format = "{name:>20s} [{levelname:.1s}]: {message}", style = "{", level = loglevel)
+
 if __name__ == "__main__":
-	mc = MultiCommand(description = "Run multiple export- and importthings")
+	mc = MultiCommand(description = "Run multiple export- and importthings", run_method = True)
 
-	def importaction(cmd, args):
-		print("Import:", cmd, args)
+	class ImportAction(BaseAction):
+		def run(self):
+			print("Import:", self.cmd, self.args)
+			return self.args.returncode
 
-	class ExportAction():
-		def __init__(self, cmd, args):
-			print("Export:", cmd, args)
+	class ExportAction(BaseAction):
+		def run(self):
+			print("Export:", self.cmd, self.args)
 
 	def genparser(parser):
-		parser.add_argument("-i", "--infile", metavar = "filename", type = str, required = True, help = "Specifies the input text file that is to be imported. Mandatory argument.")
-		parser.add_argument("-n", "--world", metavar = "name", type = str, choices = [ "world", "foo", "bar" ], default = "overworld", help = "Specifies the world name. Possible options are %(choices)s. Default is %(default)s.")
+		parser.add_argument("-r", "--returncode", metavar = "value", type = int, required = True, help = "Gives the exit code. Mandatory argument.")
+		parser.add_argument("-i", "--infile", metavar = "filename", required = True, help = "Specifies the input text file that is to be imported. Mandatory argument.")
+		parser.add_argument("-n", "--world", metavar = "name", choices = [ "world", "foo", "bar" ], default = "overworld", help = "Specifies the world name. Possible options are %(choices)s. Default is %(default)s.")
 		parser.add_argument("-h", "--hello", action = "store_true", help = "Print 'hello world'")
-		parser.add_argument("--verbose", action = "count", default = 0, help = "Increase verbosity. Can be given multiple times.")
-	mc.register("import", "Import some file from somewhere", genparser, action = importaction, aliases = [ "ymport" ])
-
+		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increase verbosity. Can be given multiple times.")
+	mc.register("import", "Import some file from somewhere", genparser, action = ImportAction, aliases = [ "ymport" ])
 
 	def genparser(parser):
-		parser.add_argument("-o", "--outfile", metavar = "filename", type = str, required = True, help = "Specifies the input text file that is to be imported. Mandatory argument.")
-		parser.add_argument("--verbose", action = "count", default = 0, help = "Increase verbosity. Can be given multiple times.")
+		parser.add_argument("-o", "--outfile", metavar = "filename", help = "Specifies the input text file that is to be imported.")
+		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increase verbosity. Can be given multiple times.")
 	mc.register("export", "Export some file to somewhere", genparser, action = ExportAction)
 
 	returncode = mc.run(sys.argv[1:])
