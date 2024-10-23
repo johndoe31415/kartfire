@@ -19,8 +19,6 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
-import json
-from .Enums import TestcaseStatus
 from .Exceptions import InvalidTestcaseException
 from .Tools import JSONTools
 
@@ -81,10 +79,6 @@ class Testcase():
 	@property
 	def runtime_allowance_secs_unscaled(self):
 		return self._tc["runtime_allowance_secs"]
-
-	@property
-	def action(self):
-		return self.testcase_data["action"]
 
 	def to_dict(self):
 		return {

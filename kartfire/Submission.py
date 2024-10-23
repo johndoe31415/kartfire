@@ -27,7 +27,7 @@ import contextlib
 import logging
 from .Exceptions import InvalidSubmissionException
 from .DockerRun import DockerRun
-from .Tools import ExecTools, JSONTools, GitTools
+from .Tools import ExecTools, GitTools
 from .TestrunnerOutput import TestrunnerOutput
 from .Enums import TestrunStatus
 

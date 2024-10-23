@@ -65,6 +65,8 @@ class TestrunnerOutput():
 	def __iter__(self):
 		if self._parsed is not None:
 			return iter(self._parsed["testcase_results"])
+		else:
+			return iter([ ])
 
 	def __repr__(self):
 		return f"TestrunnerOutput<{self.status.name}>"

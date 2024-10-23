@@ -158,7 +158,7 @@ class LoggingAction(BaseAction):
 			loglevel = logging.WARNING
 		elif self.args.verbose == 1:
 			loglevel = logging.INFO
-		elif self.args.verbose >= 2:
+		else:
 			loglevel = logging.DEBUG
 		logging.basicConfig(format = "{name:>20s} [{levelname:.1s}]: {message}", style = "{", level = loglevel)
 

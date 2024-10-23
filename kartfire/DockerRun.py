@@ -24,7 +24,6 @@ import tempfile
 import json
 import asyncio
 import subprocess
-from .Exceptions import DockerFailureException
 from .Tools import ExecTools
 
 class DockerRun():

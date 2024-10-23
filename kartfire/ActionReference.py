@@ -19,10 +19,6 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
-import os
-import json
-import logging
-import collections
 from .TestFixtureConfig import TestFixtureConfig
 from .TestcaseRunner import TestcaseRunner
 from .TestcaseCollection import TestcaseCollection

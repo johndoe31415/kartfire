@@ -21,7 +21,6 @@
 
 import os
 import json
-import logging
 import datetime
 import sys
 from .TestFixtureConfig import TestFixtureConfig
@@ -69,3 +68,4 @@ class ActionRun(BaseAction):
 				"content": [ submission_evaluation.to_dict() for submission_evaluation in submission_evaluations ],
 			}
 			json.dump(result_file, f)
+		return 0

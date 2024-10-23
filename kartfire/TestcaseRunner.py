@@ -22,7 +22,6 @@
 import asyncio
 import logging
 import functools
-import json
 from .Tools import SystemTools
 from .Exceptions import InternalError
 from .SubmissionEvaluation import SubmissionEvaluation

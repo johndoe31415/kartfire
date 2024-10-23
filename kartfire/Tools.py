@@ -86,7 +86,7 @@ class GitTools():
 
 	@classmethod
 	def _has_branch(cls, dirname: str, branch_name: str):
-		return subprocess.run([ "git", "-C", dirname, "show-ref", "--verify", "--quiet", f"refs/heads/{branch_name}" ], stdout = subprocess.DEVNULL).returncode == 0
+		return subprocess.run([ "git", "-C", dirname, "show-ref", "--verify", "--quiet", f"refs/heads/{branch_name}" ], stdout = subprocess.DEVNULL, check = False).returncode == 0
 
 class SystemTools():
 	_TOTAL_MEM_RE = re.compile(r"MemTotal:\s*(?P<mem_kib>\d+)\s*kB")

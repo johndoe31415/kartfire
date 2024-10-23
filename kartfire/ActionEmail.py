@@ -20,6 +20,7 @@
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
 import os
+import sys
 import json
 from .BaseAction import BaseAction
 
@@ -39,5 +40,4 @@ class ActionEmail(BaseAction):
 
 		with open(self._args.makomailer_filename, "w") as f:
 			json.dump(makomailer_output, f)
-
-
+		return 0

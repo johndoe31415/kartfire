@@ -38,7 +38,7 @@ class StateFile():
 		git = GitTools.gitinfo(path)
 		if git is None:
 			# No Git repo?
-			return
+			return False
 
 		if "commit" not in git:
 			# We don't have a commit checked out, ignore directory.

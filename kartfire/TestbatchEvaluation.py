@@ -112,16 +112,16 @@ class TestbatchEvaluation():
 				if (self.proc_details is not None) and (self.proc_details["exception_msg"] is not None):
 					return f"Testbatch failed: {self.proc_details['exception_msg']}"
 				else:
-					return f"Testbatch failed for unspecified reason."
+					return "Testbatch failed for unspecified reason."
 
 			case TestbatchStatus.ErrorUnparsable:
-				return f"Testbatch failed, JSON output was not parsable."
+				return "Testbatch failed, JSON output was not parsable."
 
 			case TestbatchStatus.ErrorStatusCode:
 				return f"Testbatch failed, subordinate process exited with status code {self._result['results']['returncode']}"
 
 			case TestbatchStatus.ProcessTimeout:
-				return f"Testbatch failed, timed out."
+				return "Testbatch failed, timed out."
 
 			case TestbatchStatus.Completed:
 				return None
@@ -141,7 +141,7 @@ class TestbatchEvaluation():
 					self._parsed_stdout = json.loads(base64.b64decode(self._result["results"]["stdout"]))
 					self._status = TestbatchStatus.Completed
 				except json.decoder.JSONDecodeError:
-					return TestbatchStatus.FailedUnparsableAnswer
+					self._status = TestbatchStatus.ErrorUnparsable
 
 	@property
 	def runtime_secs(self):

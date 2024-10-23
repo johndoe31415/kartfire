@@ -23,16 +23,10 @@ import sys
 import os
 import base64
 import json
-import logging
-import datetime
 import collections
 import copy
 import random
 import itertools
-from .TestFixtureConfig import TestFixtureConfig
-from .TestcaseRunner import TestcaseRunner
-from .TestcaseCollection import TestcaseCollection
-from .Submission import Submission
 from .BaseAction import BaseAction
 
 class SubstitutionElement():
@@ -174,3 +168,4 @@ class ActionRender(BaseAction):
 		with open(self._args.testcase_filename, "w") as f:
 			json.dump(self._template, f, indent = "\t")
 			print(file = f)
+		return 0
