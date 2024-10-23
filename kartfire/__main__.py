@@ -30,6 +30,7 @@ def main():
 	mc = MultiCommand(description = "Kartfire container testing framework CLI tool.", run_method = True)
 
 	def genparser(parser):
+		parser.add_argument("-s", "--state-file", metavar = "filename", help = "Keep a state file and only run those testcases where a change occurred.")
 		parser.add_argument("-i", "--interactive", action = "store_true", help = "Start an interactive session to be able to debug inside the Docker container.")
 		parser.add_argument("-c", "--test-fixture-config", metavar = "filename", help = "Specify a specific test fixture configuration to use. If omitted, tries to look in the local directory for a file named 'kartfire_test_fixture.json' before falling back to default values.")
 		parser.add_argument("-f", "--testcase-file", metavar = "filename", action = "append", required = True, help = "Testcase definition JSON file. Can be given multiple times to join testcases. Mandatory argument.")

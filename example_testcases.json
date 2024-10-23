@@ -1,6 +1,7 @@
 {
 	"meta": {
-		"type": "testcases"
+		"type": "testcases",
+		"name": "example"
 	},
 	"content": [
 		{

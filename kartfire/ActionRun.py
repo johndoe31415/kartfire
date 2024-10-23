@@ -23,20 +23,35 @@ import os
 import json
 import logging
 import datetime
+import sys
 from .TestFixtureConfig import TestFixtureConfig
 from .TestcaseRunner import TestcaseRunner
 from .TestcaseCollection import TestcaseCollection
+from .StateFile import StateFile
 from .Submission import Submission
 from .BaseAction import BaseAction
 
 class ActionRun(BaseAction):
+	def _get_submission_directories(self):
+		directories = [ path_name for path_name in self._args.submission_dir if os.path.isdir(path_name) ]
+		if self._args.state_file is not None:
+			state_file = StateFile(self._args.state_file)
+			directories = [ directory for directory in directories if state_file.need_to_run(directory) ]
+			state_file.write()
+		return directories
+
+
 	def run(self):
 		test_fixture_config = TestFixtureConfig.load_from_file(self._args.test_fixture_config)
 		if self._args.interactive:
 			test_fixture_config.interactive = True
 
 		testcase_collections = [ TestcaseCollection.load_from_file(tc_filename, test_fixture_config) for tc_filename in self._args.testcase_file ]
-		submissions = [ Submission(submission_dir) for submission_dir in self._args.submission_dir if os.path.isdir(submission_dir) ]
+		submissions = [ Submission(submission_dir) for submission_dir in self._get_submission_directories() ]
+		if len(submissions) == 0:
+			print("Nothing to do, no submissions found.", file = sys.stderr)
+			return 1
+
 		tcr = TestcaseRunner(testcase_collections = testcase_collections, test_fixture_config = test_fixture_config)
 		submission_evaluations = tcr.run(submissions)
 
