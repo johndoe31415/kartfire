@@ -37,7 +37,6 @@ class TestcaseRunner():
 		self._config = test_fixture_config
 		self._concurrent_process_count = self._determine_concurrent_process_count()
 		self._process_semaphore = None
-		asyncio.Semaphore(self._concurrent_process_count)
 
 	def _get_all_testcases_by_name(self) -> dict[str, "Testcase"]:
 		testcase_names = { }

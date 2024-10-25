@@ -23,10 +23,9 @@ import os
 import json
 import tempfile
 import functools
-import contextlib
 import logging
 from .Exceptions import InvalidSubmissionException
-from .DockerRun import DockerRun
+from .Docker import Docker
 from .Tools import ExecTools, GitTools
 from .TestrunnerOutput import TestrunnerOutput
 from .Enums import TestrunStatus
@@ -57,13 +56,6 @@ class Submission():
 	async def _create_submission_tarfile(self, tarfile_name):
 		await ExecTools.async_check_call([ "tar", "-C", self._submission_dir, "-c", "-f", tarfile_name, "." ])
 
-	@contextlib.asynccontextmanager
-	async def _start_docker_instance(self, config: "TestFixtureConfig"):
-		docker = DockerRun(docker_executable = config.docker_executable)
-		yield docker
-		await docker.stop()
-		await docker.rm()
-
 	async def run(self, runner: "TestcaseRunner", interactive: bool = False):
 		local_container_testrunner = "/container_testrunner"
 		local_container_parameter_filename = "/container_testrunner.json"
@@ -81,26 +73,29 @@ class Submission():
 			"testbatches": runner.guest_testbatch_data,
 		}
 
-		testrunner_output = TestrunnerOutput()
-		async with self._start_docker_instance(runner.config) as docker:
-			command = [ local_container_testrunner, local_container_parameter_filename ]
-			if interactive:
-				print(f"Would have run: {' '.join(command)}")
-				command = [ "/bin/bash" ]
+		command = [ local_container_testrunner, local_container_parameter_filename ]
+		if interactive:
+			print(f"Would have run: {' '.join(command)}")
+			command = [ "/bin/bash" ]
 
-			_log.debug("Creating docker container to run submission %s", str(self))
-			await docker.create(docker_image_name = runner.config.docker_container, command = command, max_memory_mib = runner.config.max_memory_mib, allow_network = runner.config.allow_network, interactive = interactive)
-			await docker.cp(self.container_testrunner_filename, local_container_testrunner)
+		_log.debug("Creating docker container to run submission %s", str(self))
+		testrunner_output = TestrunnerOutput()
+
+		async with Docker(docker_executable = runner.config.docker_executable) as docker:
+			network = await docker.create_network()
+
+			container = await docker.create_container(docker_image_name = runner.config.docker_container, command = command, network = network, max_memory_mib = runner.config.max_memory_mib, interactive = interactive)
+			await container.cp(self.container_testrunner_filename, local_container_testrunner)
 			with tempfile.NamedTemporaryFile(suffix = ".tar") as tmp:
 				await self._create_submission_tarfile(tmp.name)
-				await docker.cp(tmp.name, container_parameters["meta"]["local_testcase_tar_file"])
-			await docker.cpdata(json.dumps(container_parameters).encode("utf-8"), local_container_parameter_filename)
-			await docker.start()
+				await container.cp(tmp.name, container_parameters["meta"]["local_testcase_tar_file"])
+			await container.cpdata(json.dumps(container_parameters).encode("utf-8"), local_container_parameter_filename)
+			await container.start()
 			if interactive:
-				await docker.attach()
+				await container.attach()
 
 			testrunner_output.status = TestrunStatus.Completed
-			finished = await docker.wait_timeout(runner.total_maximum_runtime_secs)
+			finished = await container.wait_timeout(runner.total_maximum_runtime_secs)
 			if finished is None:
 				# Docker container time timed out
 				testrunner_output.status = TestrunStatus.ContainerTimeout
@@ -108,7 +103,7 @@ class Submission():
 				return testrunner_output
 			_log.debug("Docker container with submission %s exited normally.", str(self))
 
-			logs = await docker.logs()
+			logs = await container.logs()
 			testrunner_output.logs = logs
 			#testrunner_output.dump(verbose = True)
 			if finished != 0:
