@@ -27,7 +27,7 @@ from .BaseAction import BaseAction
 class ActionEmail(BaseAction):
 	def run(self):
 		if (not self._args.force) and os.path.exists(self._args.makomailer_filename):
-			print(f"Refusing to overwrite: {self._args.makomailer_json_filename}", file = sys.stderr)
+			print(f"Refusing to overwrite: {self._args.makomailer_filename}", file = sys.stderr)
 			return 1
 
 		with open(self._args.testrun_filename) as f:
