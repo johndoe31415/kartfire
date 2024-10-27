@@ -34,7 +34,6 @@ class ActionReference(BaseAction):
 		tcr = TestcaseRunner(testcase_collections = [ testcase_collection ], test_fixture_config = test_fixture_config)
 		submission_evaluations = tcr.run([ reference_submission ])
 
-
 		have_answer_cnt = 0
 		new_answer_cnt = 0
 		evaluation = submission_evaluations[0]

@@ -39,6 +39,10 @@ class TestcaseCollection():
 		return testcases_by_name
 
 	@property
+	def requirements(self):
+		return self._testcase_data.get("requires", { })
+
+	@property
 	def testcase_count(self):
 		return len(self._testcases_by_name)
 

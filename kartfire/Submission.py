@@ -73,6 +73,7 @@ class Submission():
 			"testbatches": runner.guest_testbatch_data,
 		}
 
+
 		command = [ local_container_testrunner, local_container_parameter_filename ]
 		if interactive:
 			print(f"Would have run: {' '.join(command)}")
@@ -83,6 +84,13 @@ class Submission():
 
 		async with Docker(docker_executable = runner.config.docker_executable) as docker:
 			network = await docker.create_network()
+
+			# Start all dependent servers (e.g., a server container that the
+			# submission needs to connect to)
+			for (server_alias, server_config) in runner.required_server_containers.items():
+				_log.debug("Starting dependent server %s with config %s.", server_alias, str(server_config))
+				server_container = await docker.create_container(docker_image_name = server_config["image"], command = server_config["command"], network = network, network_alias = server_alias)
+				await server_container.start()
 
 			container = await docker.create_container(docker_image_name = runner.config.docker_container, command = command, network = network, max_memory_mib = runner.config.max_memory_mib, interactive = interactive)
 			await container.cp(self.container_testrunner_filename, local_container_testrunner)

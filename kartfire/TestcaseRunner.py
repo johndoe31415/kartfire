@@ -79,6 +79,20 @@ class TestcaseRunner():
 				testbatch.append([ testcase.guest_data for testcase in batch ])
 		return testbatch
 
+	@functools.cached_property
+	def required_server_containers(self):
+		"""Determine all server containers that are required to test the
+		submission."""
+		requirements = { }
+		for collection in self._testcase_collections:
+			for (requirement_name, requirement_data) in collection.requirements.items():
+				if requirement_name in requirements:
+					if requirement_data != requirements[requirement_name]:
+						raise ValueError("Same network alias used for incompatible image configurations: {requirement_data} and {requirements[requirement_name]}")
+				else:
+					requirements[requirement_name] = requirement_data
+		return requirements
+
 	def _determine_concurrent_process_count(self):
 		host_memory_mib = SystemTools.get_host_memory_mib()
 		usable_ram = round(host_memory_mib * (self._config.host_memory_usage_percent / 100))
