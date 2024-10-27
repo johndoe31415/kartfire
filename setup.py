@@ -6,7 +6,7 @@ with open("README.md") as f:
 setuptools.setup(
 	name = "kartfire",
 	packages = setuptools.find_packages(),
-	version = "0.0.6rc0",
+	version = "0.0.6",
 	license = "gpl-3.0",
 	description = "Toolkit to perform known-answer testing in Docker-isolated environments",
 	long_description = long_description,
@@ -14,7 +14,7 @@ setuptools.setup(
 	author = "Johannes Bauer",
 	author_email = "joe@johannes-bauer.com",
 	url = "https://github.com/johndoe31415/kartfire",
-	download_url = "https://github.com/johndoe31415/kartfire/archive/v0.0.6rc0.tar.gz",
+	download_url = "https://github.com/johndoe31415/kartfire/archive/v0.0.6.tar.gz",
 	keywords = [ "testcase", "runner", "docker" ],
 	install_requires = [
 	],
