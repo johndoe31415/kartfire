@@ -154,6 +154,11 @@ class Docker():
 			self._cleanup_tasks[1].append(network.rm())
 		return network
 
+	def inspect_image(self, image_name: str):
+		cmd = [ self.executable, "image", "inspect", image_name ]
+		output = subprocess.check_output(cmd)
+		return json.loads(output)[0]
+
 	async def __aenter__(self):
 		return self
 

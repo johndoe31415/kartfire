@@ -21,6 +21,7 @@
 
 import collections
 import functools
+import kartfire
 from .TestbatchEvaluation import TestbatchEvaluation
 from .Enums import TestrunStatus, TestcaseStatus
 
@@ -90,6 +91,10 @@ class SubmissionEvaluation():
 			"action_order": self._get_action_order(),
 			"testbatches": [ testbatch_eval.to_dict() for testbatch_eval in self.testbatch_evaluation ],
 			"statistics": self._statistics,
+			"runner": {
+				"kartfire": kartfire.VERSION,
+				"container_environment": self._runner.container_environment,
+			},
 		}
 
 	def __repr__(self):

@@ -25,6 +25,7 @@ import functools
 from .Tools import SystemTools
 from .Exceptions import InternalError
 from .SubmissionEvaluation import SubmissionEvaluation
+from .Docker import Docker
 
 _log = logging.getLogger(__spec__.name)
 
@@ -66,6 +67,15 @@ class TestcaseRunner():
 		timeout += sum(testcase.runtime_allowance_secs for testcase in self)
 		timeout = round(timeout)
 		return timeout
+
+	@functools.cached_property
+	def container_environment(self):
+		docker = Docker(self._config.docker_executable)
+		container_info = docker.inspect_image(self._config.docker_container)
+		return {
+			"image_name": self._config.docker_container,
+			"labels": container_info.get("Config", { }).get("Labels", { })
+		}
 
 	@functools.cached_property
 	def guest_testbatch_data(self):
