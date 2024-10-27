@@ -27,6 +27,7 @@ import collections
 import copy
 import random
 import itertools
+import subprocess
 from .BaseAction import BaseAction
 
 class SubstitutionElement():
@@ -89,6 +90,11 @@ class SubstitutionElement():
 					else:
 						result.sort()
 					yield result
+
+			case "exec":
+				cmd = self._content["command"]
+				for value in json.loads(subprocess.check_output(cmd)):
+					yield value
 
 			case _:
 				raise ValueError(f"Unknown substitution type: {self.subs_type}")
