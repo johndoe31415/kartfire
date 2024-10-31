@@ -155,10 +155,12 @@ class TestbatchEvaluation():
 		testcase = self._runner[testcase_name]
 		if self._status != TestbatchStatus.Completed:
 			testcase_status = TestcaseStatus.TestbatchFailedError
+		elif not isinstance(self._parsed_stdout, dict) or ("responses" not in self._parsed_stdout):
+			testcase_status = TestcaseStatus.NoAnswerProvided
 		else:
-			have_answer = testcase.name in self._parsed_stdout
+			have_answer = testcase.name in self._parsed_stdout["responses"]
 			if have_answer:
-				received_answer = self._parsed_stdout[testcase.name]
+				received_answer = self._parsed_stdout["responses"][testcase.name]
 				expected_answer = testcase.testcase_answer
 				if received_answer == expected_answer:
 					testcase_status = TestcaseStatus.Passed
