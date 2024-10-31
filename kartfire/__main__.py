@@ -26,6 +26,7 @@ from .ActionReference import ActionReference
 from .ActionRender import ActionRender
 from .ActionEmail import ActionEmail
 from .ActionMerge import ActionMerge
+from .ActionPrint import ActionPrint
 
 def main():
 	mc = MultiCommand(description = "Kartfire container testing framework CLI tool.", run_method = True)
@@ -67,6 +68,11 @@ def main():
 		parser.add_argument("source_filename", help = "JSON data that was output from a test run and that will be read.")
 		parser.add_argument("destination_filename", help = "JSON data that was output from a test run and that will be read and written.")
 	mc.register("merge", "Merge run results into one unified file", genparser, action = ActionMerge)
+
+	def genparser(parser):
+		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
+		parser.add_argument("testrun_filename", help = "JSON data that was output from the test run.")
+	mc.register("print", "Print run results on the command line", genparser, action = ActionPrint)
 
 	returncode = mc.run(sys.argv[1:])
 	return (returncode or 0)
