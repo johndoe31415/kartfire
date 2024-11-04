@@ -25,13 +25,43 @@ import kartfire
 from .TestbatchEvaluation import TestbatchEvaluation
 from .Enums import TestrunStatus, TestcaseStatus
 
+class Statistics():
+	def __init__(self, submission_evaluation: "SubmissionEvaluation", group_key_fnc: "callable"):
+		self._submission_evaluation = submission_evaluation
+		self._group_key_fnc = group_key_fnc
+		self._statistics = { }
+		self._compute()
+
+	def _account_statistic_of(self, key: str, testcase_evaluation: "TestcaseEvaluation"):
+		if key not in self._statistics:
+			self._statistics[key] = {
+				"total": 0,
+				"passed": 0,
+				"failed": 0,
+				"breakdown": collections.Counter(),
+			}
+		self._statistics[key]["total"] += 1
+		if testcase_evaluation.status == TestcaseStatus.Passed:
+			self._statistics[key]["passed"] += 1
+		else:
+			self._statistics[key]["failed"] += 1
+		self._statistics[key]["breakdown"][testcase_evaluation.status.name] += 1
+
+	def _compute(self):
+		for testbatch_evaluation in self._submission_evaluation.testbatch_evaluations:
+			for testcase_evaluation in testbatch_evaluation:
+				key = self._group_key_fnc(testcase_evaluation)
+				self._account_statistic_of(key = "*", testcase_evaluation = testcase_evaluation)
+				self._account_statistic_of(key = key, testcase_evaluation = testcase_evaluation)
+
+	def to_dict(self) -> dict:
+		return self._statistics
+
 class SubmissionEvaluation():
 	def __init__(self, testrunner_output: "TestrunnerOutput", runner: "TestcaseRunner", submission: "Submission"):
 		self._testrunner_output = testrunner_output
 		self._runner = runner
 		self._submission = submission
-		self._statistics = { }
-		self._compute_statistics()
 
 	@property
 	def testrun_status(self):
@@ -54,27 +84,6 @@ class SubmissionEvaluation():
 		if self._testrunner_output.status == TestrunStatus.Completed:
 			for testbatch_results in self._testrunner_output:
 				yield TestbatchEvaluation(self._runner, testbatch_results)
-
-	def _account_statistic_of(self, action: str, testcase_evaluation: "TestcaseEvaluation"):
-		if action not in self._statistics:
-			self._statistics[action] = {
-				"total": 0,
-				"passed": 0,
-				"failed": 0,
-				"breakdown": collections.Counter(),
-			}
-		self._statistics[action]["total"] += 1
-		if testcase_evaluation.status == TestcaseStatus.Passed:
-			self._statistics[action]["passed"] += 1
-		else:
-			self._statistics[action]["failed"] += 1
-		self._statistics[action]["breakdown"][testcase_evaluation.status.name] += 1
-
-	def _compute_statistics(self):
-		for testbatch_evaluation in self.testbatch_evaluations:
-			for testcase_evaluation in testbatch_evaluation:
-				self._account_statistic_of(action = "*", testcase_evaluation = testcase_evaluation)
-				self._account_statistic_of(action = testcase_evaluation.testcase.action, testcase_evaluation = testcase_evaluation)
 
 
 	def _get_order_by(self, group_key_fnc: "callable"):
@@ -99,7 +108,8 @@ class SubmissionEvaluation():
 			"action_order": self._get_action_order(),
 			"collection_order": self._get_collection_order(),
 			"testbatches": [ testbatch_eval.to_dict() for testbatch_eval in self.testbatch_evaluations ],
-			"statistics": self._statistics,
+			"statistics_by_action": Statistics(self, group_key_fnc = lambda testcase_evaluation: testcase_evaluation.testcase.action).to_dict(),
+			"statistics_by_collection": Statistics(self, group_key_fnc = lambda testcase_evaluation: testcase_evaluation.testcase.collection_name).to_dict(),
 			"runner": {
 				"kartfire": kartfire.VERSION,
 				"container_environment": self._runner.container_environment,
