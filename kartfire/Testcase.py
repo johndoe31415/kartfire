@@ -41,7 +41,11 @@ class Testcase():
 
 	@property
 	def name(self):
-		return f"{self._collection_name}-{self._testcase_no:03d}"
+		return f"{self.collection_name}-{self._testcase_no:03d}"
+
+	@property
+	def collection_name(self):
+		return self._collection_name
 
 	@property
 	def guest_data(self):
@@ -88,7 +92,7 @@ class Testcase():
 	def to_dict(self):
 		return {
 			"id": self.testcase_id,
-			"collection": self._collection_name,
+			"collection": self.collection_name,
 			"name": self.name,
 			"testcase_data": self.testcase_data,
 			"testcase_answer": self.testcase_answer,

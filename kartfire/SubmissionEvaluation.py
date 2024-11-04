@@ -76,19 +76,28 @@ class SubmissionEvaluation():
 				self._account_statistic_of(action = "*", testcase_evaluation = testcase_evaluation)
 				self._account_statistic_of(action = testcase_evaluation.testcase.action, testcase_evaluation = testcase_evaluation)
 
-	def _get_action_order(self):
+
+	def _get_order_by(self, group_key_fnc: "callable"):
 		order = collections.OrderedDict()
 		for testbatch_evaluation in self.testbatch_evaluations:
 			for testcase_evaluation in testbatch_evaluation:
-				if testcase_evaluation.testcase.action not in order:
-					order[testcase_evaluation.testcase.action] = 1
+				key = group_key_fnc(testcase_evaluation)
+				if key not in order:
+					order[key] = 1
 		return list(order.keys())
+
+	def _get_action_order(self):
+		return self._get_order_by(lambda testcase_evaluation: testcase_evaluation.testcase.action)
+
+	def _get_collection_order(self):
+		return self._get_order_by(lambda testcase_evaluation: testcase_evaluation.testcase.collection_name)
 
 	def to_dict(self):
 		return {
 			"dut": self._submission.to_dict(),
 			"testrun_status": self.testrun_status.name,
 			"action_order": self._get_action_order(),
+			"collection_order": self._get_collection_order(),
 			"testbatches": [ testbatch_eval.to_dict() for testbatch_eval in self.testbatch_evaluations ],
 			"statistics": self._statistics,
 			"runner": {
