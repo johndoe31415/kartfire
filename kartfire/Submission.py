@@ -39,6 +39,10 @@ class Submission():
 			raise InvalidSubmissionException(f"{self._submission_dir} is not a directory")
 
 	@property
+	def shortname(self):
+		return os.path.basename(self._submission_dir)
+
+	@property
 	def container_testrunner_filename(self):
 		return os.path.realpath(os.path.dirname(__file__)) + "/container/container_testrunner"
 
@@ -85,14 +89,16 @@ class Submission():
 		async with Docker(docker_executable = runner.config.docker_executable) as docker:
 			network = await docker.create_network()
 
+			run_prefix = os.path.dirname
+
 			# Start all dependent servers (e.g., a server container that the
 			# submission needs to connect to)
 			for (server_alias, server_config) in runner.required_server_containers.items():
 				_log.debug("Starting dependent server %s with config %s.", server_alias, str(server_config))
-				server_container = await docker.create_container(docker_image_name = server_config["image"], command = server_config["command"], network = network, network_alias = server_alias)
+				server_container = await docker.create_container(docker_image_name = server_config["image"], command = server_config["command"], network = network, network_alias = server_alias, run_name_prefix = f"hlp_{self.shortname}_{server_alias}")
 				await server_container.start()
 
-			container = await docker.create_container(docker_image_name = runner.config.docker_container, command = command, network = network, max_memory_mib = runner.config.max_memory_mib, interactive = interactive)
+			container = await docker.create_container(docker_image_name = runner.config.docker_container, command = command, network = network, max_memory_mib = runner.config.max_memory_mib, interactive = interactive, run_name_prefix = f"run_{self.shortname}")
 			await container.cp(self.container_testrunner_filename, local_container_testrunner)
 			with tempfile.NamedTemporaryFile(suffix = ".tar") as tmp:
 				await self._create_submission_tarfile(tmp.name)

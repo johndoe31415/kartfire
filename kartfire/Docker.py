@@ -119,7 +119,7 @@ class Docker():
 	def executable(self):
 		return self._docker_executable
 
-	async def create_container(self, docker_image_name: str, command: list, network: DockerNetwork, network_alias: str | None = None, max_memory_mib: int | None = None, interactive: bool = False, auto_cleanup: bool = True):
+	async def create_container(self, docker_image_name: str, command: list, network: DockerNetwork, network_alias: str | None = None, max_memory_mib: int | None = None, interactive: bool = False, auto_cleanup: bool = True, run_name_prefix: str | None = None):
 		# Create docker container, but do not start yet
 		cmd = [ self._docker_executable, "create" ]
 		cmd += [ "--network", network.network_id ]
@@ -131,6 +131,9 @@ class Docker():
 			cmd += [ "--network-alias", network_alias ]
 		if max_memory_mib is not None:
 			cmd += [ f"--memory={max_memory_mib}m" ]
+		if run_name_prefix is not None:
+			run_name = f"{run_name_prefix}_{os.urandom(8).hex()}"
+			cmd += [ "--name", run_name ]
 		cmd += [ docker_image_name ]
 		cmd += command
 		container_id = (await ExecTools.async_check_output(cmd)).decode("ascii").rstrip("\r\n")
