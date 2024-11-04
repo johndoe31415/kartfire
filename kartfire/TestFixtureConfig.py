@@ -96,3 +96,7 @@ class TestFixtureConfig():
 	@property
 	def testbatch_maxsize(self):
 		return self._config.get("testbatch_maxsize", 1)
+
+	@testbatch_maxsize.setter
+	def testbatch_maxsize(self, value: int):
+		self._config["testbatch_maxsize"] = value

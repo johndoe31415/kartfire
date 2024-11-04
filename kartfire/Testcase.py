@@ -80,9 +80,14 @@ class Testcase():
 	def runtime_allowance_secs_unscaled(self):
 		return self._tc["runtime_allowance_secs"]
 
+	@runtime_allowance_secs_unscaled.setter
+	def runtime_allowance_secs_unscaled(self, value: float):
+		self._tc["runtime_allowance_secs"] = value
+
 	def to_dict(self):
 		return {
 			"id": self.testcase_id,
+			"name": self.name,
 			"testcase_data": self.testcase_data,
 			"testcase_answer": self.testcase_answer,
 			"runtime_allowance_secs": self.runtime_allowance_secs,

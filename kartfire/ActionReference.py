@@ -29,6 +29,7 @@ from .Enums import TestrunStatus, TestbatchStatus, TestcaseStatus
 class ActionReference(BaseAction):
 	def _run_testcase_filename(self, testcase_filename: str):
 		test_fixture_config = TestFixtureConfig.load_from_file(self._args.test_fixture_config)
+		test_fixture_config.testbatch_maxsize = 1
 		testcase_collection = TestcaseCollection.load_from_file(testcase_filename, test_fixture_config)
 		reference_submission = Submission(self._args.reference_submission_dir)
 		tcr = TestcaseRunner(testcase_collections = [ testcase_collection ], test_fixture_config = test_fixture_config)
@@ -59,20 +60,19 @@ class ActionReference(BaseAction):
 		total_answer_cnt = have_answer_cnt + new_answer_cnt
 		print(f"{testcase_filename}: Already had correct answer for {have_answer_cnt} / {total_answer_cnt} testcases, found {new_answer_cnt} new.")
 
-		if new_answer_cnt == 0:
-			print(f"{testcase_filename}: No new test case answers to add.")
+		if self._args.commit:
+			for testbatch_evaluation in evaluation.testbatch_evaluation:
+				for testcase_evaluation in testbatch_evaluation:
+					testcase = testcase_evaluation.testcase
+					if testcase.testcase_answer != testcase_evaluation.received_answer:
+						testcase.testcase_answer = testcase_evaluation.received_answer
+					if testbatch_evaluation.testcase_count == 1:
+						testcase.runtime_allowance_secs_unscaled = testbatch_evaluation.runtime_secs
+
+
+			testcase_collection.write_to_file(testcase_filename)
 		else:
-			if self._args.commit:
-				for testbatch_evaluation in evaluation.testbatch_evaluation:
-					for testcase_evaluation in testbatch_evaluation:
-						testcase = testcase_evaluation.testcase
-						if testcase.testcase_answer != testcase_evaluation.received_answer:
-							testcase.testcase_answer = testcase_evaluation.received_answer
-
-
-				testcase_collection.write_to_file(testcase_filename)
-			else:
-				print(f"{testcase_filename}: Not commiting results.")
+			print(f"{testcase_filename}: Not commiting results.")
 
 	def run(self):
 		for testcase_filename in self._args.testcase_filename:
