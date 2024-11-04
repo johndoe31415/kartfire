@@ -4,20 +4,28 @@ import sys
 
 testcase_file = sys.argv[1]
 with open(testcase_file) as f:
-	testcase = json.load(f)
+	testcases = json.load(f)
 
-match testcase["action"]:
-	case "add":
-		result = { "sum": testcase["a"] + testcase["b"] }
+responses = { }
 
-	case "sub":
-		result = { "difference": testcase["a"] - testcase["b"] }
+for (key, testcase) in testcases["testcases"].items():
+	match testcase["action"]:
+		case "add":
+			result = { "sum": testcase["a"] + testcase["b"] }
 
-	case "mul":
-		result = { "product": testcase["a"] * testcase["b"] }
+		case "sub":
+			result = { "difference": testcase["a"] - testcase["b"] }
 
-	case _:
-		raise Exception(f"Unsupported testcase action: {testcase['action']}")
+		case "mul":
+			result = { "product": testcase["a"] * testcase["b"] }
+
+		case _:
+			raise Exception(f"Unsupported testcase action: {testcase['action']}")
+	responses[key] = result
+
+answer = {
+	"responses": responses,
+}
 
 print("This comment should be ignored.", file = sys.stderr)
-print(json.dumps(result))
+print(json.dumps(answer))

@@ -9,6 +9,6 @@
 	"host_memory_usage_percent": 125,
 	"max_concurrent_processes": 24,
 	"minimum_testcase_time": 0.5,
-	"reference_time_factor": 40,
+	"reference_time_factor": 3.1415,
 	"allow_network": false
 }

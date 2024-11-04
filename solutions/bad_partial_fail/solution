@@ -14,7 +14,7 @@ for (key, testcase) in testcases["testcases"].items():
 			result = { "sum": testcase["a"] + testcase["b"] }
 
 		case "sub":
-			result = { "difference": testcase["a"] - testcase["b"] }
+			SYNTAX_ERROR
 
 		case "mul":
 			result = { "product": testcase["a"] * testcase["b"] }
@@ -27,5 +27,5 @@ answer = {
 	"responses": responses,
 }
 
-print("This comment unfortunately appears on stdout, rendering the following output unparsable.")
+print("This comment should be ignored.", file = sys.stderr)
 print(json.dumps(answer))
