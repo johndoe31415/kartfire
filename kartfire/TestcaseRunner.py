@@ -78,15 +78,14 @@ class TestcaseRunner():
 		}
 
 	@functools.cached_property
-	def guest_testbatch_data(self):
+	def guest_testcase_data(self):
 		"""This is the test data that ends up directly inside the runner. It
 		may not contain the correct answers. Automatically groups collections
 		in own batches and packs up to testbatch_maxsize testcases into each
 		batch."""
 		testbatch = [ ]
 		for collection in self._testcase_collections:
-			for batch in collection.get_batched(self._config.testbatch_maxsize):
-				testbatch.append([ testcase.guest_data for testcase in batch ])
+			testbatch += [ testcase.guest_data for testcase in collection ]
 		return testbatch
 
 	@functools.cached_property

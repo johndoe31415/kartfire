@@ -32,7 +32,7 @@ class ResultPrinter():
 	def print_result(self, repo_name: str):
 		solution = self._results_by_repo[repo_name]
 		basename = os.path.basename(repo_name)
-		print(f"{basename:>20s}: {solution['statistics']['*']['passed']} / {solution['statistics']['*']['total']} {100 * solution['statistics']['*']['passed'] / solution['statistics']['*']['total']:.1f}%")
+		print(f"{basename:>20s}: {solution['statistics_by_action']['*']['passed']} / {solution['statistics_by_action']['*']['total']} {100 * solution['statistics_by_action']['*']['passed'] / solution['statistics_by_action']['*']['total']:.1f}%")
 
 	def print(self):
 		for repo_name in sorted(self._results_by_repo):

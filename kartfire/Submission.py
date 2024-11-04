@@ -72,11 +72,11 @@ class Submission():
 				"solution_name":				runner.config.solution_name,
 				"local_dut_dir":				"/dut",
 				"local_testcase_filename":		"/local_testcases.json",
+				"max_testbatch_size":			runner.config.testbatch_maxsize,
 				"debug":						interactive,
 			},
-			"testbatches": runner.guest_testbatch_data,
+			"testcases": runner.guest_testcase_data,
 		}
-
 
 		command = [ local_container_testrunner, local_container_parameter_filename ]
 		if interactive:
