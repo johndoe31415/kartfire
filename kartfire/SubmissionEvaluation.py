@@ -39,18 +39,18 @@ class SubmissionEvaluation():
 
 	@functools.cached_property
 	def testcase_count(self):
-		return sum(testbatch_evaluation.testcase_count for testbatch_evaluation in self.testbatch_evaluation)
+		return sum(testbatch_evaluation.testcase_count for testbatch_evaluation in self.testbatch_evaluations)
 
 	@functools.cached_property
 	def passed_testcase_count(self):
-		return sum(testbatch_evaluation.passed_testcase_count for testbatch_evaluation in self.testbatch_evaluation)
+		return sum(testbatch_evaluation.passed_testcase_count for testbatch_evaluation in self.testbatch_evaluations)
 
 	@property
 	def failed_testcase_count(self):
 		return self.testcase_count - self.passed_testcase_count
 
 	@property
-	def testbatch_evaluation(self):
+	def testbatch_evaluations(self):
 		if self._testrunner_output.status == TestrunStatus.Completed:
 			for testbatch_results in self._testrunner_output:
 				yield TestbatchEvaluation(self._runner, testbatch_results)
@@ -71,17 +71,17 @@ class SubmissionEvaluation():
 		self._statistics[action]["breakdown"][testcase_evaluation.status.name] += 1
 
 	def _compute_statistics(self):
-		for testbatch_evaluations in self.testbatch_evaluation:
-			for testcase_evaluation in testbatch_evaluations:
+		for testbatch_evaluation in self.testbatch_evaluations:
+			for testcase_evaluation in testbatch_evaluation:
 				self._account_statistic_of(action = "*", testcase_evaluation = testcase_evaluation)
 				self._account_statistic_of(action = testcase_evaluation.testcase.action, testcase_evaluation = testcase_evaluation)
 
 	def _get_action_order(self):
 		order = collections.OrderedDict()
-		for testbatch_evaluation in self.testbatch_evaluation:
-			for testcase in testbatch_evaluation:
-				if testcase.testcase.action not in order:
-					order[testcase.testcase.action] = 1
+		for testbatch_evaluation in self.testbatch_evaluations:
+			for testcase_evaluation in testbatch_evaluation:
+				if testcase_evaluation.testcase.action not in order:
+					order[testcase_evaluation.testcase.action] = 1
 		return list(order.keys())
 
 	def to_dict(self):
@@ -89,7 +89,7 @@ class SubmissionEvaluation():
 			"dut": self._submission.to_dict(),
 			"testrun_status": self.testrun_status.name,
 			"action_order": self._get_action_order(),
-			"testbatches": [ testbatch_eval.to_dict() for testbatch_eval in self.testbatch_evaluation ],
+			"testbatches": [ testbatch_eval.to_dict() for testbatch_eval in self.testbatch_evaluations ],
 			"statistics": self._statistics,
 			"runner": {
 				"kartfire": kartfire.VERSION,
