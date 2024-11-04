@@ -23,8 +23,9 @@ from .Exceptions import InvalidTestcaseException
 from .Tools import JSONTools
 
 class Testcase():
-	def __init__(self, name: str, testcase: dict, test_fixture_config: "TestFixtureConfig"):
-		self._name = name
+	def __init__(self, collection_name: str, testcase_no: int, testcase: dict, test_fixture_config: "TestFixtureConfig"):
+		self._collection_name = collection_name
+		self._testcase_no = testcase_no
 		if not isinstance(testcase, dict):
 			raise InvalidTestcaseException("Testcase definition must be a dictionary.")
 		if "testcase_data" not in testcase:
@@ -40,7 +41,7 @@ class Testcase():
 
 	@property
 	def name(self):
-		return self._name
+		return f"{self._collection_name}-{self._testcase_no:03d}"
 
 	@property
 	def guest_data(self):
@@ -87,8 +88,10 @@ class Testcase():
 	def to_dict(self):
 		return {
 			"id": self.testcase_id,
+			"collection": self._collection_name,
 			"name": self.name,
 			"testcase_data": self.testcase_data,
 			"testcase_answer": self.testcase_answer,
 			"runtime_allowance_secs": self.runtime_allowance_secs,
+			"runtime_allowance_secs_unscaled": self.runtime_allowance_secs_unscaled,
 		}

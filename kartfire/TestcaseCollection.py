@@ -33,10 +33,13 @@ class TestcaseCollection():
 	def _generate_testcases_dict(self) -> dict:
 		testcases_by_name = collections.OrderedDict()
 		for (testcase_no, testcase_data) in enumerate(self._testcase_data["content"], 1):
-			testcase_name = f"{self._testcase_data['meta']['name']}-{testcase_no:03d}"
-			testcase = Testcase(testcase_name, testcase_data, self._config)
+			testcase = Testcase(self.collection_name, testcase_no, testcase_data, self._config)
 			testcases_by_name[testcase.name] = testcase
 		return testcases_by_name
+
+	@property
+	def collection_name(self):
+		return self._testcase_data["meta"]["name"]
 
 	@property
 	def requirements(self):
