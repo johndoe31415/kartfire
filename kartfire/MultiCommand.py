@@ -131,7 +131,7 @@ class MultiCommand():
 		if parseresult.cmd.action is None:
 			raise Exception("Should run command '%s', but no action was registered." % (parseresult.cmd.name))
 		result = parseresult.cmd.action(parseresult.cmd.name, parseresult.args)
-		if self._run_method:
+		if self._run_method and not isinstance(result, int):
 			result = result.run()
 		return result
 
