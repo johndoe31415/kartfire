@@ -17,6 +17,8 @@ setuptools.setup(
 	download_url = "https://github.com/johndoe31415/kartfire/archive/v${PACKAGE_VERSION}.tar.gz",
 	keywords = [ "testcase", "runner", "docker" ],
 	install_requires = [
+		"tzlocal",
+		"pytz",
 	],
 	entry_points = {
 		"console_scripts": [
