@@ -20,10 +20,10 @@
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
 from .BaseAction import BaseAction
-from .ResultPrinter import ResultPrinter
+from .ResultPrinter import ResultPrinter, StatisticsPrinter
 
 class ActionPrint(BaseAction):
 	def run(self):
-		result_printer = ResultPrinter.from_file(self._args.testrun_filename)
+		result_printer = ResultPrinter.from_file(self._args.testrun_filename, include_which_stats = StatisticsPrinter.ShowOnlyFailed)
 		result_printer.print()
 		return 0
