@@ -108,7 +108,7 @@ class ContainerTestrunner():
 	def _run_setup(self):
 		setup_exec = f"{self.meta['local_dut_dir']}/{self.meta['setup_name']}"
 		if os.path.exists(setup_exec):
-			return self._exec([ setup_exec ], timeout = self.meta["max_setup_time_secs"])
+			return self._exec([ setup_exec ], timeout_secs = self.meta["max_setup_time_secs"])
 
 	def _run_testbatch(self, testbatch: list[dict], subtract_time_secs: float = 0):
 		with open(self.meta["local_testcase_filename"], "w") as f:
