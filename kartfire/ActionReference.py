@@ -42,7 +42,7 @@ class ActionReference(BaseAction):
 			print(f"{testcase_filename}: Refusing to use a reference with testrun status {evaluation.testrun_status.name}")
 			return
 
-		for testbatch_evaluation in evaluation.testbatch_evaluation:
+		for testbatch_evaluation in evaluation.testbatch_evaluations:
 			if testbatch_evaluation.status != TestbatchStatus.Completed:
 				print(f"{testcase_filename}: Refusing to use a reference with testbatch status {testbatch_evaluation.status.name}")
 				return
@@ -61,7 +61,7 @@ class ActionReference(BaseAction):
 		print(f"{testcase_filename}: Already had correct answer for {have_answer_cnt} / {total_answer_cnt} testcases, found {new_answer_cnt} new.")
 
 		if self._args.commit:
-			for testbatch_evaluation in evaluation.testbatch_evaluation:
+			for testbatch_evaluation in evaluation.testbatch_evaluations:
 				for testcase_evaluation in testbatch_evaluation:
 					testcase = testcase_evaluation.testcase
 					if testcase.testcase_answer != testcase_evaluation.received_answer:
