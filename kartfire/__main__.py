@@ -70,6 +70,8 @@ def main():
 	mc.register("merge", "Merge run results into one unified file", genparser, action = ActionMerge)
 
 	def genparser(parser):
+		parser.add_argument("-s", "--search", metavar = "search_term", action = "append", default = [ ], help = "Search term to search for repository owner (if available) and repository basename.")
+		parser.add_argument("-n", "--max-failed-testcase-count", metavar = "count", type = int, default = 1, help = "Show full testcase data (input, output, expected output) for this number of failed testcases.")
 		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
 		parser.add_argument("testrun_filename", help = "JSON data that was output from the test run.")
 	mc.register("print", "Print run results on the command line", genparser, action = ActionPrint)
