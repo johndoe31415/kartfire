@@ -28,10 +28,46 @@ import tzlocal
 from .Enums import TestcaseStatus
 from .TimeDelta import TimeDelta
 
+class ResultColorizer():
+	def __init__(self, ansi: bool = True):
+		self._ansi = ansi
+
+	@property
+	def clr(self):
+		return "\x1b[0m" if self._ansi else ""
+
+	@property
+	def red(self):
+		return "\x1b[31m" if self._ansi else ""
+
+	@property
+	def green(self):
+		return "\x1b[32m" if self._ansi else ""
+
+	@property
+	def yellow(self):
+		return "\x1b[33m" if self._ansi else ""
+
+	def ratio(self, ratio: float):
+		if ratio < 0:
+			ratio = 0
+		elif ratio > 1:
+			ratio = 1
+		if ratio < 0.66:
+			return self.red
+		elif ratio < 1:
+			return self.yellow
+		else:
+			return self.green
+
 class SubmissionResultPrinter():
 	def __init__(self, result_printer: "ResultPrinter", submission_results: dict):
 		self._result_printer = result_printer
 		self._submission_results = submission_results
+
+	@property
+	def col(self):
+		return self._result_printer.colorizer
 
 	@property
 	def repo_dir(self):
@@ -75,9 +111,10 @@ class SubmissionResultPrinter():
 
 	def print_result(self):
 		if "*" in self._submission_results["statistics_by_action"]:
-			print(f"{self.repo_name} {self.git_text}: {self._submission_results['statistics_by_action']['*']['passed']} / {self._submission_results['statistics_by_action']['*']['total']} {100 * self._submission_results['statistics_by_action']['*']['passed'] / self._submission_results['statistics_by_action']['*']['total']:.1f}%")
+			ratio = self._submission_results["statistics_by_action"]["*"]["passed"] / self._submission_results["statistics_by_action"]["*"]["total"]
+			print(f"{self.repo_name} {self.git_text}: {self.col.ratio(ratio)}{self._submission_results['statistics_by_action']['*']['passed']} / {self._submission_results['statistics_by_action']['*']['total']} {100 * ratio:.1f}%{self.col.clr}")
 		else:
-			print(f"{self.repo_name} {self.git_text}: no data available")
+			print(f"{self.repo_name} {self.git_text}: {self.col.red}no data available{self.col.clr}")
 
 	def print_statistics(self, statistics: dict, order: list, prefix: str):
 		for item in order:
@@ -88,7 +125,8 @@ class SubmissionResultPrinter():
 				show_this = True
 
 			if show_this:
-				print(f"    {prefix} {item}: {stats['passed']} / {stats['total']} {100 * stats['passed'] / stats['total']:.1f}%")
+				ratio = stats["passed"] / stats["total"]
+				print(f"    {prefix} {item}: {self.col.ratio(ratio)}{stats['passed']} / {stats['total']} {100 * ratio:.1f}%{self.col.clr}")
 
 	def print_result_by_collection(self):
 		self.print_statistics(self._submission_results["statistics_by_collection"], order = self._submission_results["collection_order"], prefix = "Collection")
@@ -112,7 +150,7 @@ class SubmissionResultPrinter():
 					if first_failed_key or print_specific_key:
 						reasons = [ ]
 						if "proc_details" in testbatch:
-							if testbatch["proc_details"]["returncode"] != 0:
+							if ("returncode" in testbatch["proc_details"]) and (testbatch["proc_details"]["returncode"] != 0):
 								reasons.append(f"return code {testbatch['proc_details']['returncode']}")
 							try:
 								json.loads(testbatch["proc_details"]["stdout"])
@@ -163,6 +201,11 @@ class ResultPrinter():
 		self._results_by_repo_dir = { }
 		for solution in self._results["content"]:
 			self._results_by_repo_dir[solution["dut"]["dirname"]] = solution
+		self._colorizer = ResultColorizer()
+
+	@property
+	def colorizer(self):
+		return self._colorizer
 
 	@property
 	def show_only_failed(self):
