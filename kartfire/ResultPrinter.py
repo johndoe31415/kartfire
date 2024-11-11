@@ -109,10 +109,24 @@ class SubmissionResultPrinter():
 		else:
 			return "-"
 
+	def _ratio_by_collection(self):
+		passed = 0
+		total_cnt = len(self._submission_results["statistics_by_collection"]) - 1
+		for (name, stats) in self._submission_results["statistics_by_collection"].items():
+			if name == "*":
+				continue
+			if stats["passed"] == stats["total"]:
+				passed += 1
+		if total_cnt > 0:
+			return (passed, total_cnt, passed / total_cnt)
+		else:
+			return (0, 0, 0)
+
 	def print_result(self):
 		if "*" in self._submission_results["statistics_by_action"]:
 			ratio = self._submission_results["statistics_by_action"]["*"]["passed"] / self._submission_results["statistics_by_action"]["*"]["total"]
-			print(f"{self.repo_name} {self.git_text}: {self.col.ratio(ratio)}{self._submission_results['statistics_by_action']['*']['passed']} / {self._submission_results['statistics_by_action']['*']['total']} {100 * ratio:.1f}%{self.col.clr}")
+			(collection_pass, collection_total, collection_ratio) = self._ratio_by_collection()
+			print(f"{self.repo_name} {self.git_text}: {self.col.ratio(ratio)}{self._submission_results['statistics_by_action']['*']['passed']} / {self._submission_results['statistics_by_action']['*']['total']} {100 * ratio:.1f}%{self.col.clr}, {self.col.ratio(collection_ratio)}{collection_pass} / {collection_total} collections ({collection_ratio * 100:.1f}%){self.col.clr}")
 		else:
 			print(f"{self.repo_name} {self.git_text}: {self.col.red}no data available{self.col.clr}")
 
