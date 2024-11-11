@@ -50,7 +50,7 @@ class SubmissionResultPrinter():
 
 	@property
 	def submission_owner(self):
-		if "kartfire" in self._submission_results["dut"]["meta"]["json"]:
+		if "kartfire" in self._submission_results["dut"]["meta"].get("json", { }):
 			return self._submission_results['dut']['meta']['json']['kartfire']['name']
 		else:
 			return None
@@ -110,10 +110,15 @@ class SubmissionResultPrinter():
 					first_failed_key = failed_keys[key] == 1
 					print_specific_key =  failed_keys[key] <= self._result_printer.show_max_testcase_details_count
 					if first_failed_key or print_specific_key:
-						if status == TestcaseStatus.TestbatchFailedError:
-							print(f"    Testcase {testcase['definition']['name']} failed with status {status.name} (return code TODO) after {testbatch['runtime_secs']:.0f} secs")
-						else:
-							print(f"    Testcase {testcase['definition']['name']} failed with status {status.name}")
+						reasons = [ ]
+						if "proc_details" in testbatch:
+							if testbatch["proc_details"]["returncode"] != 0:
+								reasons.append(f"return code {testbatch['proc_details']['returncode']}")
+							try:
+								json.loads(testbatch["proc_details"]["stdout"])
+							except json.decoder.JSONDecodeError:
+								reasons.append("no valid JSON on stdout")
+						print(f"    Testcase {testcase['definition']['name']} failed with status {status.name} after {testbatch['runtime_secs']:.0f} secs: {', '.join(reasons) if len(reasons) > 0 else 'unspecified reason'}")
 						if print_specific_key:
 							if status == TestcaseStatus.FailedWrongAnswer:
 								print(json.dumps(testcase["definition"]["testcase_data"], indent = "\t"))
@@ -184,6 +189,10 @@ class ResultPrinter():
 		for repo_dir in sorted(self._results_by_repo_dir):
 			submission_results = self._results_by_repo_dir[repo_dir]
 			yield SubmissionResultPrinter(self, submission_results)
+
+	def print_all(self):
+		for submission_result in self.submission_results:
+			submission_result.print()
 
 	@classmethod
 	def from_file(cls, json_filename: str, **kwargs):

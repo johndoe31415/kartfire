@@ -187,6 +187,7 @@ class TestbatchEvaluation():
 				"stderr_truncated": len(stderr) != self._result["results"]["stderr_length"],
 
 				"exception_msg": self._result["results"]["exception_msg"],
+				"returncode": self._result["results"]["returncode"],
 			}
 
 	def __iter__(self):

@@ -29,6 +29,7 @@ from .TestcaseCollection import TestcaseCollection
 from .StateFile import StateFile
 from .Submission import Submission
 from .BaseAction import BaseAction
+from .ResultPrinter import ResultPrinter
 
 class ActionRun(BaseAction):
 	def _get_submission_directories(self):
@@ -68,4 +69,7 @@ class ActionRun(BaseAction):
 				"content": [ submission_evaluation.to_dict() for submission_evaluation in submission_evaluations ],
 			}
 			json.dump(result_file, f)
+
+		result_printer = ResultPrinter(result_file)
+		result_printer.print_all()
 		return 0
