@@ -108,19 +108,31 @@ class SubmissionResultPrinter():
 					key = (action, status)
 					failed_keys[key] += 1
 					first_failed_key = failed_keys[key] == 1
-					print_specific_key = (status == TestcaseStatus.FailedWrongAnswer) and (failed_keys[key] <= self._result_printer.show_max_testcase_details_count)
+					print_specific_key =  failed_keys[key] <= self._result_printer.show_max_testcase_details_count
 					if first_failed_key or print_specific_key:
-						print(f"    Testcase {testcase['definition']['name']} failed with status {status.name}")
+						if status == TestcaseStatus.TestbatchFailedError:
+							print(f"    Testcase {testcase['definition']['name']} failed with status {status.name} (return code TODO) after {testbatch['runtime_secs']:.0f} secs")
+						else:
+							print(f"    Testcase {testcase['definition']['name']} failed with status {status.name}")
 						if print_specific_key:
-							print(json.dumps(testcase["definition"]["testcase_data"], indent = "\t"))
-							print()
-							print("Expected answer:")
-							print(json.dumps(testcase["definition"]["testcase_answer"], indent = "\t"))
-							print()
-							print("Received answer:")
-							print(json.dumps(testcase["received_answer"], indent = "\t"))
-							print()
-							print("-" * 120)
+							if status == TestcaseStatus.FailedWrongAnswer:
+								print(json.dumps(testcase["definition"]["testcase_data"], indent = "\t"))
+								print()
+								print("Expected answer:")
+								print(json.dumps(testcase["definition"]["testcase_answer"], indent = "\t"))
+								print()
+								print("Received answer:")
+								print(json.dumps(testcase["received_answer"], indent = "\t"))
+								print()
+								print("-" * 120)
+							elif status == TestcaseStatus.TestbatchFailedError:
+								print("stdout:")
+								print(testbatch["proc_details"]["stdout"].strip("\r\n"))
+								print()
+								print("stderr:")
+								print(testbatch["proc_details"]["stderr"].strip("\r\n"))
+								print("-" * 120)
+
 						#passelif status == TestcaseStatus.FailedWrongAnswer:
 
 	def print(self):
