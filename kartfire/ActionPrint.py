@@ -29,7 +29,7 @@ class ActionPrint(BaseAction):
 		return all(matches(search_term) for search_term in self._args.search)
 
 	def run(self):
-		result_printer = ResultPrinter.from_file(self._args.testrun_filename, show_only_failed = self._args.verbose < 4, show_results_by_collection = self._args.verbose >= 1, show_results_by_action = self._args.verbose >= 3, show_failed_testcases = self._args.verbose >= 2, show_max_testcase_details_count = self._args.max_failed_testcase_count)
+		result_printer = ResultPrinter.from_file(self._args.testrun_filename, show_only_failed = self._args.details < 4, show_results_by_collection = self._args.details >= 1, show_results_by_action = self._args.details >= 3, show_failed_testcases = self._args.details >= 2, show_max_testcase_details_count = self._args.max_failed_testcase_count)
 		for submission_result in result_printer.submission_results:
 			if self._show_submission(submission_result):
 				submission_result.print()
