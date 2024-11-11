@@ -79,7 +79,7 @@ class SubmissionResultPrinter():
 		else:
 			print(f"{self.repo_name} {self.git_text}: no data available")
 
-	def print_statistics(self, statistics: dict, order: list):
+	def print_statistics(self, statistics: dict, order: list, prefix: str):
 		for item in order:
 			stats = statistics[item]
 			if self._result_printer.show_only_failed:
@@ -88,10 +88,13 @@ class SubmissionResultPrinter():
 				show_this = True
 
 			if show_this:
-				print(f"    {item}: {stats['passed']} / {stats['total']} {100 * stats['passed'] / stats['total']:.1f}%")
+				print(f"    {prefix} {item}: {stats['passed']} / {stats['total']} {100 * stats['passed'] / stats['total']:.1f}%")
 
 	def print_result_by_collection(self):
-		self.print_statistics(self._submission_results["statistics_by_collection"], order = self._submission_results["collection_order"])
+		self.print_statistics(self._submission_results["statistics_by_collection"], order = self._submission_results["collection_order"], prefix = "Collection")
+
+	def print_result_by_action(self):
+		self.print_statistics(self._submission_results["statistics_by_action"], order = self._submission_results["action_order"], prefix = "Action")
 
 	def print_failed_testcases(self):
 		failed_keys = collections.Counter()
@@ -122,9 +125,14 @@ class SubmissionResultPrinter():
 
 	def print(self):
 		self.print_result()
-		self.print_result_by_collection()
-		self.print_failed_testcases()
-		print()
+		if self._result_printer.show_results_by_collection:
+			self.print_result_by_collection()
+		if self._result_printer.show_results_by_action:
+			self.print_result_by_action()
+		if self._result_printer.show_failed_testcases:
+			self.print_failed_testcases()
+		if self._result_printer.show_results_by_collection or self._result_printer.show_results_by_action or self._result_printer.show_failed_testcases:
+			print()
 
 
 class ResultPrinter():
