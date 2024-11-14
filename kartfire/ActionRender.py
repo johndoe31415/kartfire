@@ -48,6 +48,24 @@ class SubstitutionElement():
 	def enacted_value(self, value):
 		self._enacted_value = value
 
+	def _get_length(self, data_dict: dict, prefix: str = ""):
+		fixed_length_name = f"{prefix}length"
+		min_length_name = f"{prefix}minlength"
+		max_length_name = f"{prefix}maxlength"
+		mul_length_name = f"{prefix}lengthmul"
+
+		if fixed_length_name in data_dict:
+			length = data_dict[fixed_length_name]
+		elif (min_length_name in data_dict) and (max_length_name in data_dict):
+			# Random length
+			length = random.randint(data_dict[min_length_name], data_dict[max_length_name])
+		else:
+			raise ValueError(f"Cannot determine length, expected fields {fixed_length_name} or {min_length_name} and {max_length_name}.")
+		if mul_length_name in data_dict:
+			length *= data_dict[mul_length_name]
+		return length
+
+
 	def __iter__(self):
 		match self.subs_type:
 			case "enumeration":
@@ -61,15 +79,20 @@ class SubstitutionElement():
 				count = self._content.get("count", 1)
 
 				for count in range(count):
-					if "length" in self._content:
-						length = self._content["length"]
-					else:
-						length = random.randint(self._content["minlength"], self._content["maxlength"])
-					if "lengthmul" in self._content:
-						length *= self._content["lengthmul"]
-
+					length = self._get_length(self._content)
 					rand_data = os.urandom(length)
 					yield base64.b64encode(rand_data).decode("ascii")
+
+			case "list-of-rand-base64":
+				count = self._content.get("count", 1)
+				for count in range(count):
+					list_length = self._get_length(self._content, prefix = "list-")
+					random_list = [ ]
+					for _ in range(list_length):
+						data_length = self._get_length(self._content, prefix = "data-")
+						rand_data = os.urandom(data_length)
+						random_list.append(base64.b64encode(rand_data).decode("ascii"))
+					yield random_list
 
 			case "int-set":
 				minlen = self._content.get("minlen", 0)
