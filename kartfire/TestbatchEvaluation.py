@@ -130,9 +130,9 @@ class TestbatchEvaluation():
 		if self._result is None:
 			self._status = TestbatchStatus.ErrorTestrunFailed
 		else:
-			if self._result["results"]["timeout"]:
+			if self._result["results"].get("timeout", False):
 				self._status = TestbatchStatus.ProcessTimeout
-			elif self._result["results"]["returncode"] is None:
+			elif self._result["results"].get("returncode") is None:
 				self._status = TestbatchStatus.ErrorTestrunFailed
 			elif self._result["results"]["returncode"] != 0:
 				self._status = TestbatchStatus.ErrorStatusCode
@@ -148,7 +148,7 @@ class TestbatchEvaluation():
 		if self._result is None:
 			return 0
 		else:
-			return self._result["results"]["runtime_secs"]
+			return self._result["results"].get("runtime_secs", 0)
 
 	def get_testcase_result(self, testcase_name: str):
 		received_answer = None
@@ -175,19 +175,19 @@ class TestbatchEvaluation():
 		if self._result is None:
 			return None
 		else:
-			stdout = base64.b64decode(self._result["results"]["stdout"])
-			stderr = base64.b64decode(self._result["results"]["stderr"])
+			stdout = base64.b64decode(self._result["results"].get("stdout", ""))
+			stderr = base64.b64decode(self._result["results"].get("stderr", ""))
 			return {
 				"stdout": stdout.decode("utf-8", errors = "replace"),
-				"stdout_length": self._result["results"]["stdout_length"],
-				"stdout_truncated": len(stdout) != self._result["results"]["stdout_length"],
+				"stdout_length": self._result["results"].get("stdout_length", 0),
+				"stdout_truncated": len(stdout) != self._result["results"].get("stdout_length", 0),
 
 				"stderr": stderr.decode("utf-8", errors = "replace"),
-				"stderr_length": self._result["results"]["stderr_length"],
-				"stderr_truncated": len(stderr) != self._result["results"]["stderr_length"],
+				"stderr_length": self._result["results"].get("stderr_length", 0),
+				"stderr_truncated": len(stderr) != self._result["results"].get("stderr_length", 0),
 
 				"exception_msg": self._result["results"]["exception_msg"],
-				"returncode": self._result["results"]["returncode"],
+				"returncode": self._result["results"].get("returncode", -1),
 			}
 
 	def __iter__(self):

@@ -85,7 +85,6 @@ class SubmissionEvaluation():
 			for testbatch_results in self._testrunner_output:
 				yield TestbatchEvaluation(self._runner, testbatch_results)
 
-
 	def _get_order_by(self, group_key_fnc: "callable"):
 		order = collections.OrderedDict()
 		for testbatch_evaluation in self.testbatch_evaluations:
@@ -102,8 +101,10 @@ class SubmissionEvaluation():
 		return self._get_order_by(lambda testcase_evaluation: testcase_evaluation.testcase.collection_name)
 
 	def to_dict(self):
+		print(self._testrunner_output.parsed)
 		return {
 			"dut": self._submission.to_dict(),
+			"setup": None if (self._testrunner_output.parsed is None) else self._testrunner_output.parsed["setup"],
 			"testrun_status": self.testrun_status.name,
 			"action_order": self._get_action_order(),
 			"collection_order": self._get_collection_order(),

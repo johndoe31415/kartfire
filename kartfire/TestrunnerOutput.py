@@ -32,9 +32,13 @@ class TestrunnerOutput():
 	@property
 	def testcase_count(self):
 		if self._parsed is not None:
-			return len(self._parsed["testcase_results"])
+			return len(self.parsed["testcase_results"])
 		else:
 			return 0
+
+	@property
+	def parsed(self):
+		return self._parsed
 
 	@property
 	def status(self):
@@ -63,8 +67,8 @@ class TestrunnerOutput():
 		print(self._stderr.decode("ascii", errors = "ignore"))
 
 	def __iter__(self):
-		if self._parsed is not None:
-			return iter(self._parsed["testcase_results"])
+		if self.parsed is not None:
+			return iter(self.parsed["testcase_results"])
 		else:
 			return iter([ ])
 
