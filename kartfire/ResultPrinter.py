@@ -164,7 +164,9 @@ class SubmissionResultPrinter():
 					if first_failed_key or print_specific_key:
 						reasons = [ ]
 						if "proc_details" in testbatch:
-							if ("returncode" in testbatch["proc_details"]) and (testbatch["proc_details"]["returncode"] != 0):
+							if "exception_msg" in testbatch["proc_details"]:
+								reasons.append(testbatch["proc_details"]["exception_msg"])
+							elif ("returncode" in testbatch["proc_details"]) and (testbatch["proc_details"]["returncode"] >= 0):
 								reasons.append(f"return code {testbatch['proc_details']['returncode']}")
 							try:
 								json.loads(testbatch["proc_details"]["stdout"])
@@ -183,11 +185,20 @@ class SubmissionResultPrinter():
 								print()
 								print("-" * 120)
 							elif status == TestcaseStatus.TestbatchFailedError:
-								print("stdout:")
-								print(testbatch["proc_details"]["stdout"].strip("\r\n"))
-								print()
-								print("stderr:")
-								print(testbatch["proc_details"]["stderr"].strip("\r\n"))
+								stdout = testbatch["proc_details"]["stdout"].strip("\r\n")
+								if stdout != "":
+									print("stdout:")
+									print()
+									print()
+								else:
+									print("No stdout output generated.")
+								stderr = testbatch["proc_details"]["stdout"].strip("\r\n")
+								if stderr != "":
+									print("stdout:")
+									print()
+									print()
+								else:
+									print("No stderr output generated.")
 								print("-" * 120)
 
 						#passelif status == TestcaseStatus.FailedWrongAnswer:

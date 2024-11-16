@@ -76,7 +76,7 @@ class ContainerTestrunner():
 			stderr = result.stderr
 			returncode = result.returncode
 			if returncode == -9:
-				exception_msg = "Out of memory, process terminated."
+				exception_msg = "Out of memory"
 		except subprocess.TimeoutExpired as e:
 			had_timeout = True
 			exception_msg = f"{e.__class__.__name__} when trying execution: {str(e)}"
@@ -88,7 +88,7 @@ class ContainerTestrunner():
 			exception_msg = f"{e.__class__.__name__} when trying execution: {str(e)}"
 		runtime_secs = time.time() - t0
 
-		return {
+		exec_result = {
 			"stdout": stdout[-self.meta["limit_stdout_bytes"] : ],
 			"stderr": stderr[-self.meta["limit_stdout_bytes"] : ],
 			"stdout_length": len(stdout),
@@ -98,6 +98,8 @@ class ContainerTestrunner():
 			"timeout": had_timeout,
 			"exception_msg": exception_msg,
 		}
+		self.logmsg(f"{cmd} exited: {exec_result}")
+		return exec_result
 
 	def _unpack_files(self):
 		if "local_testcase_tar_file" in self.meta:
@@ -110,49 +112,61 @@ class ContainerTestrunner():
 		if os.path.exists(setup_exec):
 			return self._exec([ setup_exec ], timeout_secs = self.meta["max_setup_time_secs"])
 
-	def _run_testbatch(self, testbatch: list[dict], subtract_time_secs: float = 0):
+	def _run_testbatch(self, testbatch: list[dict], timeout_secs: float):
 		with open(self.meta["local_testcase_filename"], "w") as f:
 			local_json_content = {
 				"testcases": { testcase["name"]: testcase["testcase_data"] for testcase in testbatch },
 			}
 			json.dump(local_json_content, f)
 		solution_exec = f"{self.meta['local_dut_dir']}/{self.meta['solution_name']}"
-		total_runtime_allowance_secs = sum(testcase["runtime_allowance_secs"] for testcase in testbatch) - subtract_time_secs
-		if total_runtime_allowance_secs > 0:
-			testbatch_results = self._exec([ solution_exec, self.meta["local_testcase_filename"] ], timeout_secs = total_runtime_allowance_secs)
-			return {
-				"testcases": [ testcase["name"] for testcase in testbatch ],
-				"results": testbatch_results,
-			}
-		else:
-			return None
+		testbatch_results = self._exec([ solution_exec, self.meta["local_testcase_filename"] ], timeout_secs = timeout_secs)
+		return {
+			"testcases": [ testcase["name"] for testcase in testbatch ],
+			"results": testbatch_results,
+		}
 
 	def _get_initial_testbatches(self):
 		"""Split testbatches into groups of maximum size initially."""
 		for i in range(0, self.testcase_count, self.max_testbatch_size):
 			yield self.testcases[i : i + self.max_testbatch_size]
 
-	def _recursive_run_testbatch(self, testbatch: list[dict], subtract_time_secs: float = 0):
+	def _compute_allowance_secs(self, testbatch: list[dict]):
+		return sum(testcase["runtime_allowance_secs"] for testcase in testbatch)
+
+	def _recursive_run_testbatch(self, testbatch: list[dict], runtime_allowance_secs: float):
 		result = [ ]
-		self.logmsg(f"Running testbatch of {len(testbatch)} testcases, subtracting {subtract_time_secs:.3f} secs from time contingent.")
+		self.logmsg(f"Running testbatch of {len(testbatch)} testcases given a time contingent of {runtime_allowance_secs:.1f} seconds.")
 
 		t0 = time.time()
-		batch_result = self._run_testbatch(testbatch, subtract_time_secs = subtract_time_secs)
+		batch_result = self._run_testbatch(testbatch, timeout_secs = runtime_allowance_secs)
 		t1 = time.time()
-		if batch_result is not None:
-			# Was the run successful or was it a single case?
-			if (batch_result["results"]["returncode"] == 0) or (len(testbatch) < 2):
-				# Record results
-				result.append(batch_result)
+
+		# Was the run successful or was it a single case?
+		if (batch_result["results"]["returncode"] == 0) or (len(testbatch) < 2):
+			# Record results
+			result.append(batch_result)
+		else:
+			# Whole batch failed: bisect array, subtracting previously taken time from contingent
+			already_taken_time_secs = t1 - t0
+			remaining_allowance_secs = runtime_allowance_secs - already_taken_time_secs
+			self.logmsg(f"Testbatch failed, wasted {already_taken_time_secs:.1f} secs without any answer to {len(testbatch)} testcases. {remaining_allowance_secs:.1f} secs remaining.")
+
+			original_allowance_secs = self._compute_allowance_secs(testbatch)
+			if remaining_allowance_secs > (original_allowance_secs / 2):
+				half_index = len(testbatch) // 2
+				left = testbatch[ : half_index]
+				right = testbatch[half_index : ]
+
+				subordinate_scalar = remaining_allowance_secs / original_allowance_secs
+				left_allowance_secs = self._compute_allowance_secs(left) * subordinate_scalar
+				right_allowance_secs = self._compute_allowance_secs(right) * subordinate_scalar
+				self.logmsg(f"Bisecting previous batch of {len(testbatch)} testcases, subtracting {already_taken_time_secs:.1f} additional secs from time contingent, splitting into {len(left)} and {len(right)} testcases. Subordinate batches allowed {left_allowance_secs:.1f} secs/{right_allowance_secs:.1f} secs.")
+				result += self._recursive_run_testbatch(left, left_allowance_secs)
+				result += self._recursive_run_testbatch(right, right_allowance_secs)
 			else:
-				# Bisect array, subtracting previously taken time from contingent
-				taken = t1 - t0
-				half = len(testbatch) // 2
-				left = testbatch[ : half]
-				right = testbatch[half : ]
-				self.logmsg(f"Bisecting previous batch of {len(testbatch)} testcases, subtracting {taken:.3f} additional secs from time contingent, splitting into {len(left)} and {len(right)} testcases.")
-				result += self._recursive_run_testbatch(left, subtract_time_secs + taken / 2)
-				result += self._recursive_run_testbatch(right, subtract_time_secs + taken / 2)
+				# No more time to further bisect, return failed batch result
+				self.logmsg(f"Bisecting further impossible, not enough time contingent left.")
+				result.append(batch_result)
 		return result
 
 	def run(self):
@@ -164,7 +178,8 @@ class ContainerTestrunner():
 		self._unpack_files()
 		result["setup"] = self._run_setup()
 		for testbatch in self._get_initial_testbatches():
-			result["testcase_results"] += self._recursive_run_testbatch(testbatch)
+			runtime_allowance_secs = self._compute_allowance_secs(testbatch)
+			result["testcase_results"] += self._recursive_run_testbatch(testbatch, runtime_allowance_secs = runtime_allowance_secs)
 		result["runtime_secs"] = time.time() - t0
 		return result
 

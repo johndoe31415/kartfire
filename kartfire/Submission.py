@@ -103,7 +103,7 @@ class Submission():
 			with tempfile.NamedTemporaryFile(suffix = ".tar") as tmp:
 				await self._create_submission_tarfile(tmp.name)
 				await container.cp(tmp.name, container_parameters["meta"]["local_testcase_tar_file"])
-			await container.cpdata(json.dumps(container_parameters).encode("utf-8"), local_container_parameter_filename)
+			await container.cpdata(json.dumps(container_parameters, indent = "\t" if interactive else None).encode("utf-8"), local_container_parameter_filename)
 			await container.start()
 			if interactive:
 				await container.attach()
