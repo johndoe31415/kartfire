@@ -29,11 +29,76 @@ import subprocess
 import contextlib
 import tempfile
 import stat
+import enum
 import collections
 
 if len(sys.argv) < 2:
 	print(f"{sys.argv[0]}: No argument given.", file = sys.stderr)
 	sys.exit(1)
+
+class SubprocessExecutor():
+	class ExecutionResult(enum.Enum):
+		Success = "success"
+		FailedReturnCode = "failed_return_code"
+		FailedTimeout = "failed_timeout"
+		FailedExecException = "failed_exec_exception"
+		FailedNotExecutable = "failed_exec_not_executable"
+		FailedOutOfMemory = "failed_oom"
+
+	def __init__(self, cmd: list[str], maximum_runtime_secs: float, limit_stdout_bytes: int, limit_stderr_bytes: int):
+		self._cmd = cmd
+		self._maximum_runtime_secs = maximum_runtime_secs
+		self._limit_stdout_bytes = limit_stdout_bytes
+		self._limit_stderr_bytes = limit_stderr_bytes
+
+	def run(self):
+		result = {
+			"cmd": self._cmd,
+			"runtime_limit_secs": self._maximum_runtime_secs,
+		}
+
+		t0 = time.time()
+		try:
+			exec_result = subprocess.run(self._cmd, stdout = subprocess.PIPE, stderr = subprocess.PIPE, timeout = self._maximum_runtime_secs)
+			result.update({
+				"stdout": {
+					"length": len(exec_result.stdout),
+					"data": exec_result.stdout[:self._limit_stdout_bytes],
+				},
+				"stderr": {
+					"length": len(exec_result.stderr),
+					"data": exec_result.stderr[:self._limit_stderr_bytes],
+				},
+			})
+			if exec_result.returncode == 0:
+				result["status"] = self.ExecutionResult.Success
+			elif exec_result.returncode == -9:
+				result["status"] = self.ExecutionResult.FailedOutOfMemory
+			else:
+				result["status"] = self.ExecutionResult.FailedReturnCode
+		except subprocess.TimeoutExpired as e:
+			had_timeout = True
+			exception_msg = f"{e.__class__.__name__} when trying execution: {str(e)}"
+			result.update({
+				"status": self.ExecutionResult.FailedReturnCode,
+				"exception_msg": str(e),
+			})
+		except PermissionError as e:
+			perms = stat.S_IMODE(os.stat(cmd[0]).st_mode)
+			missing_exec = (perms & 0o111) == 0
+			result.update({
+				"status": self.ExecutionResult.FailedNotExecutable,
+				"exception_msg": str(e),
+				"perms": perms,
+			})
+		except OSError as e:
+			result.update({
+				"status": self.ExecutionResult.FailedExecException,
+				"exception_msg": str(e),
+			})
+		result["runtime_secs"] = time.time() - t0
+		return result
+
 
 class ContainerTestrunner():
 	def __init__(self, config_filename: str):
@@ -63,44 +128,6 @@ class ContainerTestrunner():
 	def testcase_count(self):
 		return len(self.testcases)
 
-	def _exec(self, cmd: list[str], timeout_secs: float):
-		t0 = time.time()
-		had_timeout = False
-		exception_msg = None
-		stdout = bytes()
-		stderr = bytes()
-		returncode = None
-		try:
-			result = subprocess.run(cmd, stdout = subprocess.PIPE, stderr = subprocess.PIPE, timeout = timeout_secs)
-			stdout = result.stdout
-			stderr = result.stderr
-			returncode = result.returncode
-			if returncode == -9:
-				exception_msg = "Out of memory"
-		except subprocess.TimeoutExpired as e:
-			had_timeout = True
-			exception_msg = f"{e.__class__.__name__} when trying execution: {str(e)}"
-		except PermissionError as e:
-			perms = stat.S_IMODE(os.stat(cmd[0]).st_mode)
-			missing_exec = (perms & 0o111) == 0
-			exception_msg = f"{e.__class__.__name__} when trying execution of {cmd[0]} (permissions {perms:#o}{' - missing execution bit!' if missing_exec else ''}): {str(e)}"
-		except OSError as e:
-			exception_msg = f"{e.__class__.__name__} when trying execution: {str(e)}"
-		runtime_secs = time.time() - t0
-
-		exec_result = {
-			"stdout": stdout[-self.meta["limit_stdout_bytes"] : ],
-			"stderr": stderr[-self.meta["limit_stdout_bytes"] : ],
-			"stdout_length": len(stdout),
-			"stderr_length": len(stderr),
-			"returncode": returncode,
-			"runtime_secs": runtime_secs,
-			"timeout": had_timeout,
-			"exception_msg": exception_msg,
-		}
-		self.logmsg(f"{cmd} exited: {exec_result}")
-		return exec_result
-
 	def _unpack_files(self):
 		if "local_testcase_tar_file" in self.meta:
 			subprocess.check_call([ "tar", "-x", "-C", self.meta["local_dut_dir"], "-f", self.meta["local_testcase_tar_file"] ])
@@ -110,7 +137,7 @@ class ContainerTestrunner():
 	def _run_setup(self):
 		setup_exec = f"{self.meta['local_dut_dir']}/{self.meta['setup_name']}"
 		if os.path.exists(setup_exec):
-			return self._exec([ setup_exec ], timeout_secs = self.meta["max_setup_time_secs"])
+			return SubprocessExecutor(cmd = [ setup_exec ], maximum_runtime_secs = self.meta["max_setup_time_secs"], limit_stdout_bytes = self.meta["limit_stdout_bytes"], limit_stderr_bytes = self.meta["limit_stdout_bytes"]).run()
 		else:
 			return None
 
@@ -121,7 +148,7 @@ class ContainerTestrunner():
 			}
 			json.dump(local_json_content, f)
 		solution_exec = f"{self.meta['local_dut_dir']}/{self.meta['solution_name']}"
-		testbatch_results = self._exec([ solution_exec, self.meta["local_testcase_filename"] ], timeout_secs = timeout_secs)
+		testbatch_results = SubprocessExecutor(cmd = [ solution_exec, self.meta["local_testcase_filename"] ], maximum_runtime_secs = timeout_secs, limit_stdout_bytes = self.meta["limit_stdout_bytes"], limit_stderr_bytes = self.meta["limit_stdout_bytes"]).run()
 		return {
 			"testcases": [ testcase["name"] for testcase in testbatch ],
 			"results": testbatch_results,
@@ -144,7 +171,7 @@ class ContainerTestrunner():
 		t1 = time.time()
 
 		# Was the run successful or was it a single case?
-		if (batch_result["results"]["returncode"] == 0) or (len(testbatch) < 2):
+		if (batch_result["results"]["status"] == SubprocessExecutor.ExecutionResult.Success) or (len(testbatch) <= 1):
 			# Record results
 			result.append(batch_result)
 		else:
@@ -175,23 +202,18 @@ class ContainerTestrunner():
 		t0 = time.time()
 		result = {
 			"setup": None,
-			"testcase_results": [ ],
+			"testcases": [ testcase["name"] for testcase in self.testcases ],
+			"testbatches": [ ],
 		}
 		self._unpack_files()
 		result["setup"] = self._run_setup()
-		if (result["setup"] is not None) and (result["setup"]["returncode"] != 0):
+		if (result["setup"] is not None) and (result["setup"]["status"] != SubprocessExecutor.ExecutionResult.Success):
 			self.logmsg(f"Build failed, refusing to run any testcases.")
-			result["testcase_results"].append({
-				"testcases": [ testcase["name"] for testcase in self.testcases ],
-				"results": {
-					"exception_msg": "build failed, testrun skipped"
-				}
-			})
 		else:
 			for testbatch in self._get_initial_testbatches():
 				runtime_allowance_secs = self._compute_allowance_secs(testbatch)
-				result["testcase_results"] += self._recursive_run_testbatch(testbatch, runtime_allowance_secs = runtime_allowance_secs)
-			result["runtime_secs"] = time.time() - t0
+				result["testbatches"] += self._recursive_run_testbatch(testbatch, runtime_allowance_secs = runtime_allowance_secs)
+			result["total_runtime_secs"] = time.time() - t0
 		return result
 
 def serializer(obj):
