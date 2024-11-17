@@ -84,7 +84,7 @@ class SubprocessExecutor():
 				"exception_msg": str(e),
 			})
 		except PermissionError as e:
-			perms = stat.S_IMODE(os.stat(cmd[0]).st_mode)
+			perms = stat.S_IMODE(os.stat(self._cmd[0]).st_mode)
 			missing_exec = (perms & 0o111) == 0
 			result.update({
 				"status": self.ExecutionResult.FailedNotExecutable,
@@ -151,7 +151,7 @@ class ContainerTestrunner():
 		testbatch_results = SubprocessExecutor(cmd = [ solution_exec, self.meta["local_testcase_filename"] ], maximum_runtime_secs = timeout_secs, limit_stdout_bytes = self.meta["limit_stdout_bytes"], limit_stderr_bytes = self.meta["limit_stdout_bytes"]).run()
 		return {
 			"testcases": [ testcase["name"] for testcase in testbatch ],
-			"results": testbatch_results,
+			"process": testbatch_results,
 		}
 
 	def _get_initial_testbatches(self):
@@ -171,7 +171,7 @@ class ContainerTestrunner():
 		t1 = time.time()
 
 		# Was the run successful or was it a single case?
-		if (batch_result["results"]["status"] == SubprocessExecutor.ExecutionResult.Success) or (len(testbatch) <= 1):
+		if (batch_result["process"]["status"] == SubprocessExecutor.ExecutionResult.Success) or (len(testbatch) <= 1):
 			# Record results
 			result.append(batch_result)
 		else:
@@ -220,7 +220,7 @@ def serializer(obj):
 	if isinstance(obj, bytes):
 		return base64.b64encode(obj).decode("ascii")
 	elif isinstance(obj, enum.Enum):
-		return obj.value
+		return obj.name
 	else:
 		raise TypeError(obj)
 

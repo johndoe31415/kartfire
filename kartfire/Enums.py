@@ -30,8 +30,6 @@ class TestcaseStatus(enum.Enum):
 class TestbatchStatus(enum.Enum):
 	ErrorTestrunFailed = "error_run_failed"
 	ErrorUnparsable = "error_unparsable"
-	ErrorStatusCode = "error_nonzero_status_code"
-	ProcessTimeout = "process_timeout"
 	Completed = "completed"
 
 class TestrunStatus(enum.Enum):
@@ -40,3 +38,11 @@ class TestrunStatus(enum.Enum):
 	ErrorStatusCode = "error_nonzero_status_code"
 	ContainerTimeout = "container_timeout"
 	Completed = "completed"
+
+class ExecutionResult(enum.Enum):
+	Success = "success"
+	FailedReturnCode = "failed_return_code"
+	FailedTimeout = "failed_timeout"
+	FailedExecException = "failed_exec_exception"
+	FailedNotExecutable = "failed_exec_not_executable"
+	FailedOutOfMemory = "failed_oom"

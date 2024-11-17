@@ -22,7 +22,8 @@
 import json
 import base64
 import functools
-from .Enums import TestcaseStatus, TestbatchStatus
+from .SubprocessExecutionResult import SubprocessExecutionResult
+from .Enums import ExecutionResult, TestcaseStatus, TestbatchStatus
 
 class TestcaseEvaluation():
 	def __init__(self, testbatch: "Testbatch", testcase: "Testcase", received_answer: dict, testcase_status: TestcaseStatus):
@@ -76,8 +77,7 @@ class TestbatchEvaluation():
 	def __init__(self, runner: "TestcaseRunner", testbatch_runner_result: dict):
 		self._runner = runner
 		self._result = testbatch_runner_result
-		self._status = None
-		self._parsed_stdout = None
+		self._process = SubprocessExecutionResult(testbatch_runner_result["process"])
 		self._determine_testbatch_status()
 
 	@property
@@ -130,37 +130,29 @@ class TestbatchEvaluation():
 		if self._result is None:
 			self._status = TestbatchStatus.ErrorTestrunFailed
 		else:
-			if self._result["results"].get("timeout", False):
-				self._status = TestbatchStatus.ProcessTimeout
-			elif self._result["results"].get("returncode") is None:
-				self._status = TestbatchStatus.ErrorTestrunFailed
-			elif self._result["results"]["returncode"] != 0:
-				self._status = TestbatchStatus.ErrorStatusCode
-			else:
-				try:
-					self._parsed_stdout = json.loads(base64.b64decode(self._result["results"]["stdout"]))
+			if self._process.status == ExecutionResult.Success:
+				if self._process.have_json_output:
 					self._status = TestbatchStatus.Completed
-				except json.decoder.JSONDecodeError:
+				else:
 					self._status = TestbatchStatus.ErrorUnparsable
+			else:
+				self._status = TestbatchStatus.ErrorTestrunFailed
 
 	@property
 	def runtime_secs(self):
-		if self._result is None:
-			return 0
-		else:
-			return self._result["results"].get("runtime_secs", 0)
+		return self._process.runtime_secs
 
 	def get_testcase_result(self, testcase_name: str):
 		received_answer = None
 		testcase = self._runner[testcase_name]
 		if self._status != TestbatchStatus.Completed:
 			testcase_status = TestcaseStatus.TestbatchFailedError
-		elif not isinstance(self._parsed_stdout, dict) or ("responses" not in self._parsed_stdout):
+		elif not isinstance(self._process.stdout_json, dict) or ("responses" not in self._process.stdout_json):
 			testcase_status = TestcaseStatus.NoAnswerProvided
 		else:
-			have_answer = testcase.name in self._parsed_stdout["responses"]
+			have_answer = testcase.name in self._process.stdout_json["responses"]
 			if have_answer:
-				received_answer = self._parsed_stdout["responses"][testcase.name]
+				received_answer = self._process.stdout_json["responses"][testcase.name]
 				expected_answer = testcase.testcase_answer
 				if received_answer == expected_answer:
 					testcase_status = TestcaseStatus.Passed
@@ -169,26 +161,6 @@ class TestbatchEvaluation():
 			else:
 				testcase_status = TestcaseStatus.NoAnswerProvided
 		return TestcaseEvaluation(self, testcase, received_answer, testcase_status)
-
-	@functools.cached_property
-	def proc_details(self):
-		if self._result is None:
-			return None
-		else:
-			stdout = base64.b64decode(self._result["results"].get("stdout", ""))
-			stderr = base64.b64decode(self._result["results"].get("stderr", ""))
-			return {
-				"stdout": stdout.decode("utf-8", errors = "replace"),
-				"stdout_length": self._result["results"].get("stdout_length", 0),
-				"stdout_truncated": len(stdout) != self._result["results"].get("stdout_length", 0),
-
-				"stderr": stderr.decode("utf-8", errors = "replace"),
-				"stderr_length": self._result["results"].get("stderr_length", 0),
-				"stderr_truncated": len(stderr) != self._result["results"].get("stderr_length", 0),
-
-				"exception_msg": self._result["results"]["exception_msg"],
-				"returncode": self._result["results"].get("returncode", -1),
-			}
 
 	def __iter__(self):
 		for testcase_name in self._result["testcases"]:

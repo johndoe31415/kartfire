@@ -20,6 +20,7 @@
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
 import os
+import sys
 import json
 import tempfile
 import functools
@@ -108,21 +109,26 @@ class Submission():
 			if interactive:
 				await container.attach()
 
-			testrunner_output.status = TestrunStatus.Completed
 			finished = await container.wait_timeout(runner.total_maximum_runtime_secs)
 			if finished is None:
 				# Docker container time timed out
 				testrunner_output.status = TestrunStatus.ContainerTimeout
 				_log.debug("Docker container with submission %s timed out after %d seconds", str(self), runner.total_maximum_runtime_secs)
 				return testrunner_output
-			_log.debug("Docker container with submission %s exited normally.", str(self))
+			elif finished == 0:
+				_log.debug("Docker container with submission %s exited normally.", str(self))
+			else:
+				_log.debug("Docker container with submission %s exited with status code %d.", str(self), finished)
 
 			logs = await container.logs()
 			testrunner_output.logs = logs
-			#testrunner_output.dump(verbose = True)
 			if finished != 0:
 				# Docker container errored
 				testrunner_output.status = TestrunStatus.ErrorStatusCode
+				if _log.isEnabledFor(logging.DEBUG):
+					print("~" * 120, file = sys.stderr)
+					print(testrunner_output.stderr.decode("utf-8", errors = "replace"), file = sys.stderr)
+					print("~" * 120, file = sys.stderr)
 				return testrunner_output
 			return testrunner_output
 

@@ -22,6 +22,7 @@
 import collections
 import functools
 import kartfire
+from .SubprocessExecutionResult import SubprocessExecutionResult
 from .TestbatchEvaluation import TestbatchEvaluation
 from .Enums import TestrunStatus, TestcaseStatus
 
@@ -69,6 +70,7 @@ class SubmissionEvaluation():
 
 	@functools.cached_property
 	def testcase_count(self):
+		# TODO anders
 		return sum(testbatch_evaluation.testcase_count for testbatch_evaluation in self.testbatch_evaluations)
 
 	@functools.cached_property
@@ -82,8 +84,8 @@ class SubmissionEvaluation():
 	@property
 	def testbatch_evaluations(self):
 		if self._testrunner_output.status == TestrunStatus.Completed:
-			for testbatch_results in self._testrunner_output:
-				yield TestbatchEvaluation(self._runner, testbatch_results)
+			for testbatch_result in self._testrunner_output.parsed["testbatches"]:
+				yield TestbatchEvaluation(self._runner, testbatch_result)
 
 	def _get_order_by(self, group_key_fnc: "callable"):
 		order = collections.OrderedDict()
@@ -101,10 +103,10 @@ class SubmissionEvaluation():
 		return self._get_order_by(lambda testcase_evaluation: testcase_evaluation.testcase.collection_name)
 
 	def to_dict(self):
-		print(self._testrunner_output.parsed)
+		print(self._testrunner_output.status)
 		return {
 			"dut": self._submission.to_dict(),
-			"setup": None if (self._testrunner_output.parsed is None) else self._testrunner_output.parsed["setup"],
+			"setup": None if (self._testrunner_output.status != TestrunStatus.Completed) else self._testrunner_output.parsed["setup"],
 			"testrun_status": self.testrun_status.name,
 			"action_order": self._get_action_order(),
 			"collection_order": self._get_collection_order(),

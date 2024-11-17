@@ -30,11 +30,12 @@ class TestrunnerOutput():
 		self._parsed = None
 
 	@property
-	def testcase_count(self):
-		if self._parsed is not None:
-			return len(self.parsed["testcase_results"])
-		else:
-			return 0
+	def stdout(self):
+		return self._stdout
+
+	@property
+	def stderr(self):
+		return self._stderr
 
 	@property
 	def parsed(self):
@@ -57,20 +58,9 @@ class TestrunnerOutput():
 		(self._stdout, self._stderr) = value
 		try:
 			self._parsed = json.loads(self._stdout)
+			self._status = TestrunStatus.Completed
 		except json.decoder.JSONDecodeError:
-			self.status = TestrunStatus.ErrorUnparsable
-
-	def dump(self, verbose = False):
-		print(self)
-		print(self._stdout.decode("ascii", errors = "ignore"))
-		print("=" * 120)
-		print(self._stderr.decode("ascii", errors = "ignore"))
-
-	def __iter__(self):
-		if self.parsed is not None:
-			return iter(self.parsed["testcase_results"])
-		else:
-			return iter([ ])
+			self._status = TestrunStatus.ErrorUnparsable
 
 	def __repr__(self):
 		return f"TestrunnerOutput<{self.status.name}>"
