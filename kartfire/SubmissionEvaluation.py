@@ -64,6 +64,10 @@ class TestbatchEvaluation():
 		self._process = SubprocessExecutionResult(self._testbatch_data["process"])
 
 	@property
+	def testbatch_no(self):
+		  return self._testbatch_no
+
+	@property
 	def process(self):
 		return self._process
 
@@ -95,13 +99,43 @@ class TestcaseEvaluation():
 	def detail_text(self):
 		match self.status:
 			case TestcaseStatus.Passed:
-				return f"Testcase \"{self.testcase.name}\" passed"
+				return f"passed"
 
 			case TestcaseStatus.FailedWrongAnswer:
-				return f"Testcase \"{self.testcase.name}\" failed because received answer was incorrect"
+				return f"failed because received answer was incorrect"
 
 			case TestcaseStatus.NoAnswerProvided:
-				return f"Testcase \"{self.testcase.name}\" failed because no answer was received"
+				return f"failed because no answer was provided"
+
+			case TestcaseStatus.BuildTimedOut:
+				return f"build timed out"
+
+			case TestcaseStatus.BuildFailure:
+				return f"build failed"
+
+			case TestcaseStatus.BatchFailedInvalidAnswerProvided:
+				return f"batch {self._testbatch_evaluation.testbatch_no} failed (invalid answer type)"
+
+			case TestcaseStatus.BatchFailedNotExecutable:
+				return f"batch {self._testbatch_evaluation.testbatch_no} failed (DUT was not executable)"
+
+			case TestcaseStatus.BatchFailedUnparsableAnswerProvided:
+				return f"batch {self._testbatch_evaluation.testbatch_no} failed (answer not valid JSON)"
+
+			case TestcaseStatus.BatchFailedReturnCode:
+				return f"batch {self._testbatch_evaluation.testbatch_no} failed (nonzero return code)"
+
+			case TestcaseStatus.BatchFailedTimeout:
+				return f"batch {self._testbatch_evaluation.testbatch_no} failed (timeout)"
+
+			case TestcaseStatus.BatchFailedExecExecption:
+				return f"batch {self._testbatch_evaluation.testbatch_no} failed (exec not possible)"
+
+			case TestcaseStatus.BatchFailedOutOfMemory:
+				return f"batch {self._testbatch_evaluation.testbatch_no} failed (out of memory)"
+
+			case TestcaseStatus.DockerRunFailed:
+				return f"Docker run failed"
 
 	def to_dict(self):
 		result = {
@@ -109,6 +143,7 @@ class TestcaseEvaluation():
 			"received_answer": self._received_answer,
 			"testcase_status": self.status.name,
 			"detail_text": self.detail_text,
+			"testbatch": None if self._testbatch_evaluation is None else self._testbatch_evaluation.testbatch_no
 		}
 		return result
 
@@ -148,10 +183,10 @@ class SubmissionEvaluation():
 			if self._testrunner_output.parsed["setup"] is not None:
 				setup = SubprocessExecutionResult(self._testrunner_output.parsed["setup"])
 				if setup.status == ExecutionResult.FailedTimeout:
-					self._judge_testcases_without_testbatch(testcases = self, testcase_status = TestcaseStatus.BuildTimedOut)
+					self._judge_testcases_without_testbatch(testcases = self._runner, testcase_status = TestcaseStatus.BuildTimedOut)
 					return
 				elif setup.status != ExecutionResult.Success:
-					self._judge_testcases_without_testbatch(testcases = self, testcase_status = TestcaseStatus.BuildFailure)
+					self._judge_testcases_without_testbatch(testcases = self._runner, testcase_status = TestcaseStatus.BuildFailure)
 					return
 
 			# Build either successful or was unnecessary, judge individual testcases.
