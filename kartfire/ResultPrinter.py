@@ -149,7 +149,7 @@ class SubmissionResultPrinter():
 		self.print_statistics(self._submission_results["statistics_by_action"], order = self._submission_results["action_order"], prefix = "Action")
 
 	def _print_output(self, output_name: str, output_data: str, show_if_empty: bool = False):
-		output_data = output_data.strip("\r\n")
+		output_data = output_data.decode("utf-8", errors = "replace").strip("\r\n")
 		if output_data != "":
 			print(f"{output_name}:")
 			print(output_data)
@@ -160,46 +160,49 @@ class SubmissionResultPrinter():
 
 	def print_failed_testcases(self):
 		failed_keys = collections.Counter()
-		for testbatch in self._submission_results["testbatches"]:
-			for testcase in testbatch["testcases"]:
-				status = getattr(TestcaseStatus, testcase["testcase_status"])
-				if status == TestcaseStatus.Passed:
-					pass
-				else:
-					action = testcase["definition"]["testcase_data"]["action"]
-					key = (action, status)
-					failed_keys[key] += 1
-					first_failed_key = failed_keys[key] == 1
-					print_specific_key =  failed_keys[key] <= self._result_printer.show_max_testcase_details_count
-					if first_failed_key or print_specific_key:
-						reasons = [ ]
-						if "proc_details" in testbatch:
-							if ("exception_msg" in testbatch["proc_details"]) and (testbatch["proc_details"]["exception_msg"] is not None):
-								reasons.append(testbatch["proc_details"]["exception_msg"])
-							elif ("returncode" in testbatch["proc_details"]) and (testbatch["proc_details"]["returncode"] >= 0):
-								reasons.append(f"return code {testbatch['proc_details']['returncode']}")
-							try:
-								json.loads(testbatch["proc_details"]["stdout"])
-							except json.decoder.JSONDecodeError:
-								if testbatch["proc_details"]["stdout"].strip("\r\n") == "":
-									reasons.append("no stdout provided")
-								else:
-									reasons.append("invalid JSON on stdout")
-						print(f"    Testcase {testcase['definition']['name']} failed with status {status.name} after {testbatch['runtime_secs']:.0f} secs: {', '.join(reasons) if len(reasons) > 0 else ''}")
-						if print_specific_key:
-							if status == TestcaseStatus.FailedWrongAnswer:
-								print(json.dumps(testcase["definition"]["testcase_data"], indent = "\t"))
-								print()
-								print("Expected answer:")
-								print(json.dumps(testcase["definition"]["testcase_answer"], indent = "\t"))
-								print()
-								print("Received answer:")
-								print(json.dumps(testcase["received_answer"], indent = "\t"))
-								print()
-								print("-" * 120)
-							elif status == TestcaseStatus.TestbatchFailedError:
-								self._print_output("stdout", testbatch["proc_details"]["stdout"], show_if_empty = False)
-								self._print_output("stderr", testbatch["proc_details"]["stderr"], show_if_empty = False)
+#		for testbatch in self._submission_results["testbatches"]:
+#			testbatch_status = getattr(TestbatchStatus, testbatch["testbatch_status"])
+#			process = SubprocessExecutionResult(testbatch["process"])
+		for testcase in self._submission_results["testcases"]:
+			testcase_status = getattr(TestcaseStatus, testcase["testcase_status"])
+			if testcase_status == TestcaseStatus.Passed:
+				pass
+			else:
+				action = testcase["definition"]["testcase_data"]["action"]
+				key = (action, testcase_status)
+				failed_keys[key] += 1
+				first_failed_key = failed_keys[key] == 1
+				print_specific_key =  failed_keys[key] <= self._result_printer.show_max_testcase_details_count
+				if first_failed_key or print_specific_key:
+					reasons = [ ]
+#						if "proc_details" in testbatch:
+#							if ("exception_msg" in testbatch["proc_details"]) and (testbatch["proc_details"]["exception_msg"] is not None):
+#								reasons.append(testbatch["proc_details"]["exception_msg"])
+#							elif ("returncode" in testbatch["proc_details"]) and (testbatch["proc_details"]["returncode"] >= 0):
+#								reasons.append(f"return code {testbatch['proc_details']['returncode']}")
+#							try:
+#								json.loads(testbatch["proc_details"]["stdout"])
+#							except json.decoder.JSONDecodeError:
+#								if testbatch["proc_details"]["stdout"].strip("\r\n") == "":
+#									reasons.append("no stdout provided")
+#								else:
+#									reasons.append("invalid JSON on stdout")
+					#print(f"    Testcase {testcase['definition']['name']} failed with status {status.name} after {process.runtime_secs:.0f} secs: {', '.join(reasons) if len(reasons) > 0 else ''}")
+#						print(key)
+#						if print_specific_key:
+#							if status == TestcaseStatus.FailedWrongAnswer:
+#								print(json.dumps(testcase["definition"]["testcase_data"], indent = "\t"))
+#								print()
+#								print("Expected answer:")
+#								print(json.dumps(testcase["definition"]["testcase_answer"], indent = "\t"))
+#								print()
+#								print("Received answer:")
+#								print(json.dumps(testcase["received_answer"], indent = "\t"))
+#								print()
+#								print("-" * 120)
+#							elif status == TestcaseStatus.TestbatchFailedError:
+#								self._print_output("stdout", process.stdout, show_if_empty = False)
+#								self._print_output("stderr", process.stderr, show_if_empty = False)
 
 	def print(self):
 		self.print_result()

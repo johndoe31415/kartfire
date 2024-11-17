@@ -22,10 +22,21 @@
 import enum
 
 class TestcaseStatus(enum.Enum):
-	Passed = "passed"
-	FailedWrongAnswer = "failed_wrong_answer"
-	NoAnswerProvided = "no_answer_provided"
-	TestbatchFailedError = "testbatch_failed"
+	Passed = "passed"													# Testcase returned correct result
+	FailedWrongAnswer = "failed_wrong_answer"							# Testcase returned incorrect result
+	NoAnswerProvided = "no_answer_provided"								# Testcase result not contained in result dict
+	UnparsableAnswerProvided = "unparsable_answer_provided"				# Testcase returned data that is not parsable as JSON
+	BuildTimedOut = "build_timed_out"									# Build process timed out
+	BuildFailure = "build_failure"										# Build process was unsuccessful
+	BatchFailedInvalidAnswerProvided = "invalid_answer_provided"		# Testcase returned JSON data that has invalid format
+	BatchFailedNotExecutable = "batch_failed_not_executable"			# DUT was not executable, exec() failed
+	BatchFailedUnparsableAnswerProvided = "batch_failed_unparsable"
+	BatchFailedReturnCode = "batch_failed_returncode"
+	BatchFailedTimeout = "batch_failed_timeout"
+	BatchFailedExecExecption = "batch_failed_exec_exception"
+	BatchFailedOutOfMemory = "batch_failed_oom"
+	DockerRunFailed = "all_failed_docker"
+
 
 class TestbatchStatus(enum.Enum):
 	ErrorTestrunFailed = "error_run_failed"

@@ -202,7 +202,6 @@ class ContainerTestrunner():
 		t0 = time.time()
 		result = {
 			"setup": None,
-			"testcases": [ testcase["name"] for testcase in self.testcases ],
 			"testbatches": [ ],
 		}
 		self._unpack_files()
