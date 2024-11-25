@@ -27,6 +27,7 @@ from .ActionRender import ActionRender
 from .ActionEmail import ActionEmail
 from .ActionMerge import ActionMerge
 from .ActionPrint import ActionPrint
+from .ActionLeaderboard import ActionLeaderboard
 
 def main():
 	mc = MultiCommand(description = "Kartfire container testing framework CLI tool.", run_method = True)
@@ -76,6 +77,11 @@ def main():
 		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
 		parser.add_argument("testrun_filename", help = "JSON data that was output from the test run.")
 	mc.register("print", "Print run results on the command line", genparser, action = ActionPrint)
+
+	def genparser(parser):
+		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
+		parser.add_argument("testrun_filename", help = "JSON data that was output from the test run.")
+	mc.register("leaderboard", "Print a time leaderboard", genparser, action = ActionLeaderboard)
 
 	returncode = mc.run(sys.argv[1:])
 	return (returncode or 0)
