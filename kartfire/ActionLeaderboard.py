@@ -28,9 +28,8 @@ class ActionLeaderboard(BaseAction):
 	ResultEntry = collections.namedtuple("ResultEntry", [ "correct_ratio", "solution_name", "time_secs" ])
 
 	def _record_solution(self, solution: dict):
-
 		total_runtime_secs = 0
-		for testbatch in solution["testbatches"]:
+		for testbatch in solution["testbatches"].values():
 			total_runtime_secs += testbatch["runtime_secs"]
 
 		ratio = solution["statistics_by_action"]["*"]["passed"] / solution["statistics_by_action"]["*"]["total"]
@@ -52,5 +51,5 @@ class ActionLeaderboard(BaseAction):
 			if (not sep_line) and entry.correct_ratio != 1:
 				print("⎯" * 60)
 				sep_line = True
-			print(f"{pos:3d} {entry.solution_name}     {time_secs // 60:3d}:{time_secs % 60:02d}.{time_millis % 1000:03d}   {entry.correct_ratio * 100:.1f}%")
+			print(f"{pos:3d}  {entry.solution_name:25s} {time_secs // 60:4d}:{time_secs % 60:02d}   {entry.correct_ratio * 100:5.1f}%")
 		return 0
