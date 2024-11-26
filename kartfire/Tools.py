@@ -26,6 +26,7 @@ import base64
 import json
 import asyncio
 import subprocess
+import collections
 from .Exceptions import InternalError, SubprocessRunError
 from .CmdlineEscape import CmdlineEscape
 
@@ -125,3 +126,31 @@ class ExecTools():
 		proc = await asyncio.create_subprocess_exec(*cmd, stdout = stdout, stderr = stderr)
 		result = await proc.wait()
 		return result
+
+class MiscTools():
+	@classmethod
+	def count_lines(cls, filename: str) -> int:
+		line_count = 0
+		try:
+			with open(filename) as f:
+				for line in f:
+					line_count += 1
+			return line_count
+		except (UnicodeDecodeError, FileNotFoundError, PermissionError):
+			return 0
+
+	@classmethod
+	def determine_lines_by_file_extension(cls, path: str) -> dict:
+		line_count = collections.defaultdict(int)
+		path = os.path.expanduser(path)
+		for (basedir, subdirs, files) in os.walk(path):
+			for remove_subdir in [ subdir for subdir in subdirs if subdir.startswith(".") ]:
+				subdirs.remove(remove_subdir)
+
+			for filename in files:
+				full_filename = basedir + "/" + filename
+				extension = os.path.splitext(filename)[1]
+				cnt = cls.count_lines(full_filename)
+				if cnt > 0:
+					line_count[extension] += cnt
+		return line_count
