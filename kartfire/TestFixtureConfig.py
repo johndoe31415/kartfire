@@ -74,8 +74,8 @@ class TestFixtureConfig():
 		return self._config.get("max_setup_time_secs", 30)
 
 	@property
-	def minimum_testcase_time(self):
-		return self._config.get("minimum_testcase_time", 0.5)
+	def minimum_testbatch_time_secs(self):
+		return self._config.get("minimum_testbatch_time_secs", 0.5)
 
 	@property
 	def reference_time_factor(self):

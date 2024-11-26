@@ -75,6 +75,7 @@ class Submission():
 				"local_testcase_filename":		"/local_testcases.json",
 				"max_testbatch_size":			runner.config.testbatch_maxsize,
 				"debug":						interactive,
+				"minimum_testbatch_time_secs":	runner.config.minimum_testbatch_time_secs,
 			},
 			"testcases": runner.guest_testcase_data,
 		}

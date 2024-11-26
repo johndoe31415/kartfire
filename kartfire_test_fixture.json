@@ -8,7 +8,7 @@
 	"max_memory_mib": 3072,
 	"host_memory_usage_percent": 125,
 	"max_concurrent_processes": 24,
-	"minimum_testcase_time": 0.5,
+	"minimum_testbatch_time_secs": 0.5,
 	"reference_time_factor": 3.1415,
 	"allow_network": false
 }

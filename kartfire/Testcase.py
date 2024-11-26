@@ -79,7 +79,7 @@ class Testcase():
 
 	@property
 	def runtime_allowance_secs(self):
-		return (self.runtime_allowance_secs_unscaled * self._config.reference_time_factor) + self._config.minimum_testcase_time
+		return (self.runtime_allowance_secs_unscaled * self._config.reference_time_factor)
 
 	@property
 	def runtime_allowance_secs_unscaled(self):

@@ -179,7 +179,7 @@ class ContainerTestrunner():
 			yield batch
 
 	def _compute_allowance_secs(self, testbatch: list[dict]):
-		return sum(testcase["runtime_allowance_secs"] for testcase in testbatch)
+		return sum(testcase["runtime_allowance_secs"] for testcase in testbatch) + self.meta["minimum_testbatch_time_secs"]
 
 	def _recursive_run_testbatch(self, testbatch: list[dict], runtime_allowance_secs: float):
 		result = [ ]
