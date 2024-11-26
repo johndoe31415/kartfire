@@ -254,7 +254,7 @@ class SubmissionEvaluation():
 			testbatch_evaluation = testcase_evaluation.testbatch_evaluation
 			if testbatch_evaluation is not None:
 				if testbatch_evaluation.testbatch_no not in result:
-					testbatch_no = testcase_evaluation.testbatch_evaluation.testbatch_no
+					testbatch_no = str(testcase_evaluation.testbatch_evaluation.testbatch_no)
 					result[testbatch_no] = {
 						"action": testcase_evaluation.testcase.action,
 						"status": testcase_evaluation.testbatch_evaluation.process.status.name,
@@ -262,9 +262,8 @@ class SubmissionEvaluation():
 						"runtime_allowance_secs": testcase_evaluation.testcase.runtime_allowance_secs,
 						"runtime_allowance_secs_unscaled": testcase_evaluation.testcase.runtime_allowance_secs_unscaled,
 						"testcase_count": 1,
+						"process": testcase_evaluation.testbatch_evaluation.process.to_dict(),
 					}
-					if testcase_evaluation.testbatch_evaluation.process.status != ExecutionResult.Success:
-						result[testbatch_no]["process"] = testcase_evaluation.testbatch_evaluation.process.to_dict()
 				else:
 					result[testbatch_no]["runtime_allowance_secs"] += testcase_evaluation.testcase.runtime_allowance_secs
 					result[testbatch_no]["runtime_allowance_secs_unscaled"] += testcase_evaluation.testcase.runtime_allowance_secs_unscaled

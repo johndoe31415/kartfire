@@ -23,6 +23,7 @@ import os
 import json
 import collections
 import datetime
+import textwrap
 import pytz
 import tzlocal
 from .Enums import TestcaseStatus
@@ -185,42 +186,30 @@ class SubmissionResultPrinter():
 					reasons = [ ]
 					if testcase["testbatch"] is None:
 						testbatch = None
-						print(f"    Testcase {testcase['definition']['name']} [{action}] failed without testing: {testcase_status.name}")
 						if testcase_status == TestcaseStatus.BuildFailure:
-							print(f"Setup process failed with {setup.status.name}, return code {setup.returncode} after {setup.runtime_secs:.0f} secs (allowance {setup.runtime_limit_secs:.0f} secs)")
+							print(f"    Testcase {testcase['definition']['name']} [{action}] failed during setup with {setup.status.name}, return code {setup.returncode} after {setup.runtime_secs:.0f} secs (allowance {setup.runtime_limit_secs:.0f} secs)")
 							setup.dump_stdout_stderr()
+						else:
+							print(f"    Testcase {testcase['definition']['name']} [{action}] failed without testing: {testcase_status.name}")
 					else:
 						testbatch = self._submission_results["testbatches"][str(testcase["testbatch"])]
-						print(f"    Testcase {testcase['definition']['name']} [{action}] failed in testbatch #{testcase['testbatch']} after {testbatch['runtime_secs']:.0f} secs")
+						print(f"    Testcase {testcase['definition']['name']} [{action}] failed in testbatch #{testcase['testbatch']} after {testbatch['runtime_secs']:.1f} secs: {testcase_status.name}")
+						if "process" in testbatch:
+							testbatch_process = SubprocessExecutionResult(testbatch["process"])
+							if testbatch_process.exception_msg is not None:
+								print(f"        Failure: {testbatch_process.exception_msg}")
+							testbatch_process.dump_stdout_stderr()
 
-#						print(f"    Testcase {testcase['definition']['name']} failed with status {status.name} after {process.runtime_secs:.0f} secs: {', '.join(reasons) if len(reasons) > 0 else ''}")
-#						if "proc_details" in testbatch:
-#							if ("exception_msg" in testbatch["proc_details"]) and (testbatch["proc_details"]["exception_msg"] is not None):
-#								reasons.append(testbatch["proc_details"]["exception_msg"])
-#							elif ("returncode" in testbatch["proc_details"]) and (testbatch["proc_details"]["returncode"] >= 0):
-#								reasons.append(f"return code {testbatch['proc_details']['returncode']}")
-#							try:
-#								json.loads(testbatch["proc_details"]["stdout"])
-#							except json.decoder.JSONDecodeError:
-#								if testbatch["proc_details"]["stdout"].strip("\r\n") == "":
-#									reasons.append("no stdout provided")
-#								else:
-#									reasons.append("invalid JSON on stdout")
-#						print(key)
-#						if print_specific_key:
-#							if status == TestcaseStatus.FailedWrongAnswer:
-#								print(json.dumps(testcase["definition"]["testcase_data"], indent = "\t"))
-#								print()
-#								print("Expected answer:")
-#								print(json.dumps(testcase["definition"]["testcase_answer"], indent = "\t"))
-#								print()
-#								print("Received answer:")
-#								print(json.dumps(testcase["received_answer"], indent = "\t"))
-#								print()
-#								print("-" * 120)
-#							elif status == TestcaseStatus.TestbatchFailedError:
-#								self._print_output("stdout", process.stdout, show_if_empty = False)
-#								self._print_output("stderr", process.stderr, show_if_empty = False)
+						if testcase_status == TestcaseStatus.FailedWrongAnswer:
+							print(textwrap.indent(json.dumps(testcase["definition"]["testcase_data"], indent = "\t"), prefix = "    "))
+							print()
+							print("    Expected answer:")
+							print(textwrap.indent(json.dumps(testcase["definition"]["testcase_answer"], indent = "\t"), prefix = "    "))
+							print()
+							print("    Received answer:")
+							print(textwrap.indent(json.dumps(testcase["received_answer"], indent = "\t"), prefix = "    "))
+							print()
+							print("-" * 120)
 
 	def print(self):
 		self.print_result()

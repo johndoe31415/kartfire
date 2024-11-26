@@ -84,9 +84,19 @@ class SubprocessExecutionResult():
 	def status(self):
 		return getattr(ExecutionResult, self._result_dict["status"])
 
+	def _dump(self, data: bytes, name: str):
+		if len(data) > 0:
+			text = data.decode("utf-8", errors = "ignore").strip("\r\n\t ")
+			if len(text) > 0:
+				linelen = 12
+				sep = f"{'⎯' * linelen} 8< {'⎯' * linelen}"
+				print(f"{sep}  ↓ {name} ↓  {sep}")
+				print(text)
+				print(f"{sep}  ↑ {name} ↑  {sep}")
+
 	def dump_stdout_stderr(self):
-		print(self.stderr)
-		print(self.stdout)
+		self._dump(self.stdout, "stdout")
+		self._dump(self.stderr, "stderr")
 
 	def to_dict(self) -> dict:
 		return self._result_dict
