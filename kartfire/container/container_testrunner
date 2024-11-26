@@ -69,6 +69,7 @@ class SubprocessExecutor():
 					"length": len(exec_result.stderr),
 					"data": exec_result.stderr[:self._limit_stderr_bytes],
 				},
+				"returncode": exec_result.returncode,
 			})
 			if exec_result.returncode == 0:
 				result["status"] = self.ExecutionResult.Success

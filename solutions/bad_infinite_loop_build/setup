@@ -1,4 +1,10 @@
 #!/usr/bin/python3
 import time
+import sys
+print("This build will not terminate, sadly :(", file = sys.stderr)
+i = 0
 while True:
+	i += 1
+	print(f"Stdout! {i}")
+	print(f"Stderr! {i}", file = sys.stderr)
 	time.sleep(1)

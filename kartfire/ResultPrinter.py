@@ -27,6 +27,7 @@ import pytz
 import tzlocal
 from .Enums import TestcaseStatus
 from .TimeDelta import TimeDelta
+from .SubprocessExecutionResult import SubprocessExecutionResult
 
 class ResultColorizer():
 	def __init__(self, ansi: bool = True):
@@ -163,6 +164,13 @@ class SubmissionResultPrinter():
 #		for testbatch in self._submission_results["testbatches"]:
 #			testbatch_status = getattr(TestbatchStatus, testbatch["testbatch_status"])
 #			process = SubprocessExecutionResult(testbatch["process"])
+
+
+		if self._submission_results["setup"] is None:
+			setup = None
+		else:
+			setup = SubprocessExecutionResult(self._submission_results["setup"])
+
 		for testcase in self._submission_results["testcases"]:
 			testcase_status = getattr(TestcaseStatus, testcase["testcase_status"])
 			if testcase_status == TestcaseStatus.Passed:
@@ -175,6 +183,17 @@ class SubmissionResultPrinter():
 				print_specific_key =  failed_keys[key] <= self._result_printer.show_max_testcase_details_count
 				if first_failed_key or print_specific_key:
 					reasons = [ ]
+					if testcase["testbatch"] is None:
+						testbatch = None
+						print(f"    Testcase {testcase['definition']['name']} [{action}] failed without testing: {testcase_status.name}")
+						if testcase_status == TestcaseStatus.BuildFailure:
+							print(f"Setup process failed with {setup.status.name}, return code {setup.returncode} after {setup.runtime_secs:.0f} secs (allowance {setup.runtime_limit_secs:.0f} secs)")
+							setup.dump_stdout_stderr()
+					else:
+						testbatch = self._submission_results["testbatches"][str(testcase["testbatch"])]
+						print(f"    Testcase {testcase['definition']['name']} [{action}] failed in testbatch #{testcase['testbatch']} after {testbatch['runtime_secs']:.0f} secs")
+
+#						print(f"    Testcase {testcase['definition']['name']} failed with status {status.name} after {process.runtime_secs:.0f} secs: {', '.join(reasons) if len(reasons) > 0 else ''}")
 #						if "proc_details" in testbatch:
 #							if ("exception_msg" in testbatch["proc_details"]) and (testbatch["proc_details"]["exception_msg"] is not None):
 #								reasons.append(testbatch["proc_details"]["exception_msg"])
@@ -187,7 +206,6 @@ class SubmissionResultPrinter():
 #									reasons.append("no stdout provided")
 #								else:
 #									reasons.append("invalid JSON on stdout")
-					#print(f"    Testcase {testcase['definition']['name']} failed with status {status.name} after {process.runtime_secs:.0f} secs: {', '.join(reasons) if len(reasons) > 0 else ''}")
 #						print(key)
 #						if print_specific_key:
 #							if status == TestcaseStatus.FailedWrongAnswer:

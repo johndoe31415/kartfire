@@ -33,6 +33,18 @@ class SubprocessExecutionResult():
 	def runtime_secs(self) -> float:
 		return self._result_dict["runtime_secs"]
 
+	@property
+	def returncode(self) -> int | None:
+		return self._result_dict.get("returncode")
+
+	@property
+	def exception_msg(self) -> str | None:
+		return self._result_dict.get("exception_msg")
+
+	@property
+	def runtime_limit_secs(self) -> float:
+		return self._result_dict["runtime_limit_secs"]
+
 	@functools.cached_property
 	def stdout(self):
 		if "stdout" in self._result_dict:
@@ -71,6 +83,10 @@ class SubprocessExecutionResult():
 	@property
 	def status(self):
 		return getattr(ExecutionResult, self._result_dict["status"])
+
+	def dump_stdout_stderr(self):
+		print(self.stderr)
+		print(self.stdout)
 
 	def to_dict(self) -> dict:
 		return self._result_dict
