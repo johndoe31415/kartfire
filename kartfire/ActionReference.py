@@ -38,38 +38,28 @@ class ActionReference(BaseAction):
 		have_answer_cnt = 0
 		new_answer_cnt = 0
 		evaluation = submission_evaluations[0]
-		if evaluation.testrun_status != TestrunStatus.Completed:
-			print(f"{testcase_filename}: Refusing to use a reference with testrun status {evaluation.testrun_status.name}")
-			return
 
-		for testbatch_evaluation in evaluation.testbatch_evaluations:
-			if testbatch_evaluation.status != TestbatchStatus.Completed:
-				print(f"{testcase_filename}: Refusing to use a reference with testbatch status {testbatch_evaluation.status.name}")
-				return
-			for testcase_evaluation in testbatch_evaluation:
-				if testcase_evaluation.status not in [ TestcaseStatus.Passed, TestcaseStatus.FailedWrongAnswer ]:
-					print(f"{testcase_filename}: Refusing to use a reference with testcase status {testcase_evaluation.status.name}")
-					return
+		for testcase_evaluation in evaluation:
+			if testcase_evaluation.status not in [ TestcaseStatus.Passed, TestcaseStatus.FailedWrongAnswer ]:
+				print(f"{testcase_filename}: Refusing to use a reference with testcase status {testcase_evaluation.status.name}")
+				continue
 
-				testcase = testcase_evaluation.testcase
-				if testcase.testcase_answer == testcase_evaluation.received_answer:
-					have_answer_cnt += 1
-				else:
-					new_answer_cnt += 1
+			testcase = testcase_evaluation.testcase
+			if testcase.testcase_answer == testcase_evaluation.received_answer:
+				have_answer_cnt += 1
+			else:
+				new_answer_cnt += 1
 
 		total_answer_cnt = have_answer_cnt + new_answer_cnt
 		print(f"{testcase_filename}: Already had correct answer for {have_answer_cnt} / {total_answer_cnt} testcases, found {new_answer_cnt} new.")
 
 		if self._args.commit:
-			for testbatch_evaluation in evaluation.testbatch_evaluations:
-				for testcase_evaluation in testbatch_evaluation:
-					testcase = testcase_evaluation.testcase
-					if testcase.testcase_answer != testcase_evaluation.received_answer:
-						testcase.testcase_answer = testcase_evaluation.received_answer
-					if testbatch_evaluation.testcase_count == 1:
-						testcase.runtime_allowance_secs_unscaled = testbatch_evaluation.runtime_secs
-
-
+			for testcase_evaluation in evaluation:
+				testcase = testcase_evaluation.testcase
+				if testcase.testcase_answer != testcase_evaluation.received_answer:
+					testcase.testcase_answer = testcase_evaluation.received_answer
+				testcase.runtime_allowance_secs_unscaled = testcase_evaluation.testbatch_evaluation.process.runtime_secs
+				print(f"{testcase.name}: {testcase_evaluation.testbatch_evaluation.process.runtime_secs:.1f} sec")
 			testcase_collection.write_to_file(testcase_filename)
 		else:
 			print(f"{testcase_filename}: Not commiting results.")

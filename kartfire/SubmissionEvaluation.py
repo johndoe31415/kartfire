@@ -88,6 +88,10 @@ class TestcaseEvaluation():
 		return self._testcase
 
 	@property
+	def testbatch_evaluation(self):
+		return self._testbatch_evaluation
+
+	@property
 	def status(self) -> TestcaseStatus:
 		return self._status
 
