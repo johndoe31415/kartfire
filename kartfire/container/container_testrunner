@@ -155,9 +155,28 @@ class ContainerTestrunner():
 		}
 
 	def _get_initial_testbatches(self):
-		"""Split testbatches into groups of maximum size initially."""
-		for i in range(0, self.testcase_count, self.max_testbatch_size):
-			yield self.testcases[i : i + self.max_testbatch_size]
+		"""Split testbatches into groups at most of self.max_testbatch_size."""
+		batch = [ ]
+		batch_last_action = None
+		batch_expected_runtime_secs = 0
+		for testcase in self.testcases:
+			testcase_action = testcase["testcase_data"]["action"]
+			if (batch_last_action is not None) and (testcase_action != batch_last_action):
+				# Never batch different actions together.
+				yield batch
+				batch = [ ]
+				batch_last_action = testcase_action
+				batch_expected_runtime_secs = 0
+
+			batch.append(testcase)
+			batch_expected_runtime_secs += testcase["runtime_allowance_secs"]
+			if (len(batch) >= self.max_testbatch_size) or (batch_expected_runtime_secs >= 60):
+				yield batch
+				batch = [ ]
+				batch_last_action = None
+				batch_expected_runtime_secs = 0
+		if len(batch) > 0:
+			yield batch
 
 	def _compute_allowance_secs(self, testbatch: list[dict]):
 		return sum(testcase["runtime_allowance_secs"] for testcase in testbatch)
