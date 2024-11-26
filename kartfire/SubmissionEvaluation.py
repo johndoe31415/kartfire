@@ -251,22 +251,24 @@ class SubmissionEvaluation():
 	def _testbatches_to_dict(self):
 		result = { }
 		for testcase_evaluation in self:
-			if testcase_evaluation.testbatch_evaluation.testbatch_no not in result:
-				testbatch_no = testcase_evaluation.testbatch_evaluation.testbatch_no
-				result[testbatch_no] = {
-					"action": testcase_evaluation.testcase.action,
-					"status": testcase_evaluation.testbatch_evaluation.process.status.name,
-					"runtime_secs": testcase_evaluation.testbatch_evaluation.process.runtime_secs,
-					"runtime_allowance_secs": testcase_evaluation.testcase.runtime_allowance_secs,
-					"runtime_allowance_secs_unscaled": testcase_evaluation.testcase.runtime_allowance_secs_unscaled,
-					"testcase_count": 1,
-				}
-				if testcase_evaluation.testbatch_evaluation.process.status != ExecutionResult.Success:
-					result[testbatch_no]["process"] = testcase_evaluation.testbatch_evaluation.process.to_dict()
-			else:
-				result[testbatch_no]["runtime_allowance_secs"] += testcase_evaluation.testcase.runtime_allowance_secs
-				result[testbatch_no]["runtime_allowance_secs_unscaled"] += testcase_evaluation.testcase.runtime_allowance_secs_unscaled
-				result[testbatch_no]["testcase_count"] += 1
+			testbatch_evaluation = testcase_evaluation.testbatch_evaluation
+			if testbatch_evaluation is not None:
+				if testbatch_evaluation.testbatch_no not in result:
+					testbatch_no = testcase_evaluation.testbatch_evaluation.testbatch_no
+					result[testbatch_no] = {
+						"action": testcase_evaluation.testcase.action,
+						"status": testcase_evaluation.testbatch_evaluation.process.status.name,
+						"runtime_secs": testcase_evaluation.testbatch_evaluation.process.runtime_secs,
+						"runtime_allowance_secs": testcase_evaluation.testcase.runtime_allowance_secs,
+						"runtime_allowance_secs_unscaled": testcase_evaluation.testcase.runtime_allowance_secs_unscaled,
+						"testcase_count": 1,
+					}
+					if testcase_evaluation.testbatch_evaluation.process.status != ExecutionResult.Success:
+						result[testbatch_no]["process"] = testcase_evaluation.testbatch_evaluation.process.to_dict()
+				else:
+					result[testbatch_no]["runtime_allowance_secs"] += testcase_evaluation.testcase.runtime_allowance_secs
+					result[testbatch_no]["runtime_allowance_secs_unscaled"] += testcase_evaluation.testcase.runtime_allowance_secs_unscaled
+					result[testbatch_no]["testcase_count"] += 1
 		return result
 
 	def to_dict(self):
