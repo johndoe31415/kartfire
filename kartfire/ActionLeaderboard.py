@@ -24,8 +24,42 @@ import json
 import collections
 from .BaseAction import BaseAction
 
+class FiletypeComposition():
+	def __init__(self, filetype_dict: dict):
+		self._count = self._determine_programming_languages(filetype_dict)
+		self._total_lines = sum(lines for (lines, language) in self._count)
+
+	def _determine_programming_languages(self, filetype_dict: dict) -> dict:
+		count = collections.defaultdict(int)
+		for (ext, lines) in filetype_dict.items():
+			language = {
+				".c":		"C",
+				".h":		"C",
+				".py":		"Python",
+				".rs":		"Rust",
+				".java":	"Java",
+				".jl":		"Julia",
+				".go":		"Go",
+				".s":		"Assembly",
+				".cpp":		"C++",
+				".hpp":		"C++",
+				".cc":		"C++",
+				".hh":		"C++",
+			}.get(ext.lower())
+			if language is not None:
+				count[language] += lines
+		count = [ (lines, language) for (language, lines) in count.items() ]
+		count.sort(reverse = True)
+		return count
+
+	def __format__(self, fmtstr: str):
+		if len(self._count) == 0:
+			return "unknown"
+		else:
+			return ", ".join(f"{lines / self._total_lines * 100:.0f}% {language}" for (lines, language) in self._count)
+
 class ActionLeaderboard(BaseAction):
-	ResultEntry = collections.namedtuple("ResultEntry", [ "correct_ratio", "solution_name", "time_secs" ])
+	ResultEntry = collections.namedtuple("ResultEntry", [ "correct_ratio", "solution_name", "time_secs", "programming_language" ])
 
 	def _record_solution(self, solution: dict):
 		total_runtime_secs = 0
@@ -33,7 +67,7 @@ class ActionLeaderboard(BaseAction):
 			total_runtime_secs += testbatch["runtime_secs"]
 
 		ratio = solution["statistics_by_action"]["*"]["passed"] / solution["statistics_by_action"]["*"]["total"]
-		entry = self.ResultEntry(correct_ratio = ratio, solution_name = os.path.basename(solution["dut"]["dirname"]), time_secs = total_runtime_secs)
+		entry = self.ResultEntry(correct_ratio = ratio, solution_name = os.path.basename(solution["dut"]["dirname"]), time_secs = total_runtime_secs, programming_language = FiletypeComposition(solution["dut"]["meta"].get("filetypes", { })))
 		self._results.append(entry)
 
 	def run(self):
@@ -51,5 +85,5 @@ class ActionLeaderboard(BaseAction):
 			if (not sep_line) and entry.correct_ratio != 1:
 				print("⎯" * 60)
 				sep_line = True
-			print(f"{pos:3d}  {entry.solution_name:25s} {time_secs // 60:4d}:{time_secs % 60:02d}   {entry.correct_ratio * 100:5.1f}%")
+			print(f"{pos:3d}  {entry.solution_name:25s} {time_secs // 60:4d}:{time_secs % 60:02d}   {entry.correct_ratio * 100:5.1f}%    {entry.programming_language}")
 		return 0
