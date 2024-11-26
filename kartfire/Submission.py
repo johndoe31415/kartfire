@@ -27,7 +27,7 @@ import functools
 import logging
 from .Exceptions import InvalidSubmissionException
 from .Docker import Docker
-from .Tools import ExecTools, GitTools
+from .Tools import ExecTools, GitTools, MiscTools
 from .TestrunnerOutput import TestrunnerOutput
 from .Enums import TestrunStatus
 
@@ -56,6 +56,7 @@ class Submission():
 		if os.path.isfile(json_filename):
 			with open(json_filename) as f:
 				meta["json"] = json.load(f)
+		meta["filetypes"] = MiscTools.determine_lines_by_file_extension(self._submission_dir)
 		return meta
 
 	async def _create_submission_tarfile(self, tarfile_name):
