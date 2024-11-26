@@ -161,13 +161,13 @@ class ContainerTestrunner():
 		batch_expected_runtime_secs = 0
 		for testcase in self.testcases:
 			testcase_action = testcase["testcase_data"]["action"]
-			if (batch_last_action is not None) and (testcase_action != batch_last_action):
+			if (len(batch) > 0) and (batch_last_action is not None) and (testcase_action != batch_last_action):
 				# Never batch different actions together.
 				yield batch
 				batch = [ ]
-				batch_last_action = testcase_action
 				batch_expected_runtime_secs = 0
 
+			batch_last_action = testcase_action
 			batch.append(testcase)
 			batch_expected_runtime_secs += testcase["runtime_allowance_secs"]
 			if (len(batch) >= self.max_testbatch_size) or (batch_expected_runtime_secs >= 60):
