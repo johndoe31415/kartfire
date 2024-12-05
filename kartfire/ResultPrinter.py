@@ -200,7 +200,7 @@ class SubmissionResultPrinter():
 								print(f"        Failure: {testbatch_process.exception_msg}")
 							testbatch_process.dump_stdout_stderr()
 
-						if testcase_status == TestcaseStatus.FailedWrongAnswer:
+						if testcase_status in [ TestcaseStatus.FailedWrongAnswer, TestcaseStatus.BatchFailedTimeout ]:
 							print(textwrap.indent(json.dumps(testcase["definition"]["testcase_data"], indent = "\t"), prefix = "    "))
 							print()
 							print("    Expected answer:")
