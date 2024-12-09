@@ -24,7 +24,7 @@ from .TestcaseRunner import TestcaseRunner
 from .TestcaseCollection import TestcaseCollection
 from .Submission import Submission
 from .BaseAction import BaseAction
-from .Enums import TestrunStatus, TestbatchStatus, TestcaseStatus
+from .Enums import TestcaseStatus
 
 class ActionReference(BaseAction):
 	def _run_testcase_filename(self, testcase_filename: str):

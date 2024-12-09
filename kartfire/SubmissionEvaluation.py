@@ -103,19 +103,19 @@ class TestcaseEvaluation():
 	def detail_text(self):
 		match self.status:
 			case TestcaseStatus.Passed:
-				return f"passed"
+				return "passed"
 
 			case TestcaseStatus.FailedWrongAnswer:
-				return f"failed because received answer was incorrect"
+				return "failed because received answer was incorrect"
 
 			case TestcaseStatus.NoAnswerProvided:
-				return f"failed because no answer was provided"
+				return "failed because no answer was provided"
 
 			case TestcaseStatus.BuildTimedOut:
-				return f"build timed out"
+				return "build timed out"
 
 			case TestcaseStatus.BuildFailure:
-				return f"build failed"
+				return "build failed"
 
 			case TestcaseStatus.BatchFailedInvalidAnswerProvided:
 				return f"batch {self._testbatch_evaluation.testbatch_no} failed (invalid answer type)"
@@ -139,7 +139,7 @@ class TestcaseEvaluation():
 				return f"batch {self._testbatch_evaluation.testbatch_no} failed (out of memory)"
 
 			case TestcaseStatus.DockerRunFailed:
-				return f"Docker run failed"
+				return "Docker run failed"
 
 	def to_dict(self):
 		result = {
