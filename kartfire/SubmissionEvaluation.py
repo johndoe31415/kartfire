@@ -205,15 +205,19 @@ class SubmissionEvaluation():
 						else:
 							# Individual judgement of testcases possible
 							responses = testbatch_evaluation.process.stdout_json.get("responses", { })
-							for testcase in testbatch_evaluation:
-								if testcase.name not in responses:
-									testcase_status = TestcaseStatus.NoAnswerProvided
-									received_answer = None
-								else:
-									received_answer = responses[testcase.name]
-									testcase_status = TestcaseStatus.Passed if (received_answer == testcase.testcase_answer) else TestcaseStatus.FailedWrongAnswer
-								testcase_evaluation = TestcaseEvaluation(testcase = testcase, testbatch_evaluation = testbatch_evaluation, received_answer = received_answer, testcase_status = testcase_status)
-								self._evaluated_testcases.append(testcase_evaluation)
+							if not isinstance(responses, dict):
+								# Process returned parsable JSON with a "responses" key, which was not a dict, however
+								self._judge_testcases_of_testbatch(testbatch_evaluation, TestcaseStatus.BatchFailedInvalidAnswerProvided)
+							else:
+								for testcase in testbatch_evaluation:
+									if testcase.name not in responses:
+										testcase_status = TestcaseStatus.NoAnswerProvided
+										received_answer = None
+									else:
+										received_answer = responses[testcase.name]
+										testcase_status = TestcaseStatus.Passed if (received_answer == testcase.testcase_answer) else TestcaseStatus.FailedWrongAnswer
+									testcase_evaluation = TestcaseEvaluation(testcase = testcase, testbatch_evaluation = testbatch_evaluation, received_answer = received_answer, testcase_status = testcase_status)
+									self._evaluated_testcases.append(testcase_evaluation)
 					else:
 						# Unparsable output.
 						self._judge_testcases_of_testbatch(testbatch_evaluation, TestcaseStatus.BatchFailedUnparsableAnswerProvided)
