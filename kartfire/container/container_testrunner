@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #	kartfire - Test framework to consistently run submission files
-#	Copyright (C) 2023-2024 Johannes Bauer
+#	Copyright (C) 2023-2025 Johannes Bauer
 #
 #	This file is part of kartfire.
 #
@@ -21,229 +21,75 @@
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
 import os
-import base64
 import json
 import sys
-import time
 import subprocess
+import argparse
 import contextlib
-import tempfile
-import stat
-import enum
-import collections
 
-if len(sys.argv) < 2:
-	print(f"{sys.argv[0]}: No argument given.", file = sys.stderr)
-	sys.exit(1)
+class ContainerRunFailedException(Exception):
+	def __init__(self, code: str, msg: str):
+		super().__init__(self, msg)
+		self._code = code
 
-class SubprocessExecutor():
-	class ExecutionResult(enum.Enum):
-		Success = "success"
-		FailedReturnCode = "failed_return_code"
-		FailedTimeout = "failed_timeout"
-		FailedExecException = "failed_exec_exception"
-		FailedNotExecutable = "failed_exec_not_executable"
-		FailedOutOfMemory = "failed_oom"
+	@property
+	def code(self):
+		return self._code
 
-	def __init__(self, cmd: list[str], maximum_runtime_secs: float, limit_stdout_bytes: int, limit_stderr_bytes: int):
-		self._cmd = cmd
-		self._maximum_runtime_secs = maximum_runtime_secs
-		self._limit_stdout_bytes = limit_stdout_bytes
-		self._limit_stderr_bytes = limit_stderr_bytes
-
-	def run(self):
-		result = {
-			"cmd": self._cmd,
-			"runtime_limit_secs": self._maximum_runtime_secs,
-		}
-
-		t0 = time.time()
-		try:
-			exec_result = subprocess.run(self._cmd, capture_output = True, check = False, timeout = self._maximum_runtime_secs)
-			result.update({
-				"stdout": {
-					"length": len(exec_result.stdout),
-					"data": exec_result.stdout[:self._limit_stdout_bytes],
-				},
-				"stderr": {
-					"length": len(exec_result.stderr),
-					"data": exec_result.stderr[:self._limit_stderr_bytes],
-				},
-				"returncode": exec_result.returncode,
-			})
-			if exec_result.returncode == 0:
-				result["status"] = self.ExecutionResult.Success
-			elif exec_result.returncode == -9:
-				result["status"] = self.ExecutionResult.FailedOutOfMemory
-			else:
-				result["status"] = self.ExecutionResult.FailedReturnCode
-		except subprocess.TimeoutExpired as e:
-			had_timeout = True
-			exception_msg = f"{e.__class__.__name__} when trying execution: {str(e)}"
-			result.update({
-				"status": self.ExecutionResult.FailedTimeout,
-				"exception_msg": str(e),
-			})
-		except PermissionError as e:
-			perms = stat.S_IMODE(os.stat(self._cmd[0]).st_mode)
-			missing_exec = (perms & 0o111) == 0
-			result.update({
-				"status": self.ExecutionResult.FailedNotExecutable,
-				"exception_msg": str(e),
-				"perms": perms,
-			})
-		except OSError as e:
-			result.update({
-				"status": self.ExecutionResult.FailedExecException,
-				"exception_msg": str(e),
-			})
-		result["runtime_secs"] = time.time() - t0
-		return result
-
-
-class ContainerTestrunner():
-	def __init__(self, config_filename: str):
-		with open(config_filename) as f:
+class ContainerTestRunner():
+	def __init__(self, args):
+		self._args = args
+		with open(self._args.configuration) as f:
 			self._config = json.load(f)
+
+	def verbose(self):
+		return max(self._config["verbose"], self._args.verbose)
+
+	def _execute(self, cmd: list[str], timeout: float):
+		try:
+			exec_result = subprocess.run(cmd, timeout = timeout)
+			if exec_result.returncode == -9:
+				raise ContainerRunFailedException("exec_oom", f"{cmd}: Process execution terminated with out-of-memory error")
+			elif exec_result.returncode != 0:
+				raise ContainerRunFailedException("exec_failed", f"{cmd}: Process execution terminated with return code {exec_result.returncode}")
+		except subprocess.TimeoutExpired as e:
+			raise ContainerRunFailedException("exec_timeout", f"{cmd}: Process execution terminated with timeout ({timeout:.0f} seconds)") from e
+		except PermissionError as e:
+			raise ContainerRunFailedException("exec_permission", f"{cmd}: Process execution terminated with {e.__class__.__name__}. Check that the target is executable: {str(e)}") from e
+		except Exception as e:
+			raise ContainerRunFailedException("exec_oserror", f"{cmd}: Process execution terminated with {e.__class__.__name__}: {str(e)}") from e
+
+	def _unpack(self):
 		with contextlib.suppress(FileExistsError):
-			os.makedirs(self.meta["local_dut_dir"])
-		self._tc_results = { }
+			os.makedirs(self._config["container_dut_dir"])
+		self._execute([ "tar", "-x", "-C", self._config["container_dut_dir"], "-f", self._config["container_submission_tar_file"] ], timeout = 10)
 
-	def logmsg(self, msg: str):
-		if self.meta.get("debug"):
-			print(msg, file = sys.stderr)
+	def _setup(self):
+		setup_executable = f"{self._config['container_dut_dir']}/{self._config['setup_name']}"
+		if os.path.exists(setup_executable):
+			self._execute([ setup_executable ], timeout = self._config["max_setup_time_secs"])
 
-	@property
-	def meta(self) -> dict:
-		return self._config["meta"]
-
-	@property
-	def max_testbatch_size(self) -> int:
-		return self.meta.get("max_testbatch_size", 1)
-
-	@property
-	def testcases(self) -> list[dict]:
-		return self._config["testcases"]
-
-	@property
-	def testcase_count(self):
-		return len(self.testcases)
-
-	def _unpack_files(self):
-		if "local_testcase_tar_file" in self.meta:
-			subprocess.check_call([ "tar", "-x", "-C", self.meta["local_dut_dir"], "-f", self.meta["local_testcase_tar_file"] ])
-		else:
-			self.logmsg("No key 'local_testcase_tar_file' given, expecting DUT directory to already exist.")
-
-	def _run_setup(self):
-		setup_exec = f"{self.meta['local_dut_dir']}/{self.meta['setup_name']}"
-		if os.path.exists(setup_exec):
-			return SubprocessExecutor(cmd = [ setup_exec ], maximum_runtime_secs = self.meta["max_setup_time_secs"], limit_stdout_bytes = self.meta["limit_stdout_bytes"], limit_stderr_bytes = self.meta["limit_stdout_bytes"]).run()
-		else:
-			return None
-
-	def _run_testbatch(self, testbatch: list[dict], timeout_secs: float):
-		with open(self.meta["local_testcase_filename"], "w") as f:
-			local_json_content = {
-				"testcases": { testcase["name"]: testcase["testcase_data"] for testcase in testbatch },
-			}
-			json.dump(local_json_content, f)
-		solution_exec = f"{self.meta['local_dut_dir']}/{self.meta['solution_name']}"
-		testbatch_results = SubprocessExecutor(cmd = [ solution_exec, self.meta["local_testcase_filename"] ], maximum_runtime_secs = timeout_secs, limit_stdout_bytes = self.meta["limit_stdout_bytes"], limit_stderr_bytes = self.meta["limit_stdout_bytes"]).run()
-		return {
-			"testcases": [ testcase["name"] for testcase in testbatch ],
-			"process": testbatch_results,
-		}
-
-	def _get_initial_testbatches(self):
-		"""Split testbatches into groups at most of self.max_testbatch_size."""
-		batch = [ ]
-		batch_last_action = None
-		batch_expected_runtime_secs = 0
-		for testcase in self.testcases:
-			testcase_action = testcase["testcase_data"]["action"]
-			if (len(batch) > 0) and (batch_last_action is not None) and (testcase_action != batch_last_action):
-				# Never batch different actions together.
-				yield batch
-				batch = [ ]
-				batch_expected_runtime_secs = 0
-
-			batch_last_action = testcase_action
-			batch.append(testcase)
-			batch_expected_runtime_secs += testcase["runtime_allowance_secs"]
-			if (len(batch) >= self.max_testbatch_size) or (batch_expected_runtime_secs >= 60):
-				yield batch
-				batch = [ ]
-				batch_last_action = None
-				batch_expected_runtime_secs = 0
-		if len(batch) > 0:
-			yield batch
-
-	def _compute_allowance_secs(self, testbatch: list[dict]):
-		return sum(testcase["runtime_allowance_secs"] for testcase in testbatch) + self.meta["minimum_testbatch_time_secs"]
-
-	def _recursive_run_testbatch(self, testbatch: list[dict], runtime_allowance_secs: float):
-		result = [ ]
-		self.logmsg(f"Running testbatch of {len(testbatch)} testcases given a time contingent of {runtime_allowance_secs:.1f} seconds.")
-
-		t0 = time.time()
-		batch_result = self._run_testbatch(testbatch, timeout_secs = runtime_allowance_secs)
-		t1 = time.time()
-
-		# Was the run successful or was it a single case?
-		if (batch_result["process"]["status"] == SubprocessExecutor.ExecutionResult.Success) or (len(testbatch) <= 1):
-			# Record results
-			result.append(batch_result)
-		else:
-			# Whole batch failed: bisect array, subtracting previously taken time from contingent
-			already_taken_time_secs = t1 - t0
-			remaining_allowance_secs = runtime_allowance_secs - already_taken_time_secs
-			self.logmsg(f"Testbatch failed, wasted {already_taken_time_secs:.1f} secs without any answer to {len(testbatch)} testcases. {remaining_allowance_secs:.1f} secs remaining.")
-
-			original_allowance_secs = self._compute_allowance_secs(testbatch)
-			if remaining_allowance_secs > (original_allowance_secs / 2):
-				half_index = len(testbatch) // 2
-				left = testbatch[ : half_index]
-				right = testbatch[half_index : ]
-
-				subordinate_scalar = remaining_allowance_secs / original_allowance_secs
-				left_allowance_secs = self._compute_allowance_secs(left) * subordinate_scalar
-				right_allowance_secs = self._compute_allowance_secs(right) * subordinate_scalar
-				self.logmsg(f"Bisecting previous batch of {len(testbatch)} testcases, subtracting {already_taken_time_secs:.1f} additional secs from time contingent, splitting into {len(left)} and {len(right)} testcases. Subordinate batches allowed {left_allowance_secs:.1f} secs/{right_allowance_secs:.1f} secs.")
-				result += self._recursive_run_testbatch(left, left_allowance_secs)
-				result += self._recursive_run_testbatch(right, right_allowance_secs)
-			else:
-				# No more time to further bisect, return failed batch result
-				self.logmsg(f"Bisecting further impossible, not enough time contingent left.")
-				result.append(batch_result)
-		return result
+	def _run(self):
+		solution_executable = f"{self._config['container_dut_dir']}/{self._config['solution_name']}"
+		self._execute([ solution_executable, self._config["container_testcase_file"] ], timeout = self._config["max_runtime_secs"])
 
 	def run(self):
-		t0 = time.time()
-		result = {
-			"setup": None,
-			"testbatches": [ ],
-		}
-		self._unpack_files()
-		result["setup"] = self._run_setup()
-		if (result["setup"] is not None) and (result["setup"]["status"] != SubprocessExecutor.ExecutionResult.Success):
-			self.logmsg(f"Build failed, refusing to run any testcases.")
-		else:
-			for testbatch in self._get_initial_testbatches():
-				runtime_allowance_secs = self._compute_allowance_secs(testbatch)
-				result["testbatches"] += self._recursive_run_testbatch(testbatch, runtime_allowance_secs = runtime_allowance_secs)
-			result["total_runtime_secs"] = time.time() - t0
-		return result
+		try:
+			self._unpack()
+			self._setup()
+			self._run()
+		except ContainerRunFailedException as e:
+			print()
+			print(json.dumps({
+				"_": "9d83e7a5-bb94-40a1-9f59-a6586d2c3c94",
+				"code": e.code,
+				"exception": str(e),
+			}))
 
-def serializer(obj):
-	if isinstance(obj, bytes):
-		return base64.b64encode(obj).decode("ascii")
-	elif isinstance(obj, enum.Enum):
-		return obj.name
-	else:
-		raise TypeError(obj)
+parser = argparse.ArgumentParser(description = "Run testcases inside a kartfire container.")
+parser.add_argument("-c", "--configuration", metavar = "filename", default = "/meta.json", help = "Specifies configuretion file to use. Defaults to %(default)s.")
+parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
+args = parser.parse_args(sys.argv[1:])
 
-config_filename = sys.argv[1]
-ctr = ContainerTestrunner(config_filename)
-result = ctr.run()
-print(json.dumps(result, default = serializer))
+ctr = ContainerTestRunner(args)
+ctr.run()

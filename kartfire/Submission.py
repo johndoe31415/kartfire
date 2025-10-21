@@ -1,5 +1,5 @@
 #	kartfire - Test framework to consistently run submission files
-#	Copyright (C) 2023-2024 Johannes Bauer
+#	Copyright (C) 2023-2025 Johannes Bauer
 #
 #	This file is part of kartfire.
 #
@@ -28,7 +28,6 @@ import logging
 from .Exceptions import InvalidSubmissionException
 from .Docker import Docker
 from .Tools import ExecTools, GitTools, MiscTools
-from .TestrunnerOutput import TestrunnerOutput
 from .Enums import TestrunStatus
 
 _log = logging.getLogger(__spec__.name)
@@ -63,50 +62,47 @@ class Submission():
 		await ExecTools.async_check_call([ "tar", "-C", self._submission_dir, "-c", "-f", tarfile_name, "." ])
 
 	async def run(self, runner: "TestcaseRunner", interactive: bool = False):
-		local_container_testrunner = "/container_testrunner"
-		local_container_parameter_filename = "/container_testrunner.json"
-		container_parameters = {
-			"meta": {
-				"limit_stdout_bytes":			128 * 1024,
-				"local_testcase_tar_file":		"/dut.tar",
-				"setup_name":					runner.config.setup_name,
-				"max_setup_time_secs":			runner.config.max_setup_time_secs,
-				"solution_name":				runner.config.solution_name,
-				"local_dut_dir":				"/dut",
-				"local_testcase_filename":		"/local_testcases.json",
-				"max_testbatch_size":			runner.config.testbatch_maxsize,
-				"debug":						interactive,
-				"minimum_testbatch_time_secs":	runner.config.minimum_testbatch_time_secs,
-			},
-			"testcases": runner.guest_testcase_data,
+		interactive = True
+		container_meta = {
+			"container_dut_dir":				"/dut",
+			"container_submission_tar_file":	"/dut.tar",
+			"container_testcase_file":			"/testcases.json",
+
+			"setup_name":						runner.config.setup_name,
+			"max_setup_time_secs":				runner.config.max_setup_time_secs,
+			"solution_name":					runner.config.solution_name,
+			"max_runtime_secs":					123,
+
+			"verbose":							2 if interactive else 0,
+		}
+		container_testcases = {
+			"testcases": { str(testcase.tcid): testcase.guest_dict() for testcase in runner.testcases },
 		}
 
-		command = [ local_container_testrunner, local_container_parameter_filename ]
+		container_command = [ "/container_testrunner" ]
 		if interactive:
-			print(f"Would have run: {' '.join(command)}")
+			print(f"Would have run: {' '.join(container_command)}")
 			command = [ "/bin/bash" ]
 
-		_log.debug("Creating docker container to run submission %s", str(self))
-		testrunner_output = TestrunnerOutput()
+		_log.debug("Creating docker container to run submission \"%s\"", str(self))
 
 		async with Docker(docker_executable = runner.config.docker_executable) as docker:
 			network = await docker.create_network()
 
-			run_prefix = os.path.dirname
-
 			# Start all dependent servers (e.g., a server container that the
 			# submission needs to connect to)
-			for (server_alias, server_config) in runner.required_server_containers.items():
-				_log.debug("Starting dependent server %s with config %s.", server_alias, str(server_config))
-				server_container = await docker.create_container(docker_image_name = server_config["image"], command = server_config["command"], network = network, network_alias = server_alias, run_name_prefix = f"hlp_{self.shortname}_{server_alias}")
-				await server_container.start()
+#			for (server_alias, server_config) in runner.required_server_containers.items():
+#				_log.debug("Starting dependent server %s with config %s.", server_alias, str(server_config))
+#				server_container = await docker.create_container(docker_image_name = server_config["image"], command = server_config["command"], network = network, network_alias = server_alias, run_name_prefix = f"hlp_{self.shortname}_{server_alias}")
+#				await server_container.start()
 
 			container = await docker.create_container(docker_image_name = runner.config.docker_container, command = command, network = network, max_memory_mib = runner.config.max_memory_mib, interactive = interactive, run_name_prefix = f"run_{self.shortname}")
-			await container.cp(self.container_testrunner_filename, local_container_testrunner)
+			await container.cp(self.container_testrunner_filename, "/container_testrunner")
 			with tempfile.NamedTemporaryFile(suffix = ".tar") as tmp:
 				await self._create_submission_tarfile(tmp.name)
-				await container.cp(tmp.name, container_parameters["meta"]["local_testcase_tar_file"])
-			await container.cpdata(json.dumps(container_parameters, indent = "\t" if interactive else None).encode("utf-8"), local_container_parameter_filename)
+				await container.cp(tmp.name, container_meta["container_submission_tar_file"])
+			await container.write_json(container_meta, "/meta.json", pretty_print = interactive)
+			await container.write_json(container_testcases, container_meta["container_testcase_file"], pretty_print = interactive)
 			await container.start()
 			if interactive:
 				await container.attach()

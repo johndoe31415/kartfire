@@ -1,5 +1,5 @@
 #	kartfire - Test framework to consistently run submission files
-#	Copyright (C) 2023-2024 Johannes Bauer
+#	Copyright (C) 2023-2025 Johannes Bauer
 #
 #	This file is part of kartfire.
 #
@@ -68,6 +68,10 @@ class RunningDockerContainer():
 			f.write(content)
 			f.flush()
 			await self.cp(f.name, container_filename)
+
+	async def write_json(self, content: dict, container_filename: str, pretty_print: bool = False):
+		bin_content = json.dumps(content, indent = "\t" if pretty_print else None).encode("utf-8")
+		await self.cpdata(content = bin_content, container_filename = container_filename)
 
 	async def cp(self, local_filename: str, container_filename: str):
 		cmd = [ self._docker.executable, "cp", local_filename, f"{self._container_id}:{container_filename}" ]

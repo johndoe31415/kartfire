@@ -1,5 +1,5 @@
 #	kartfire - Test framework to consistently run submission files
-#	Copyright (C) 2023-2024 Johannes Bauer
+#	Copyright (C) 2023-2025 Johannes Bauer
 #
 #	This file is part of kartfire.
 #
@@ -21,39 +21,16 @@
 
 import enum
 
-class TestcaseStatus(enum.Enum):
-	Passed = "passed"													# Testcase returned correct result
-	FailedWrongAnswer = "failed_wrong_answer"							# Testcase returned incorrect result
-	NoAnswerProvided = "no_answer_provided"								# Testcase result not contained in result dict
-	UnparsableAnswerProvided = "unparsable_answer_provided"				# Testcase returned data that is not parsable as JSON
-	BuildTimedOut = "build_timed_out"									# Build process timed out
-	BuildFailure = "build_failure"										# Build process was unsuccessful
-	BatchFailedInvalidAnswerProvided = "invalid_answer_provided"		# Testcase returned JSON data that has invalid format
-	BatchFailedNotExecutable = "batch_failed_not_executable"			# DUT was not executable, exec() failed
-	BatchFailedUnparsableAnswerProvided = "batch_failed_unparsable"
-	BatchFailedReturnCode = "batch_failed_returncode"
-	BatchFailedTimeout = "batch_failed_timeout"
-	BatchFailedExecExecption = "batch_failed_exec_exception"
-	BatchFailedOutOfMemory = "batch_failed_oom"
-	DockerRunFailed = "all_failed_docker"
-
-
-class TestbatchStatus(enum.Enum):
-	ErrorTestrunFailed = "error_run_failed"
-	ErrorUnparsable = "error_unparsable"
-	Completed = "completed"
-
 class TestrunStatus(enum.Enum):
-	Skipped = "skipped"
-	ErrorUnparsable = "error_unparsable"
-	ErrorStatusCode = "error_nonzero_status_code"
-	ContainerTimeout = "container_timeout"
-	Completed = "completed"
+	Running = "running"				# Still running
+	Finished = "finished"			# Run ran to completion
+	Failed = "failed"				# Something failed to start the run (e.g., docker container start error)
+	BuildFailed = "build_failed"	# Build step failed
+	Aborted = "aborted"				# User aborted run (e.g., Ctrl-C)
+	Terminated = "terminated"		# Run aborted (e.g., timeout or killed because of excessive resource use)
 
-class ExecutionResult(enum.Enum):
-	Success = "success"
-	FailedReturnCode = "failed_return_code"
-	FailedTimeout = "failed_timeout"
-	FailedExecException = "failed_exec_exception"
-	FailedNotExecutable = "failed_exec_not_executable"
-	FailedOutOfMemory = "failed_oom"
+class TestresultStatus(enum.Enum):
+	NoAnswer = "no_answer"				# No answer given
+	Pass = "pass"						# Correct answer
+	Fail = "fail"						# Wrong answer
+	Indeterminate = "indeterminate"		# Reference solution not available, cannot judge if answer is correct or not

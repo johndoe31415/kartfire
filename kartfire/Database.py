@@ -23,21 +23,8 @@ import sqlite3
 import json
 import contextlib
 import datetime
-import enum
 from .Testcase import Testcase, TestcaseCollection
-
-class TestrunStatus(enum.Enum):
-	Running = "running"				# Still running
-	Finished = "finished"			# Run ran to completion
-	Failed = "failed"				# Something failed to start the run (e.g., docker container start error)
-	BuildFailed = "build_failed"	# Build step failed
-	Aborted = "aborted"				# User aborted run (e.g., Ctrl-C)
-	Terminated = "terminated"		# Run aborted (e.g., timeout or killed because of excessive resource use)
-
-class TestresultStatus(enum.Enum):
-	NoAnswer = "no_answer"
-	Pass = "pass"
-	Fail = "fail"
+from .Enums import TestrunStatus, TestresultStatus
 
 class Database():
 	def __init__(self, filename: str):
@@ -84,7 +71,7 @@ class Database():
 				received_result varchar(4096) NULL,
 				status varchar(16) NOT NULL DEFAULT 'no_answer',
 				UNIQUE(tcid, runid),
-				CHECK((status = 'no_answer') OR (status = 'pass') OR (status = 'fail'))
+				CHECK((status = 'no_answer') OR (status = 'pass') OR (status = 'fail') OR (status = 'indeterminate'))
 			);
 			""")
 

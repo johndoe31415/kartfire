@@ -1,5 +1,5 @@
 #	kartfire - Test framework to consistently run submission files
-#	Copyright (C) 2023-2024 Johannes Bauer
+#	Copyright (C) 2023-2025 Johannes Bauer
 #
 #	This file is part of kartfire.
 #
@@ -23,48 +23,34 @@ import asyncio
 import logging
 import functools
 from .Tools import SystemTools
-from .Exceptions import InternalError
-from .SubmissionEvaluation import SubmissionEvaluation
-from .Docker import Docker
+#from .Exceptions import InternalError
+#from .SubmissionEvaluation import SubmissionEvaluation
+#from .Docker import Docker
 
 _log = logging.getLogger(__spec__.name)
 
 class TestcaseRunner():
-	def __init__(self, testcase_collections: list["TestcaseCollection"], test_fixture_config: "TestFixtureConfig"):
-		self._testcase_collections = testcase_collections
-		self._testcases_by_name = self._get_all_testcases_by_name()
-		self._test_fixture_config = test_fixture_config
-		_log.debug("Successfully loaded %d testcase collection(s)", len(self._testcase_collections))
+	def __init__(self, testcase_collection: "TestcaseCollection", test_fixture_config: "TestFixtureConfig", database: "Database"):
+		self._testcases = testcase_collection
 		self._config = test_fixture_config
+		self._db = database
+		_log.debug("Successfully started testcase runner with %d testcases", len(self._testcases))
 		self._concurrent_process_count = self._determine_concurrent_process_count()
 		self._process_semaphore = None
 
-	def _get_all_testcases_by_name(self) -> dict[str, "Testcase"]:
-		testcase_names = { }
-		for testcase_collection in self._testcase_collections:
-			collection_names = testcase_collection.testcases_by_name
-			if len(set(testcase_names) & set(collection_names)) > 0:
-				raise InternalError("Duplicate test case names (same name in multiple collections).")
-			testcase_names.update(collection_names)
-		return testcase_names
+	@property
+	def testcases(self):
+		return self._testcases
 
 	@property
 	def config(self):
 		return self._config
 
 	@functools.cached_property
-	def actions(self):
-		return set(testcase.action for testcase in self)
-
-	@functools.cached_property
-	def testcase_count(self):
-		return sum(testcase_collection.testcase_count for testcase_collection in self._testcase_collections)
-
-	@functools.cached_property
 	def total_maximum_runtime_secs(self):
 		timeout = 30
 		timeout += self._config.max_setup_time_secs
-		timeout += sum(testcase.runtime_allowance_secs for testcase in self)
+		timeout += sum(testcase.reference_runtime_secs or 0 for testcase in self._testcases)
 		timeout = round(timeout)
 		return timeout
 
@@ -115,8 +101,8 @@ class TestcaseRunner():
 
 	async def _run_submission(self, submission: "Submission"):
 		async with self._process_semaphore:
-			_log.info("Starting testing of submission %s", submission)
-			testrunner_output = await submission.run(self, interactive = self._test_fixture_config.interactive)
+			_log.info("Starting testing of submission \"%s\"", submission)
+			testrunner_output = await submission.run(self, interactive = self._config.interactive)
 			submission_evaluation = SubmissionEvaluation(testrunner_output, self, submission)
 		return submission_evaluation
 
@@ -125,7 +111,7 @@ class TestcaseRunner():
 
 		batch_count = (len(submissions) + self._concurrent_process_count - 1) // self._concurrent_process_count
 		wctime_mins = round((self.total_maximum_runtime_secs * batch_count) / 60)
-		_log.debug("Now testing %d submission(s) against %d testcases, maximum runtime per submission is %d:%02d minutes:seconds; worst case total runtime is %d:%02d hours:minutes", len(submissions), self.testcase_count, self.total_maximum_runtime_secs // 60, self.total_maximum_runtime_secs % 60, wctime_mins // 60, wctime_mins % 60)
+		_log.debug("Now testing %d submission(s) against %d testcases, maximum runtime per submission is %d:%02d minutes:seconds; worst case total runtime is %d:%02d hours:minutes", len(submissions), len(self._testcases), self.total_maximum_runtime_secs // 60, self.total_maximum_runtime_secs % 60, wctime_mins // 60, wctime_mins % 60)
 		tasks = [ ]
 		for submission in submissions:
 			task = asyncio.create_task(self._run_submission(submission))
@@ -135,10 +121,3 @@ class TestcaseRunner():
 
 	def run(self, submissions: list["Submission"]):
 		return asyncio.run(self._run(submissions))
-
-	def __getitem__(self, testcase_name: str) -> "Testcase":
-		return self._testcases_by_name[testcase_name]
-
-	def __iter__(self):
-		for testcase_collection in self._testcase_collections:
-			yield from iter(testcase_collection)

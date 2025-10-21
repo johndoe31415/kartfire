@@ -30,6 +30,12 @@ class Testcase():
 	dependencies: dict | None = None
 	reference_runtime_secs: float | None = None
 
+	def guest_dict(self):
+		return {
+			"action": self.action,
+			"arguments": self.query,
+		}
+
 	def __format__(self, fmtstr: str):
 		return f"{self.tcid:5d} {self.action:<15s} {self.query}"
 
@@ -41,6 +47,9 @@ class TestcaseCollection():
 	def print(self):
 		for testcase in self._testcases:
 			print(f"{testcase}")
+
+	def __len__(self):
+		return len(self._testcases)
 
 	def __iter__(self):
 		return iter(self._testcases)

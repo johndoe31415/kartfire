@@ -30,6 +30,7 @@ from .MultiCommand import MultiCommand
 #from .ActionLeaderboard import ActionLeaderboard
 from .ActionImport import ActionImport
 from .ActionList import ActionList
+from .ActionRun import ActionRun
 
 def main():
 	mc = MultiCommand(description = "Kartfire container testing framework CLI tool.", run_method = True)
@@ -96,6 +97,15 @@ def main():
 		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
 		parser.add_argument("testcase_selector", nargs = "?", default = "*", help = "Testcase selector. Defaults to all testcases if omitted.")
 	mc.register("list", "List testcases from database", genparser, action = ActionList)
+
+	def genparser(parser):
+		parser.add_argument("-t", "--time-scalar", metavar = "float", type = float, default = 1.0, help = "Multiply the allowed time by this scalar factor. When zero is specified, runtime is infinite.")
+		parser.add_argument("-c", "--test-fixture-config", metavar = "filename", help = "Specify a specific test fixture configuration to use. If omitted, tries to look in the local directory for a file named 'kartfire_test_fixture.json' before falling back to default values.")
+		parser.add_argument("-D", "--database-filename", metavar = "file", default = "kartfire.sqlite3", help = "Database filename to use. Defaults to %(default)s.")
+		parser.add_argument("-s", "--testcase_selector", metavar = "selector", default = "*", help = "Testcase selector. Defaults to all testcases if omitted.")
+		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
+		parser.add_argument("submission_dir", nargs = "+", help = "Directory/directories that should be run as a testcase inside containers.")
+	mc.register("run", "Run solution(s) against a battery of testcases", genparser, action = ActionRun)
 
 	returncode = mc.run(sys.argv[1:])
 	return (returncode or 0)

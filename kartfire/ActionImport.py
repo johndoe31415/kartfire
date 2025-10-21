@@ -22,10 +22,9 @@
 import json
 import sqlite3
 import datetime
-from .BaseAction import BaseAction
-from .Database import Database
+from .CmdlineAction import CmdlineAction
 
-class ActionImport(BaseAction):
+class ActionImport(CmdlineAction):
 	def _import(self, filename: str):
 		duplicate_skipped_count = 0
 		imported_count = 0
@@ -43,6 +42,5 @@ class ActionImport(BaseAction):
 		print(f"{filename}: imported {imported_count}, skipped {duplicate_skipped_count} duplicate testcases")
 
 	def run(self):
-		self._db = Database(self._args.database_filename)
 		for filename in self._args.testcase_filename:
 			self._import(filename)

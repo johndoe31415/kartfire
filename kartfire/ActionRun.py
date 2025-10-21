@@ -1,5 +1,5 @@
 #	kartfire - Test framework to consistently run submission files
-#	Copyright (C) 2023-2023 Johannes Bauer
+#	Copyright (C) 2023-2025 Johannes Bauer
 #
 #	This file is part of kartfire.
 #
@@ -19,22 +19,12 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
-import logging
+from .CmdlineAction import CmdlineAction
+from .TestcaseRunner import TestcaseRunner
+from .Submission import Submission
 
-class BaseAction():
-	def __init__(self, cmdname, args):
-		self._cmdname = cmdname
-		self._args = args
-		self._setup_logging()
-
-	def _setup_logging(self):
-		if self._args.verbose == 0:
-			loglevel = logging.WARNING
-		elif self._args.verbose == 1:
-			loglevel = logging.INFO
-		else:
-			loglevel = logging.DEBUG
-		logging.basicConfig(format = "{name:>40s} [{levelname:.2s}]: {message}", style = "{", level = loglevel)
-
+class ActionRun(CmdlineAction):
 	def run(self):
-		raise NotImplementedError(self.__class__)
+		runner = TestcaseRunner(self._tc_collection, self._test_fixture_config, self._db)
+		submissions = [ Submission(submission_dir) for submission_dir in self._args.submission_dir ]
+		runner.run(submissions)
