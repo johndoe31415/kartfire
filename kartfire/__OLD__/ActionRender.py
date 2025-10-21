@@ -83,6 +83,20 @@ class SubstitutionElement():
 					rand_data = os.urandom(length)
 					yield base64.b64encode(rand_data).decode("ascii")
 
+			case "rand-int":
+				yield random.randint(self._content["minval"], self._content["maxval"])
+
+			case "list-of":
+				count = self._content.get("count", 1)
+				for count in range(count):
+					list_length = self._get_length(self._content)
+					random_list = [ ]
+					for _ in range(list_length):
+						subs = SubstitutionElement(self._content["members"], context = self._context)
+						random_list.append(next(iter(subs)))
+					yield random_list
+
+
 			case "list-of-rand-base64":
 				count = self._content.get("count", 1)
 				for count in range(count):

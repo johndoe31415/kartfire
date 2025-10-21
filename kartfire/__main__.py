@@ -1,5 +1,5 @@
 #	kartfire - Test framework to consistently run submission files
-#	Copyright (C) 2023-2024 Johannes Bauer
+#	Copyright (C) 2023-2025 Johannes Bauer
 #
 #	This file is part of kartfire.
 #
@@ -21,67 +21,74 @@
 
 import sys
 from .MultiCommand import MultiCommand
-from .ActionRun import ActionRun
-from .ActionReference import ActionReference
-from .ActionRender import ActionRender
-from .ActionEmail import ActionEmail
-from .ActionMerge import ActionMerge
-from .ActionPrint import ActionPrint
-from .ActionLeaderboard import ActionLeaderboard
+#from .ActionRun import ActionRun
+#from .ActionReference import ActionReference
+#from .ActionRender import ActionRender
+#from .ActionEmail import ActionEmail
+#from .ActionMerge import ActionMerge
+#from .ActionPrint import ActionPrint
+#from .ActionLeaderboard import ActionLeaderboard
+from .ActionImport import ActionImport
 
 def main():
 	mc = MultiCommand(description = "Kartfire container testing framework CLI tool.", run_method = True)
 
-	def genparser(parser):
-		parser.add_argument("-s", "--state-file", metavar = "filename", help = "Keep a state file and only run those testcases where a change occurred.")
-		parser.add_argument("-i", "--interactive", action = "store_true", help = "Start an interactive session to be able to debug inside the Docker container.")
-		parser.add_argument("-c", "--test-fixture-config", metavar = "filename", help = "Specify a specific test fixture configuration to use. If omitted, tries to look in the local directory for a file named 'kartfire_test_fixture.json' before falling back to default values.")
-		parser.add_argument("-f", "--testcase-file", metavar = "filename", action = "append", required = True, help = "Testcase definition JSON file. Can be given multiple times to join testcases. Mandatory argument.")
-		parser.add_argument("-o", "--output-file", metavar = "filename", help = "Write the JSON results to this file. If not given, an automatic name according to the testrun is chosen.")
-		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
-		parser.add_argument("submission_dir", nargs = "+", help = "Directory/directories that should be run as a testcase inside containers.")
-	mc.register("run", "Run a testcase battery", genparser, action = ActionRun)
+#	def genparser(parser):
+#		parser.add_argument("-s", "--state-file", metavar = "filename", help = "Keep a state file and only run those testcases where a change occurred.")
+#		parser.add_argument("-i", "--interactive", action = "store_true", help = "Start an interactive session to be able to debug inside the Docker container.")
+#		parser.add_argument("-c", "--test-fixture-config", metavar = "filename", help = "Specify a specific test fixture configuration to use. If omitted, tries to look in the local directory for a file named 'kartfire_test_fixture.json' before falling back to default values.")
+#		parser.add_argument("-f", "--testcase-file", metavar = "filename", action = "append", required = True, help = "Testcase definition JSON file. Can be given multiple times to join testcases. Mandatory argument.")
+#		parser.add_argument("-o", "--output-file", metavar = "filename", help = "Write the JSON results to this file. If not given, an automatic name according to the testrun is chosen.")
+#		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
+#		parser.add_argument("submission_dir", nargs = "+", help = "Directory/directories that should be run as a testcase inside containers.")
+#	mc.register("run", "Run a testcase battery", genparser, action = ActionRun)
+
+#	def genparser(parser):
+#		parser.add_argument("-C", "--commit", action = "store_true", help = "Write back results to the test case file.")
+#		parser.add_argument("-c", "--test-fixture-config", metavar = "filename", help = "Specify a specific test fixture configuration to use. If omitted, tries to look in the local directory for a file named 'kartfire_test_fixture.json' before falling back to default values.")
+#		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
+#		parser.add_argument("reference_submission_dir", help = "Directory that contains the reference solution.")
+#		parser.add_argument("testcase_filename", nargs = "+", help = "Testcase definition JSON file(s) that should be filled with the reference answers.")
+#	mc.register("reference", "Collect reference answers from a known-good solution", genparser, action = ActionReference)
+
+#	def genparser(parser):
+#		parser.add_argument("-f", "--force", action = "store_true", help = "Overwrite output file if it already exists.")
+#		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
+#		parser.add_argument("template_filename", help = "Template input file that should be rendered.")
+#		parser.add_argument("testcase_filename", help = "Testcase definition JSON file that is produced from the template.")
+#	mc.register("render", "Render a testcase file from a template", genparser, action = ActionRender)
+
+#	def genparser(parser):
+#		parser.add_argument("-f", "--force", action = "store_true", help = "Overwrite output file if it already exists.")
+#		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
+#		parser.add_argument("testrun_filename", help = "JSON data that was output from the test run.")
+#		parser.add_argument("makomailer_filename", help = "Makomailer output that should be created.")
+#	mc.register("email", "Create a Makomailer template file from a output run", genparser, action = ActionEmail)
+
+#	def genparser(parser):
+#		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
+#		parser.add_argument("source_filename", help = "JSON data that was output from a test run and that will be read.")
+#		parser.add_argument("destination_filename", help = "JSON data that was output from a test run and that will be read and written.")
+#	mc.register("merge", "Merge run results into one unified file", genparser, action = ActionMerge)
+
+#	def genparser(parser):
+#		parser.add_argument("-s", "--search", metavar = "search_term", action = "append", default = [ ], help = "Search term to search for repository owner (if available) and repository basename.")
+#		parser.add_argument("-n", "--max-failed-testcase-count", metavar = "count", type = int, default = 1, help = "Show full testcase data (input, output, expected output) for this number of failed testcases.")
+#		parser.add_argument("-d", "--details", action = "count", default = 0, help = "Increases detail level of printed output. Can be specified multiple times to increase.")
+#		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
+#		parser.add_argument("testrun_filename", help = "JSON data that was output from the test run.")
+#	mc.register("print", "Print run results on the command line", genparser, action = ActionPrint)
+
+#	def genparser(parser):
+#		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
+#		parser.add_argument("testrun_filename", help = "JSON data that was output from the test run.")
+#	mc.register("leaderboard", "Print a time leaderboard", genparser, action = ActionLeaderboard)
 
 	def genparser(parser):
-		parser.add_argument("-C", "--commit", action = "store_true", help = "Write back results to the test case file.")
-		parser.add_argument("-c", "--test-fixture-config", metavar = "filename", help = "Specify a specific test fixture configuration to use. If omitted, tries to look in the local directory for a file named 'kartfire_test_fixture.json' before falling back to default values.")
+		parser.add_argument("-D", "--database-filename", metavar = "file", default = "kartfire.sqlite3", help = "Database filename to use. Defaults to %(default)s.")
 		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
-		parser.add_argument("reference_submission_dir", help = "Directory that contains the reference solution.")
-		parser.add_argument("testcase_filename", nargs = "+", help = "Testcase definition JSON file(s) that should be filled with the reference answers.")
-	mc.register("reference", "Collect reference answers from a known-good solution", genparser, action = ActionReference)
-
-	def genparser(parser):
-		parser.add_argument("-f", "--force", action = "store_true", help = "Overwrite output file if it already exists.")
-		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
-		parser.add_argument("template_filename", help = "Template input file that should be rendered.")
-		parser.add_argument("testcase_filename", help = "Testcase definition JSON file that is produced from the template.")
-	mc.register("render", "Render a testcase file from a template", genparser, action = ActionRender)
-
-	def genparser(parser):
-		parser.add_argument("-f", "--force", action = "store_true", help = "Overwrite output file if it already exists.")
-		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
-		parser.add_argument("testrun_filename", help = "JSON data that was output from the test run.")
-		parser.add_argument("makomailer_filename", help = "Makomailer output that should be created.")
-	mc.register("email", "Create a Makomailer template file from a output run", genparser, action = ActionEmail)
-
-	def genparser(parser):
-		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
-		parser.add_argument("source_filename", help = "JSON data that was output from a test run and that will be read.")
-		parser.add_argument("destination_filename", help = "JSON data that was output from a test run and that will be read and written.")
-	mc.register("merge", "Merge run results into one unified file", genparser, action = ActionMerge)
-
-	def genparser(parser):
-		parser.add_argument("-s", "--search", metavar = "search_term", action = "append", default = [ ], help = "Search term to search for repository owner (if available) and repository basename.")
-		parser.add_argument("-n", "--max-failed-testcase-count", metavar = "count", type = int, default = 1, help = "Show full testcase data (input, output, expected output) for this number of failed testcases.")
-		parser.add_argument("-d", "--details", action = "count", default = 0, help = "Increases detail level of printed output. Can be specified multiple times to increase.")
-		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
-		parser.add_argument("testrun_filename", help = "JSON data that was output from the test run.")
-	mc.register("print", "Print run results on the command line", genparser, action = ActionPrint)
-
-	def genparser(parser):
-		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
-		parser.add_argument("testrun_filename", help = "JSON data that was output from the test run.")
-	mc.register("leaderboard", "Print a time leaderboard", genparser, action = ActionLeaderboard)
+		parser.add_argument("testcase_filename", nargs = "+", help = "JSON data that should be read into the database.")
+	mc.register("import", "Import testcase JSON file(s) into the database", genparser, action = ActionImport)
 
 	returncode = mc.run(sys.argv[1:])
 	return (returncode or 0)

@@ -1,5 +1,6 @@
 .*.swp
 __pycache__
 testrun_*.json
+kartfire.sqlite3
 dist
 kartfire.egg-info
