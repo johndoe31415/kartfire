@@ -1,5 +1,5 @@
 #	kartfire - Test framework to consistently run submission files
-#	Copyright (C) 2023-2024 Johannes Bauer
+#	Copyright (C) 2023-2025 Johannes Bauer
 #
 #	This file is part of kartfire.
 #
@@ -19,83 +19,31 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
-from .Exceptions import InvalidTestcaseException
-from .Tools import JSONTools
+import dataclasses
 
+@dataclasses.dataclass
 class Testcase():
-	def __init__(self, collection_name: str, testcase_no: int, testcase: dict, test_fixture_config: "TestFixtureConfig"):
-		self._collection_name = collection_name
-		self._testcase_no = testcase_no
-		if not isinstance(testcase, dict):
-			raise InvalidTestcaseException("Testcase definition must be a dictionary.")
-		if "testcase_data" not in testcase:
-			raise InvalidTestcaseException("Testcase definition is missing the 'testcase_data' key.")
-		if "testcase_answer" not in testcase:
-			testcase["testcase_answer"] = { }
-		if "runtime_allowance_secs" not in testcase:
-			raise InvalidTestcaseException("Testcase definition is missing the 'runtime_allowance_secs' key.")
-		if "action" not in testcase["testcase_data"]:
-			raise InvalidTestcaseException("Testcase definition is missing the 'testcase_data.action' key.")
-		self._tc = testcase
-		self._config = test_fixture_config
+	tcid: int
+	action: str
+	query: dict
+	correct_response: dict | None = None
+	dependencies: dict | None = None
+	reference_runtime_secs: float | None = None
 
-	@property
-	def name(self):
-		return f"{self.collection_name}-{self._testcase_no:03d}"
+	def __format__(self, fmtstr: str):
+		return f"{self.tcid:5d} {self.action:<15s} {self.query}"
 
-	@property
-	def collection_name(self):
-		return self._collection_name
+class TestcaseCollection():
+	def __init__(self, testcases: list[Testcase]):
+		self._testcases = testcases
+		self._testcases.sort(key = lambda tc: (tc.action, tc.tcid))
 
-	@property
-	def guest_data(self):
-		"""This is the data that the guest receives inside the runner. May not
-		contain solution data."""
-		return {
-			"name": self.name,
-			"testcase_data": self.testcase_data,
-			"runtime_allowance_secs": self.runtime_allowance_secs,
-		}
+	def print(self):
+		for testcase in self._testcases:
+			print(f"{testcase}")
 
-	@property
-	def testcase_id(self):
-		return JSONTools.jsonhash(self.testcase_data)
+	def __iter__(self):
+		return iter(self._testcases)
 
-	@property
-	def action(self):
-		return self.testcase_data.get("action")
-
-	@property
-	def testcase_data(self):
-		return self._tc["testcase_data"]
-
-	@property
-	def testcase_answer(self):
-		return self._tc["testcase_answer"]
-
-	@testcase_answer.setter
-	def testcase_answer(self, correct_answer: dict):
-		self._tc["testcase_answer"] = correct_answer
-
-	@property
-	def runtime_allowance_secs(self):
-		return (self.runtime_allowance_secs_unscaled * self._config.reference_time_factor)
-
-	@property
-	def runtime_allowance_secs_unscaled(self):
-		return self._tc["runtime_allowance_secs"]
-
-	@runtime_allowance_secs_unscaled.setter
-	def runtime_allowance_secs_unscaled(self, value: float):
-		self._tc["runtime_allowance_secs"] = value
-
-	def to_dict(self):
-		return {
-			"id": self.testcase_id,
-			"collection": self.collection_name,
-			"name": self.name,
-			"testcase_data": self.testcase_data,
-			"testcase_answer": self.testcase_answer,
-			"runtime_allowance_secs": self.runtime_allowance_secs,
-			"runtime_allowance_secs_unscaled": self.runtime_allowance_secs_unscaled,
-		}
+	def __str__(self):
+		return f"{len(self._testcases)} TCs"

@@ -20,29 +20,11 @@
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
 import json
-import sqlite3
-import datetime
 from .BaseAction import BaseAction
 from .Database import Database
 
-class ActionImport(BaseAction):
-	def _import(self, filename: str):
-		duplicate_skipped_count = 0
-		imported_count = 0
-		now = datetime.datetime.now(datetime.UTC)
-		with open(filename) as f:
-			testcases = json.load(f)
-		for testcase in testcases:
-			try:
-				self._db.create_testcase(action = testcase["action"], query = testcase["query"], created_ts = now, correct_response = testcase.get("correct_response"), dependencies = testcase.get("dependencies"), reference_runtime_secs = testcase.get("reference_runtime_secs"))
-				imported_count += 1
-			except sqlite3.IntegrityError:
-				duplicate_skipped_count += 1
-			self._db.opportunistic_commit()
-		self._db.commit()
-		print(f"{filename}: imported {imported_count}, skipped {duplicate_skipped_count} duplicate testcases")
-
+class ActionList(BaseAction):
 	def run(self):
 		self._db = Database(self._args.database_filename)
-		for filename in self._args.testcase_filename:
-			self._import(filename)
+		tc_collection = self._db.get_testcase_collection(self._args.testcase_selector)
+		tc_collection.print()

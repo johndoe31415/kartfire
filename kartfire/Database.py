@@ -24,6 +24,7 @@ import json
 import contextlib
 import datetime
 import enum
+from .Testcase import Testcase, TestcaseCollection
 
 class TestrunStatus(enum.Enum):
 	Running = "running"				# Still running
@@ -107,6 +108,35 @@ class Database():
 			"dependencies": None if (dependencies is None) else self._dict2str(dependencies),
 			"reference_runtime_secs": reference_runtime_secs,
 		})
+
+	def _get_tcids_for_selector_part(self, testcase_selector_part: str):
+		if testcase_selector_part.isdigit():
+			return set([ int(testcase_selector_part) ])
+		elif testcase_selector_part == "*":
+			return set(row["tcid"] for row in self._cursor.execute("SELECT tcid FROM testcases;").fetchall())
+		elif testcase_selector_part.startswith("@"):
+			action = testcase_selector_part[1:]
+			return set(row["tcid"] for row in self._cursor.execute("SELECT tcid FROM testcases WHERE action = ?;", (action, )).fetchall())
+		else:
+			raise ValueError(f"Invalid testcase selector: {testcase_selector_part}")
+
+	def _get_testcase(self, tcid: int) -> Testcase:
+		row = dict(self._cursor.execute("SELECT action, query, correct_response, dependencies, reference_runtime_secs FROM testcases WHERE tcid = ?;", (tcid, )).fetchone())
+		for key in [ "query", "correct_response", "dependencies" ]:
+			if row[key] is not None:
+				row[key] = json.loads(row[key])
+		row["tcid"] = tcid
+		return Testcase(**row)
+
+	def _get_testcase_collection_from_tcids(self, tcids: set[int]) -> TestcaseCollection:
+		testcases = [ self._get_testcase(tcid) for tcid in tcids ]
+		return TestcaseCollection(testcases)
+
+	def get_testcase_collection(self, testcase_selector: str):
+		tcids = set()
+		for testcase_selector_part in [ part.strip() for part in testcase_selector.split(",") ]:
+			tcids |= self._get_tcids_for_selector_part(testcase_selector_part)
+		return self._get_testcase_collection_from_tcids(tcids)
 
 	def opportunistic_commit(self, max_change_count: int = 100):
 		if self._change_count > max_change_count:

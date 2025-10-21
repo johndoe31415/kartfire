@@ -29,6 +29,7 @@ from .MultiCommand import MultiCommand
 #from .ActionPrint import ActionPrint
 #from .ActionLeaderboard import ActionLeaderboard
 from .ActionImport import ActionImport
+from .ActionList import ActionList
 
 def main():
 	mc = MultiCommand(description = "Kartfire container testing framework CLI tool.", run_method = True)
@@ -89,6 +90,12 @@ def main():
 		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
 		parser.add_argument("testcase_filename", nargs = "+", help = "JSON data that should be read into the database.")
 	mc.register("import", "Import testcase JSON file(s) into the database", genparser, action = ActionImport)
+
+	def genparser(parser):
+		parser.add_argument("-D", "--database-filename", metavar = "file", default = "kartfire.sqlite3", help = "Database filename to use. Defaults to %(default)s.")
+		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
+		parser.add_argument("testcase_selector", nargs = "?", default = "*", help = "Testcase selector. Defaults to all testcases if omitted.")
+	mc.register("list", "List testcases from database", genparser, action = ActionList)
 
 	returncode = mc.run(sys.argv[1:])
 	return (returncode or 0)
