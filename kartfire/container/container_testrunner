@@ -42,12 +42,14 @@ class ContainerTestRunner():
 		with open(self._args.configuration) as f:
 			self._config = json.load(f)
 
+	@property
 	def verbose(self):
 		return max(self._config["verbose"], self._args.verbose)
 
 	def _execute(self, cmd: list[str], timeout: float):
+		stderr = subprocess.DEVNULL if (self.verbose < 2) else None
 		try:
-			exec_result = subprocess.run(cmd, timeout = timeout)
+			exec_result = subprocess.run(cmd, timeout = timeout, stderr = stderr)
 			if exec_result.returncode == -9:
 				raise ContainerRunFailedException("exec_oom", f"{cmd}: Process execution terminated with out-of-memory error")
 			elif exec_result.returncode != 0:

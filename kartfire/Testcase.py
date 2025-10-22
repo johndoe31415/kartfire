@@ -43,16 +43,23 @@ class TestcaseCollection():
 	def __init__(self, testcases: list[Testcase]):
 		self._testcases = testcases
 		self._testcases.sort(key = lambda tc: (tc.action, tc.tcid))
+		self._testcases_by_tcid = { tc.tcid: tc for tc in self._testcases }
 
 	def print(self):
 		for testcase in self._testcases:
 			print(f"{testcase}")
+
+	def __contains__(self, tcid: int):
+		return tcid in self._testcases_by_tcid
 
 	def __len__(self):
 		return len(self._testcases)
 
 	def __iter__(self):
 		return iter(self._testcases)
+
+	def __getitem__(self, tcid: int):
+		return self._testcases_by_tcid[tcid]
 
 	def __str__(self):
 		return f"{len(self._testcases)} TCs"

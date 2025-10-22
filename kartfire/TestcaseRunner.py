@@ -22,7 +22,9 @@
 import asyncio
 import logging
 import functools
+import json
 from .Tools import SystemTools
+from .Enums import TestresultStatus
 #from .Exceptions import InternalError
 #from .SubmissionEvaluation import SubmissionEvaluation
 #from .Docker import Docker
@@ -99,12 +101,46 @@ class TestcaseRunner():
 			raise InternalError("Limitations on RAM/process count allow running of no process at all.")
 		return concurrent
 
+	def _evaluate_run_result(self, runid: int, submission_run_result: "SubmissionRunResult"):
+		for stdout_line in submission_run_result.stdout.decode("utf-8", errors = "ignore").split("\n"):
+			try:
+				json_data = json.loads(stdout_line)
+				if not isinstance(json_data, dict):
+					continue
+				if "id" not in json_data:
+					continue
+				if "reply" not in json_data:
+					continue
+				if not json_data["id"].isdigit():
+					continue
+				tcid = int(json_data["id"])
+				if tcid not in self._testcases:
+					print(f"Submission returned TCID {tcid} which is not not in testcase battery")
+					continue
+				testcase = self._testcases[tcid]
+
+				if testcase.correct_response is None:
+					# No response available
+					test_result_status = TestresultStatus.Indeterminate
+				elif testcase.correct_response == json_data["reply"]:
+					test_result_status = TestresultStatus.Pass
+				else:
+					test_result_status = TestresultStatus.Fail
+
+				self._db.insert_run_result(runid, tcid, json_data["reply"], test_result_status)
+				self._db.opportunistic_commit()
+			except json.decoder.JSONDecodeError:
+				pass
+		self._db.commit()
+
 	async def _run_submission(self, submission: "Submission"):
 		async with self._process_semaphore:
 			_log.info("Starting testing of submission \"%s\"", submission)
-			testrunner_output = await submission.run(self, interactive = self._config.interactive)
-			submission_evaluation = SubmissionEvaluation(testrunner_output, self, submission)
-		return submission_evaluation
+			runid = self._db.create_testrun()
+			self._db.commit()
+			submission_run_result = await submission.run(self, interactive = self._config.interactive)
+			self._evaluate_run_result(runid, submission_run_result)
+			self._db.commit()
 
 	async def _run(self, submissions: list["Submission"]):
 		self._process_semaphore = asyncio.Semaphore(self._concurrent_process_count)
@@ -112,12 +148,9 @@ class TestcaseRunner():
 		batch_count = (len(submissions) + self._concurrent_process_count - 1) // self._concurrent_process_count
 		wctime_mins = round((self.total_maximum_runtime_secs * batch_count) / 60)
 		_log.debug("Now testing %d submission(s) against %d testcases, maximum runtime per submission is %d:%02d minutes:seconds; worst case total runtime is %d:%02d hours:minutes", len(submissions), len(self._testcases), self.total_maximum_runtime_secs // 60, self.total_maximum_runtime_secs % 60, wctime_mins // 60, wctime_mins % 60)
-		tasks = [ ]
-		for submission in submissions:
-			task = asyncio.create_task(self._run_submission(submission))
-			tasks.append(task)
-		submission_evaluations = await asyncio.gather(*tasks)
-		return submission_evaluations
+		async with asyncio.TaskGroup() as task_group:
+			for submission in submissions:
+				task_group.create_task(self._run_submission(submission))
 
 	def run(self, submissions: list["Submission"]):
 		return asyncio.run(self._run(submissions))
