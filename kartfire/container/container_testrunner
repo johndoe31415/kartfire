@@ -47,19 +47,19 @@ class ContainerTestRunner():
 		return max(self._config["verbose"], self._args.verbose)
 
 	def _execute(self, cmd: list[str], timeout: float):
-		stderr = subprocess.DEVNULL if (self.verbose < 2) else None
 		try:
-			exec_result = subprocess.run(cmd, timeout = timeout, stderr = stderr)
-			if exec_result.returncode == -9:
-				raise ContainerRunFailedException("exec_oom", f"{cmd}: Process execution terminated with out-of-memory error")
-			elif exec_result.returncode != 0:
-				raise ContainerRunFailedException("exec_failed", f"{cmd}: Process execution terminated with return code {exec_result.returncode}")
+			exec_result = subprocess.run(cmd, timeout = timeout)
 		except subprocess.TimeoutExpired as e:
 			raise ContainerRunFailedException("exec_timeout", f"{cmd}: Process execution terminated with timeout ({timeout:.0f} seconds)") from e
 		except PermissionError as e:
 			raise ContainerRunFailedException("exec_permission", f"{cmd}: Process execution terminated with {e.__class__.__name__}. Check that the target is executable: {str(e)}") from e
 		except Exception as e:
-			raise ContainerRunFailedException("exec_oserror", f"{cmd}: Process execution terminated with {e.__class__.__name__}: {str(e)}") from e
+			raise ContainerRunFailedException("exec_other", f"{cmd}: Process execution terminated with {e.__class__.__name__}: {str(e)}") from e
+
+		if exec_result.returncode == -9:
+			raise ContainerRunFailedException("exec_oom", f"{cmd}: Process execution terminated with out-of-memory error")
+		elif exec_result.returncode != 0:
+			raise ContainerRunFailedException("exec_failed", f"{cmd}: Process execution terminated with return code {exec_result.returncode}")
 
 	def _unpack(self):
 		with contextlib.suppress(FileExistsError):
@@ -87,6 +87,7 @@ class ContainerTestRunner():
 				"code": e.code,
 				"exception": str(e),
 			}))
+			sys.exit(1)
 
 parser = argparse.ArgumentParser(description = "Run testcases inside a kartfire container.")
 parser.add_argument("-c", "--configuration", metavar = "filename", default = "/meta.json", help = "Specifies configuretion file to use. Defaults to %(default)s.")

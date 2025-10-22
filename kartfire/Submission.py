@@ -40,6 +40,7 @@ class Submission():
 		stdout: bytes
 		stderr: bytes
 		testrun_status: TestrunStatus
+		error_details: str | None = None
 
 	def __init__(self, submission_directory: str):
 		self._submission_dir = os.path.realpath(submission_directory)

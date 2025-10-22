@@ -5,7 +5,7 @@
 	"setup_name": "setup",
 	"max_setup_time_secs": 5,
 	"solution_name": "solution",
-	"max_memory_mib": 3072,
+	"max_memory_mib": 1024,
 	"host_memory_usage_percent": 125,
 	"max_concurrent_processes": 24,
 	"minimum_testbatch_time_secs": 0.5,

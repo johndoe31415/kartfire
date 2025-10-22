@@ -19,12 +19,26 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
+import sys
+import os
 from .CmdlineAction import CmdlineAction
 from .TestcaseRunner import TestcaseRunner
 from .Submission import Submission
 
 class ActionRun(CmdlineAction):
 	def run(self):
-		runner = TestcaseRunner(self._tc_collection, self._test_fixture_config, self._db)
-		submissions = [ Submission(submission_dir) for submission_dir in self._args.submission_dir ]
+		runner = TestcaseRunner(self._tc_collection, self._test_fixture_config, self._db, interactive = self._args.interactive)
+		ignored_count = 0
+		submissions = [ ]
+		for submission_dir in self._args.submission_dir:
+			if os.path.isdir(submission_dir):
+				submissions.append(Submission(submission_dir))
+			else:
+				ignored_count += 1
+		if ignored_count == 1:
+			print(f"{ignored_count} argument was ignored because it was no directory.", file = sys.stderr)
+		elif ignored_count > 1:
+			print(f"{ignored_count} arguments were ignored because they were no directories.", file = sys.stderr)
+		if len(submissions) == 0:
+			print("No submissions to test found.", file = sys.stderr)
 		runner.run(submissions)

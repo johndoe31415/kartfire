@@ -8,25 +8,23 @@ with open(testcase_file) as f:
 
 responses = { }
 
-for (key, testcase) in testcases["testcases"].items():
+for (tcid, testcase) in testcases["testcases"].items():
+	args = testcase["arguments"]
 	match testcase["action"]:
 		case "add":
-			# Wrong!
-			result = { "sum": testcase["a"] - testcase["b"] }
+			result = { "sum": args["a"] + args["b"] }
 
 		case "sub":
-			result = { "difference": testcase["a"] - testcase["b"] }
+			# This is wrong!
+			result = { "difference": args["a"] * args["b"] }
 
 		case "mul":
-			result = { "product": testcase["a"] * testcase["b"] }
+			result = { "product": args["a"] * args["b"] }
 
 		case _:
 			raise Exception(f"Unsupported testcase action: {testcase['action']}")
-	responses[key] = result
 
-answer = {
-	"responses": responses,
-}
+	print(json.dumps({ "id": tcid, "reply": result }))
+	responses[tcid] = result
 
 print("This comment should be ignored.", file = sys.stderr)
-print(json.dumps(answer))

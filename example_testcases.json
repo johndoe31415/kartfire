@@ -1,63 +1,57 @@
-{
-	"meta": {
-		"type": "testcases",
-		"name": "example"
+[
+	{
+		"action": "add",
+		"query": {
+			"a": 3,
+			"b": 99
+		},
+		"correct_response": {
+			"sum": 102
+		},
+		"reference_runtime_secs": 0.1
 	},
-	"content": [
-		{
-			"testcase_data": {
-				"action": "add",
-				"a": 3,
-				"b": 99
-			},
-			"testcase_answer": {
-				"sum": 102
-			},
-			"runtime_allowance_secs": 0.1
+	{
+		"action": "add",
+		"query": {
+			"a": 0,
+			"b": 0
 		},
-		{
-			"testcase_data": {
-				"action": "add",
-				"a": 0,
-				"b": 0
-			},
-			"testcase_answer": {
-				"sum": 0
-			},
-			"runtime_allowance_secs": 0.1
+		"correct_response": {
+			"sum": 0
 		},
-		{
-			"testcase_data": {
-				"action": "add",
-				"a": 33,
-				"b": 99
-			},
-			"testcase_answer": {
-				"sum": 132
-			},
-			"runtime_allowance_secs": 0.1
+		"reference_runtime_secs": 0.1
+	},
+	{
+		"action": "add",
+		"query": {
+			"a": 33,
+			"b": 99
 		},
-		{
-			"testcase_data": {
-				"action": "sub",
-				"a": 33,
-				"b": 99
-			},
-			"testcase_answer": {
-				"difference": -66
-			},
-			"runtime_allowance_secs": 0.1
+		"correct_response": {
+			"sum": 132
 		},
-		{
-			"testcase_data": {
-				"action": "mul",
-				"a": 33,
-				"b": 99
-			},
-			"testcase_answer": {
-				"product": 3267
-			},
-			"runtime_allowance_secs": 0.1
-		}
-	]
-}
+		"reference_runtime_secs": 0.1
+	},
+	{
+		"action": "sub",
+		"query": {
+			"a": 33,
+			"b": 99
+		},
+		"correct_response": {
+			"difference": -66
+		},
+		"reference_runtime_secs": 0.1
+	},
+	{
+		"action": "mul",
+		"query": {
+			"a": 33,
+			"b": 99
+		},
+		"correct_response": {
+			"product": 3267
+		},
+		"reference_runtime_secs": 0.1
+	}
+]

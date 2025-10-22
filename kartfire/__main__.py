@@ -99,6 +99,7 @@ def main():
 	mc.register("list", "List testcases from database", genparser, action = ActionList)
 
 	def genparser(parser):
+		parser.add_argument("-i", "--interactive", action = "store_true", help = "Interactively debug the session")
 		parser.add_argument("-t", "--time-scalar", metavar = "float", type = float, default = 1.0, help = "Multiply the allowed time by this scalar factor. When zero is specified, runtime is infinite.")
 		parser.add_argument("-c", "--test-fixture-config", metavar = "filename", help = "Specify a specific test fixture configuration to use. If omitted, tries to look in the local directory for a file named 'kartfire_test_fixture.json' before falling back to default values.")
 		parser.add_argument("-D", "--database-filename", metavar = "file", default = "kartfire.sqlite3", help = "Database filename to use. Defaults to %(default)s.")

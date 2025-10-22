@@ -33,6 +33,9 @@ class Database():
 		self._conn.row_factory = sqlite3.Row
 		self._cursor = self._conn.cursor()
 
+		# Five minutes of blocking time before giving up
+		self._cursor.execute(f"PRAGMA busy_timeout = {5 * 60 * 1000}")
+
 		with contextlib.suppress(sqlite3.OperationalError):
 			self._cursor.execute("""\
 			CREATE TABLE testcases (
@@ -58,7 +61,9 @@ class Database():
 				max_permissible_runtime_secs float NOT NULL,
 				max_permissible_ram_mib integer NOT NULL,
 				dependencies varchar(4096) NOT NULL,
-				status varchar(256),
+				status varchar(256) NOT NULL DEFAULT 'running',
+				error_details varchar(1024) NULL,
+				stderr blob NULL,
 				CHECK((status = 'running') OR (status = 'finished') OR (status = 'failed') OR (status = 'build_failed') OR (status = 'aborted') OR (status = 'terminated'))
 			);
 			""")
@@ -78,6 +83,10 @@ class Database():
 	@staticmethod
 	def _dict2str(values: dict):
 		return json.dumps(values, sort_keys = True, separators = (",", ":"))
+
+	@staticmethod
+	def utcnow():
+		return datetime.datetime.now(datetime.UTC).isoformat()[:-6] + "Z"
 
 	def _insert(self, table_name: str, value_dict: dict):
 		fields = list(value_dict)
@@ -101,7 +110,7 @@ class Database():
 		runid = self._insert("testrun", {
 			"source": submission.shortname,
 			"source_metadata": self._dict2str(submission.to_dict()),
-			"run_start_ts": datetime.datetime.now(datetime.UTC).isoformat(),
+			"run_start_ts": self.utcnow(),
 			"max_permissible_runtime_secs": 999999,
 			"max_permissible_ram_mib": 999999,
 			"dependencies": "TODO",
@@ -119,7 +128,7 @@ class Database():
 		self._change_count += 1
 
 	def close_testrun(self, runid: int, submission_run_result: "SubmissionRunResult"):
-		self._cursor.execute("UPDATE testrun SET status = ?, run_end_ts = ? WHERE runid = ?;", (submission_run_result.testrun_status.value, datetime.datetime.now(datetime.UTC).isoformat(), runid))
+		self._cursor.execute("UPDATE testrun SET status = ?, error_details = ?, run_end_ts = ?, stderr = ? WHERE runid = ?;", (submission_run_result.testrun_status.value, submission_run_result.error_details, self.utcnow(), submission_run_result.stderr, runid))
 		self._change_count += 1
 
 	def _get_tcids_for_selector_part(self, testcase_selector_part: str):

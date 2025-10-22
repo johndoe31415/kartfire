@@ -24,7 +24,7 @@ import logging
 import functools
 import json
 from .Tools import SystemTools
-from .Enums import TestresultStatus
+from .Enums import TestrunStatus, TestresultStatus
 #from .Exceptions import InternalError
 #from .SubmissionEvaluation import SubmissionEvaluation
 #from .Docker import Docker
@@ -32,10 +32,11 @@ from .Enums import TestresultStatus
 _log = logging.getLogger(__spec__.name)
 
 class TestcaseRunner():
-	def __init__(self, testcase_collection: "TestcaseCollection", test_fixture_config: "TestFixtureConfig", database: "Database"):
+	def __init__(self, testcase_collection: "TestcaseCollection", test_fixture_config: "TestFixtureConfig", database: "Database", interactive: bool = False):
 		self._testcases = testcase_collection
 		self._config = test_fixture_config
 		self._db = database
+		self._interactive = interactive
 		_log.debug("Successfully started testcase runner with %d testcases", len(self._testcases))
 		self._concurrent_process_count = self._determine_concurrent_process_count()
 		self._process_semaphore = None
@@ -102,12 +103,21 @@ class TestcaseRunner():
 		return concurrent
 
 	def _evaluate_run_result(self, runid: int, submission_run_result: "SubmissionRunResult"):
-		self._db.close_testrun(runid, submission_run_result)
 		for stdout_line in submission_run_result.stdout.decode("utf-8", errors = "ignore").split("\n"):
 			try:
 				json_data = json.loads(stdout_line)
 				if not isinstance(json_data, dict):
 					continue
+
+				if ("_" in json_data) and (json_data["_"] == "9d83e7a5-bb94-40a1-9f59-a6586d2c3c94"):
+					# Exception in subordinate process
+					print("CODE", json_data["code"])
+					if json_data.get("code", "N/A") in [ "exec_timeout", "exec_oom" ]:
+						submission_run_result.testrun_status = TestrunStatus.Terminated
+					else:
+						submission_run_result.testrun_status = TestrunStatus.Failed
+					submission_run_result.error_details = str(json_data.get("exception", "N/A"))
+
 				if "id" not in json_data:
 					continue
 				if "reply" not in json_data:
@@ -132,6 +142,7 @@ class TestcaseRunner():
 				self._db.opportunistic_commit()
 			except json.decoder.JSONDecodeError:
 				pass
+		self._db.close_testrun(runid, submission_run_result)
 		self._db.commit()
 
 	async def _run_submission(self, submission: "Submission"):
@@ -139,7 +150,7 @@ class TestcaseRunner():
 			_log.info("Starting testing of submission \"%s\"", submission)
 			runid = self._db.create_testrun(submission, self._testcases)
 			self._db.commit()
-			submission_run_result = await submission.run(self, interactive = self._config.interactive)
+			submission_run_result = await submission.run(self, interactive = self._interactive)
 			self._evaluate_run_result(runid, submission_run_result)
 			self._db.commit()
 
