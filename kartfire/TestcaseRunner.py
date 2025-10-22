@@ -102,6 +102,7 @@ class TestcaseRunner():
 		return concurrent
 
 	def _evaluate_run_result(self, runid: int, submission_run_result: "SubmissionRunResult"):
+		self._db.close_testrun(runid, submission_run_result)
 		for stdout_line in submission_run_result.stdout.decode("utf-8", errors = "ignore").split("\n"):
 			try:
 				json_data = json.loads(stdout_line)
@@ -127,7 +128,7 @@ class TestcaseRunner():
 				else:
 					test_result_status = TestresultStatus.Fail
 
-				self._db.insert_run_result(runid, tcid, json_data["reply"], test_result_status)
+				self._db.update_testresult(runid, tcid, json_data["reply"], test_result_status)
 				self._db.opportunistic_commit()
 			except json.decoder.JSONDecodeError:
 				pass
@@ -136,7 +137,7 @@ class TestcaseRunner():
 	async def _run_submission(self, submission: "Submission"):
 		async with self._process_semaphore:
 			_log.info("Starting testing of submission \"%s\"", submission)
-			runid = self._db.create_testrun()
+			runid = self._db.create_testrun(submission, self._testcases)
 			self._db.commit()
 			submission_run_result = await submission.run(self, interactive = self._config.interactive)
 			self._evaluate_run_result(runid, submission_run_result)

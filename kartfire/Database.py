@@ -83,8 +83,9 @@ class Database():
 		fields = list(value_dict)
 		values = [ value_dict[field] for field in fields ]
 		query = f"INSERT INTO {table_name} ({','.join(field for field in fields)}) VALUES ({','.join([ '?' ] * len(fields))});"
-		self._cursor.execute(query, values)
+		result = self._cursor.execute(query, values)
 		self._change_count += 1
+		return result.lastrowid
 
 	def create_testcase(self, action: str, query: dict, created_ts: datetime.datetime, correct_response: dict | None = None, dependencies: dict | None = None, reference_runtime_secs: float | None = None):
 		self._insert("testcases", {
@@ -95,6 +96,31 @@ class Database():
 			"dependencies": None if (dependencies is None) else self._dict2str(dependencies),
 			"reference_runtime_secs": reference_runtime_secs,
 		})
+
+	def create_testrun(self, submission: "Submission", testcases: "TestcaseCollection"):
+		runid = self._insert("testrun", {
+			"source": submission.shortname,
+			"source_metadata": self._dict2str(submission.to_dict()),
+			"run_start_ts": datetime.datetime.now(datetime.UTC).isoformat(),
+			"max_permissible_runtime_secs": 999999,
+			"max_permissible_ram_mib": 999999,
+			"dependencies": "TODO",
+			"status": "running",
+		})
+		for testcase in testcases:
+			self._insert("testresult", {
+				"tcid":		testcase.tcid,
+				"runid":	runid,
+			})
+		return runid
+
+	def update_testresult(self, runid: int, tcid: int, received_result: dict, test_result_status: TestresultStatus):
+		self._cursor.execute("UPDATE testresult SET received_result = ?, status = ? WHERE (tcid = ?) AND (runid = ?);", (self._dict2str(received_result), test_result_status.value, tcid, runid))
+		self._change_count += 1
+
+	def close_testrun(self, runid: int, submission_run_result: "SubmissionRunResult"):
+		self._cursor.execute("UPDATE testrun SET status = ?, run_end_ts = ? WHERE runid = ?;", (submission_run_result.testrun_status.value, datetime.datetime.now(datetime.UTC).isoformat(), runid))
+		self._change_count += 1
 
 	def _get_tcids_for_selector_part(self, testcase_selector_part: str):
 		if testcase_selector_part.isdigit():
