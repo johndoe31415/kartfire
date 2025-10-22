@@ -40,10 +40,20 @@ class Testcase():
 		return f"{self.tcid:5d} {self.action:<15s} {self.query}"
 
 class TestcaseCollection():
-	def __init__(self, testcases: list[Testcase]):
+	def __init__(self, name: str, testcases: list[Testcase], reference_runtime_secs: float | None = None):
+		self._name = name
 		self._testcases = testcases
+		self._reference_runtime_secs = reference_runtime_secs
 		self._testcases.sort(key = lambda tc: (tc.action, tc.tcid))
 		self._testcases_by_tcid = { tc.tcid: tc for tc in self._testcases }
+
+	@property
+	def name(self):
+		return self._name
+
+	@property
+	def reference_runtime_secs(self):
+		return self._reference_runtime_secs
 
 	def print(self):
 		for testcase in self._testcases:
@@ -62,4 +72,4 @@ class TestcaseCollection():
 		return self._testcases_by_tcid[tcid]
 
 	def __str__(self):
-		return f"{len(self._testcases)} TCs"
+		return f"Collection \"{self.name}\": {len(self._testcases)} TCs, nominal runtime {'unknown' if (self.reference_runtime_secs is None) else f'{self.reference_runtime_secs:.0f} secs'}"

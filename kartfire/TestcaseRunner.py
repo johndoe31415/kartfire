@@ -111,7 +111,6 @@ class TestcaseRunner():
 
 				if ("_" in json_data) and (json_data["_"] == "9d83e7a5-bb94-40a1-9f59-a6586d2c3c94"):
 					# Exception in subordinate process
-					print("CODE", json_data["code"])
 					if json_data.get("code", "N/A") in [ "exec_timeout", "exec_oom" ]:
 						submission_run_result.testrun_status = TestrunStatus.Terminated
 					else:

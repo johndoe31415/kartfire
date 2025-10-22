@@ -28,7 +28,5 @@ class CmdlineAction(LoggingAction):
 		super().__init__(cmd, args)
 		if hasattr(self._args, "database_filename"):
 			self._db = Database(self._args.database_filename)
-		if hasattr(self._args, "testcase_selector"):
-			self._tc_collection = self._db.get_testcase_collection(self._args.testcase_selector)
 		if hasattr(self._args, "test_fixture_config"):
 			self._test_fixture_config = TestFixtureConfig.load_from_file(self._args.test_fixture_config)

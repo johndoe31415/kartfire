@@ -30,6 +30,7 @@ from .MultiCommand import MultiCommand
 #from .ActionLeaderboard import ActionLeaderboard
 from .ActionImport import ActionImport
 from .ActionList import ActionList
+from .ActionCollection import ActionCollection
 from .ActionRun import ActionRun
 
 def main():
@@ -95,16 +96,24 @@ def main():
 	def genparser(parser):
 		parser.add_argument("-D", "--database-filename", metavar = "file", default = "kartfire.sqlite3", help = "Database filename to use. Defaults to %(default)s.")
 		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
-		parser.add_argument("testcase_selector", nargs = "?", default = "*", help = "Testcase selector. Defaults to all testcases if omitted.")
+		parser.add_argument("-c", "--collection-filter", metavar = "name", default = [ ], action = "append", help = "When present, list only those testcases present in all of the mentioned collection(s). Can be specified multiple times.")
 	mc.register("list", "List testcases from database", genparser, action = ActionList)
 
 	def genparser(parser):
-		parser.add_argument("-i", "--interactive", action = "store_true", help = "Interactively debug the session")
-		parser.add_argument("-t", "--time-scalar", metavar = "float", type = float, default = 1.0, help = "Multiply the allowed time by this scalar factor. When zero is specified, runtime is infinite.")
-		parser.add_argument("-c", "--test-fixture-config", metavar = "filename", help = "Specify a specific test fixture configuration to use. If omitted, tries to look in the local directory for a file named 'kartfire_test_fixture.json' before falling back to default values.")
 		parser.add_argument("-D", "--database-filename", metavar = "file", default = "kartfire.sqlite3", help = "Database filename to use. Defaults to %(default)s.")
-		parser.add_argument("-s", "--testcase_selector", metavar = "selector", default = "*", help = "Testcase selector. Defaults to all testcases if omitted.")
+		parser.add_argument("-r", "--remove", action = "store_true", help = "By default, when a selector is specified, the entries are added to the named collection. When this is specified, the selected entries are removed instead.")
 		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
+		parser.add_argument("collection_name", help = "Test collection name to manage.")
+		parser.add_argument("testcase_selector", nargs = "?", help = "Testcase selector. Adds or removes the selected testcases to the named collection.")
+	mc.register("collection", "Manage collections of testcases", genparser, action = ActionCollection)
+
+	def genparser(parser):
+		parser.add_argument("-i", "--interactive", action = "store_true", help = "Interactively debug the session by dropping into a shell.")
+		parser.add_argument("-t", "--time-scalar", metavar = "float", type = float, default = 1.0, help = "Multiply the allowed time by this scalar factor. When zero is specified, runtime is infinite.")
+		parser.add_argument("-C", "--test-fixture-config", metavar = "filename", help = "Specify a specific test fixture configuration to use. If omitted, tries to look in the local directory for a file named 'kartfire_test_fixture.json' before falling back to default values.")
+		parser.add_argument("-D", "--database-filename", metavar = "file", default = "kartfire.sqlite3", help = "Database filename to use. Defaults to %(default)s.")
+		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
+		parser.add_argument("collection_name", help = "Test collection name to execute.")
 		parser.add_argument("submission_dir", nargs = "+", help = "Directory/directories that should be run as a testcase inside containers.")
 	mc.register("run", "Run solution(s) against a battery of testcases", genparser, action = ActionRun)
 

@@ -1,5 +1,5 @@
 #	kartfire - Test framework to consistently run submission files
-#	Copyright (C) 2023-2023 Johannes Bauer
+#	Copyright (C) 2023-2025 Johannes Bauer
 #
 #	This file is part of kartfire.
 #
@@ -26,3 +26,5 @@ class InternalError(KartfireException): pass
 class DockerFailureException(InternalError): pass
 class SubprocessRunError(InternalError): pass
 class UnsupportedFileException(KartfireException): pass
+
+class NoSuchCollectionException(KartfireException): pass

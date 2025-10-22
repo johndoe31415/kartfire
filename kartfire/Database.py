@@ -25,6 +25,7 @@ import contextlib
 import datetime
 from .Testcase import Testcase, TestcaseCollection
 from .Enums import TestrunStatus, TestresultStatus
+from .Exceptions import NoSuchCollectionException
 
 class Database():
 	def __init__(self, filename: str):
@@ -44,7 +45,6 @@ class Database():
 				query varchar(4096) NOT NULL,
 				correct_response varchar(4096) NULL,
 				dependencies varchar(1024) NULL,
-				reference_runtime_secs float NULL,
 				created_ts varchar(64) NOT NULL,
 				UNIQUE(action, query)
 			);
@@ -54,6 +54,7 @@ class Database():
 			self._cursor.execute("""\
 			CREATE TABLE testrun (
 				runid integer PRIMARY KEY,
+				collectionid integer NOT NULL,
 				source varchar(256),
 				source_metadata varchar(4096),
 				run_start_ts varchar(64) NOT NULL,
@@ -65,6 +66,24 @@ class Database():
 				error_details varchar(1024) NULL,
 				stderr blob NULL,
 				CHECK((status = 'running') OR (status = 'finished') OR (status = 'failed') OR (status = 'build_failed') OR (status = 'aborted') OR (status = 'terminated'))
+			);
+			""")
+
+		with contextlib.suppress(sqlite3.OperationalError):
+			self._cursor.execute("""\
+			CREATE TABLE testcollection (
+				name varchar(128) PRIMARY KEY,
+				collectionid integer NOT NULL UNIQUE,
+				reference_runtime_secs float NULL
+			);
+			""")
+
+		with contextlib.suppress(sqlite3.OperationalError):
+			self._cursor.execute("""\
+			CREATE TABLE testcollection_testcases (
+				collectionid integer NOT NULL REFERENCES testcollection(collectionid),
+				tcid integer NOT NULL REFERENCES testcases(tcid),
+				UNIQUE(collectionid, tcid)
 			);
 			""")
 
@@ -96,14 +115,13 @@ class Database():
 		self._change_count += 1
 		return result.lastrowid
 
-	def create_testcase(self, action: str, query: dict, created_ts: datetime.datetime, correct_response: dict | None = None, dependencies: dict | None = None, reference_runtime_secs: float | None = None):
+	def create_testcase(self, action: str, query: dict, created_ts: datetime.datetime, correct_response: dict | None = None, dependencies: dict | None = None):
 		self._insert("testcases", {
 			"action": action,
 			"query": self._dict2str(query),
 			"created_ts": created_ts.isoformat(),
 			"correct_response": None if (correct_response is None) else self._dict2str(correct_response),
 			"dependencies": None if (dependencies is None) else self._dict2str(dependencies),
-			"reference_runtime_secs": reference_runtime_secs,
 		})
 
 	def create_testrun(self, submission: "Submission", testcases: "TestcaseCollection"):
@@ -140,25 +158,51 @@ class Database():
 			action = testcase_selector_part[1:]
 			return set(row["tcid"] for row in self._cursor.execute("SELECT tcid FROM testcases WHERE action = ?;", (action, )).fetchall())
 		else:
-			raise ValueError(f"Invalid testcase selector: {testcase_selector_part}")
+			raise NoSuchCollectionException(f"Invalid testcase selector: {testcase_selector_part}")
+
+	def get_tcids_by_selector(self, testcase_selector: str) -> set[int]:
+		tcids = set()
+		for testcase_selector_part in [ part.strip() for part in testcase_selector.split(",") ]:
+			tcids |= self._get_tcids_for_selector_part(testcase_selector_part)
+		return tcids
 
 	def _get_testcase(self, tcid: int) -> Testcase:
-		row = dict(self._cursor.execute("SELECT action, query, correct_response, dependencies, reference_runtime_secs FROM testcases WHERE tcid = ?;", (tcid, )).fetchone())
+		row = dict(self._cursor.execute("SELECT action, query, correct_response, dependencies FROM testcases WHERE tcid = ?;", (tcid, )).fetchone())
 		for key in [ "query", "correct_response", "dependencies" ]:
 			if row[key] is not None:
 				row[key] = json.loads(row[key])
 		row["tcid"] = tcid
 		return Testcase(**row)
 
-	def _get_testcase_collection_from_tcids(self, tcids: set[int]) -> TestcaseCollection:
-		testcases = [ self._get_testcase(tcid) for tcid in tcids ]
-		return TestcaseCollection(testcases)
+	def _get_collectionid(self, collection_name: str) -> int:
+		collectionid = self._cursor.execute("SELECT collectionid FROM testcollection WHERE name = ? LIMIT 1 COLLATE NOCASE;", (collection_name, )).fetchone()
+		if collectionid is None:
+			raise NoSuchCollectionException(f"No such test case collection: {collection_name}")
+		return collectionid["collectionid"]
 
-	def get_testcase_collection(self, testcase_selector: str):
-		tcids = set()
-		for testcase_selector_part in [ part.strip() for part in testcase_selector.split(",") ]:
-			tcids |= self._get_tcids_for_selector_part(testcase_selector_part)
-		return self._get_testcase_collection_from_tcids(tcids)
+	def add_tcids_to_collection(self, collection_name: str, tcids: set[int]) -> None:
+		collectionid = self._get_collectionid(collection_name)
+		for tcid in tcids:
+			self._insert("testcollection_testcases", {
+				"collectionid": 1,
+				"tcid": tcid,
+			})
+
+	def remove_tcids_from_collection(self, collection_name: str, tcids: set[int]) -> None:
+		collectionid = self._get_collectionid(collection_name)
+		for tcid in tcids:
+			self._cursor.execute("DELETE FROM testcollection_testcases WHERE (collectionid = ?) AND (tcid = ?);", (collectionid, tcid))
+
+	def get_testcase_collection(self, collection_name: str) -> TestcaseCollection:
+		collectionid = self._get_collectionid(collection_name)
+		row = self._cursor.execute("SELECT name, reference_runtime_secs FROM testcollection WHERE collectionid = ?;", (collectionid, )).fetchone()
+		tcids = set(row["tcid"] for row in self._cursor.execute("SELECT tcid FROM testcollection_testcases WHERE collectionid = ?;", (collectionid, )).fetchall())
+		testcases = [ self._get_testcase(tcid) for tcid in tcids ]
+		return TestcaseCollection(name = row["name"], testcases = testcases, reference_runtime_secs = row["reference_runtime_secs"])
+
+	def create_collection(self, collection_name: str):
+		self._change_count += 1
+		return self._cursor.execute("INSERT INTO testcollection (collectionid, name) VALUES ((SELECT COALESCE(MAX(collectionid) + 1, 1) FROM testcollection), ?);", (collection_name, )).lastrowid
 
 	def opportunistic_commit(self, max_change_count: int = 100):
 		if self._change_count > max_change_count:
