@@ -53,7 +53,6 @@ class TestcaseRunner():
 	def total_maximum_runtime_secs(self):
 		timeout = 30
 		timeout += self._config.max_setup_time_secs
-		timeout += sum(testcase.reference_runtime_secs or 0 for testcase in self._testcases)
 		timeout = round(timeout)
 		return timeout
 

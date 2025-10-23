@@ -32,6 +32,8 @@ from .ActionImport import ActionImport
 from .ActionList import ActionList
 from .ActionCollection import ActionCollection
 from .ActionRun import ActionRun
+from .ActionResults import ActionResults
+from .ActionReference import ActionReference
 
 def main():
 	mc = MultiCommand(description = "Kartfire container testing framework CLI tool.", run_method = True)
@@ -116,6 +118,20 @@ def main():
 		parser.add_argument("collection_name", help = "Test collection name to execute.")
 		parser.add_argument("submission_dir", nargs = "+", help = "Directory/directories that should be run as a testcase inside containers.")
 	mc.register("run", "Run solution(s) against a battery of testcases", genparser, action = ActionRun)
+
+	def genparser(parser):
+		parser.add_argument("-D", "--database-filename", metavar = "file", default = "kartfire.sqlite3", help = "Database filename to use. Defaults to %(default)s.")
+		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
+		parser.add_argument("run_id", type = int, nargs = "*", help = "Run ID(s) to show details of")
+	mc.register("results", "Print results of run testcases", genparser, action = ActionResults)
+
+	def genparser(parser):
+		parser.add_argument("-D", "--database-filename", metavar = "file", default = "kartfire.sqlite3", help = "Database filename to use. Defaults to %(default)s.")
+		parser.add_argument("-a", "--allow-failed-status", action = "store_true", help = "Allow failed test run status and failed testcases.")
+		parser.add_argument("-f", "--pick-failed-answers", action = "store_true", help = "Pick not only 'indeterminate' answers, but also those marked as wrong.")
+		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
+		parser.add_argument("run_id", help = "Run ID to select as reference")
+	mc.register("reference", "Mark a solution's results as the reference answers", genparser, action = ActionReference)
 
 	returncode = mc.run(sys.argv[1:])
 	return (returncode or 0)

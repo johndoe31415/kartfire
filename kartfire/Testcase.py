@@ -21,14 +21,14 @@
 
 import dataclasses
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots = True, order = True, frozen = True)
 class Testcase():
 	tcid: int
 	action: str
 	query: dict
 	correct_response: dict | None = None
 	dependencies: dict | None = None
-	reference_runtime_secs: float | None = None
+	contained_collections: set | None = None		# Not necessarily populated
 
 	def guest_dict(self):
 		return {
@@ -37,7 +37,11 @@ class Testcase():
 		}
 
 	def __format__(self, fmtstr: str):
-		return f"{self.tcid:5d} {self.action:<15s} {self.query}"
+		if self.contained_collections is None:
+			contained = ""
+		else:
+			contained = f"[ {', '.join(sorted(self.contained_collections))} ]"
+		return f"{self.tcid:5d} {self.action:<15s} {contained:<15s} {str(self.query)[:70]:70}  =>  {'?' if self.correct_response is None else str(self.correct_response)[:30]}"
 
 class TestcaseCollection():
 	def __init__(self, name: str, testcases: list[Testcase], reference_runtime_secs: float | None = None):

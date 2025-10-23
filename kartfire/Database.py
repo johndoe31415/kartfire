@@ -23,6 +23,7 @@ import sqlite3
 import json
 import contextlib
 import datetime
+import collections
 from .Testcase import Testcase, TestcaseCollection
 from .Enums import TestrunStatus, TestresultStatus
 from .Exceptions import NoSuchCollectionException
@@ -54,7 +55,7 @@ class Database():
 			self._cursor.execute("""\
 			CREATE TABLE testrun (
 				runid integer PRIMARY KEY,
-				collectionid integer NOT NULL,
+				collection varchar(128) NOT NULL,
 				source varchar(256),
 				source_metadata varchar(4096),
 				run_start_ts varchar(64) NOT NULL,
@@ -133,6 +134,7 @@ class Database():
 			"max_permissible_ram_mib": 999999,
 			"dependencies": "TODO",
 			"status": "running",
+			"collection": testcases.name,
 		})
 		for testcase in testcases:
 			self._insert("testresult", {
@@ -166,12 +168,13 @@ class Database():
 			tcids |= self._get_tcids_for_selector_part(testcase_selector_part)
 		return tcids
 
-	def _get_testcase(self, tcid: int) -> Testcase:
+	def _get_testcase(self, tcid: int, contained_collections: set | None = None) -> Testcase:
 		row = dict(self._cursor.execute("SELECT action, query, correct_response, dependencies FROM testcases WHERE tcid = ?;", (tcid, )).fetchone())
 		for key in [ "query", "correct_response", "dependencies" ]:
 			if row[key] is not None:
 				row[key] = json.loads(row[key])
 		row["tcid"] = tcid
+		row["contained_collections"] = contained_collections
 		return Testcase(**row)
 
 	def _get_collectionid(self, collection_name: str) -> int:
@@ -184,7 +187,7 @@ class Database():
 		collectionid = self._get_collectionid(collection_name)
 		for tcid in tcids:
 			self._insert("testcollection_testcases", {
-				"collectionid": 1,
+				"collectionid": collectionid,
 				"tcid": tcid,
 			})
 
@@ -207,6 +210,37 @@ class Database():
 	def opportunistic_commit(self, max_change_count: int = 100):
 		if self._change_count > max_change_count:
 			self.commit()
+
+	def get_all_testcases(self) -> iter:
+		tags = ((row["tcid"], row["name"]) for row in self._cursor.execute("""\
+				SELECT tcid, name FROM testcollection_testcases
+					JOIN testcollection ON testcollection.collectionid = testcollection_testcases.collectionid;
+					""").fetchall())
+
+		contained_collections = collections.defaultdict(set)
+		for (tcid, collection_name) in tags:
+			contained_collections[tcid].add(collection_name)
+
+		for row in self._cursor.execute("SELECT tcid FROM testcases;").fetchall():
+			testcase = self._get_testcase(row["tcid"], contained_collections = contained_collections[row["tcid"]])
+			yield testcase
+
+	def get_run_overview(self):
+		return self._cursor.execute("""
+			SELECT runid, collection, source, source_metadata, run_start_ts, run_end_ts, max_permissible_runtime_secs, max_permissible_ram_mib, status, error_details FROM testrun ORDER BY run_start_ts DESC LIMIT 50;
+		""").fetchall()
+
+	def get_run_details(self, runid: int):
+		testrun = dict(self._cursor.execute("SELECT * FROM testrun WHERE runid = ?;", (runid, )).fetchone())
+		testrun["results"] = [ dict(row) for row in self._cursor.execute("SELECT tcid, received_result, status FROM testresult WHERE runid = ? ORDER BY tcid ASC;", (runid, )).fetchall() ]
+		for result in testrun["results"]:
+			result["testcase"] = self._get_testcase(result["tcid"])
+			del result["tcid"]
+		return testrun
+
+	def set_reference_answer(self, tcid: int, correct_response: dict):
+		self._cursor.execute("UPDATE testcases SET correct_response = ? WHERE tcid = ?;", (self._dict2str(correct_response), tcid))
+		self._change_count += 1
 
 	def commit(self):
 		self._conn.commit()

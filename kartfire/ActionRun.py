@@ -27,7 +27,8 @@ from .Submission import Submission
 
 class ActionRun(CmdlineAction):
 	def run(self):
-		runner = TestcaseRunner(self._tc_collection, self._test_fixture_config, self._db, interactive = self._args.interactive)
+		tc_collection = self._db.get_testcase_collection(self._args.collection_name)
+		runner = TestcaseRunner(tc_collection, self._test_fixture_config, self._db, interactive = self._args.interactive)
 		ignored_count = 0
 		submissions = [ ]
 		for submission_dir in self._args.submission_dir:

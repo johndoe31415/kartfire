@@ -20,12 +20,29 @@
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
 import json
+import collections
 from .CmdlineAction import CmdlineAction
 
-class ActionList(CmdlineAction):
+class ActionReference(CmdlineAction):
 	def run(self):
-		tc_list = list(self._db.get_all_testcases())
-		tc_list.sort()
+		run_details = self._db.get_run_details(self._args.run_id)
 
-		for testcase in tc_list:
-			print(f"{testcase}")
+		ctr = collections.Counter(result["status"] for result in run_details["results"])
+		print(ctr)
+		print(len(ctr))
+
+		if len(ctr) == 0:
+			print("No answers received.")
+			return 1
+
+		if len(ctr) != 1:
+			print("Have multiple statuses:")
+			for (status, count) in ctr.most_common():
+				print(f"{status:-30s} {count}")
+			TODO
+
+		for result in run_details["results"]:
+			if (result["status"] == "indeterminate") or ((result["status"] == "fail") and self._args.pick_failed_answers):
+				self._db.set_reference_answer(result["testcase"].tcid, json.loads(result["received_result"]))
+				self._db.opportunistic_commit()
+		self._db.commit()
