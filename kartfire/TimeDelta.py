@@ -1,5 +1,5 @@
 #	kartfire - Test framework to consistently run submission files
-#	Copyright (C) 2023-2024 Johannes Bauer
+#	Copyright (C) 2023-2025 Johannes Bauer
 #
 #	This file is part of kartfire.
 #
@@ -19,12 +19,44 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
-class TimeDelta():
-	def __init__(self, seconds: float):
-		self._secs = seconds
+import datetime
 
-	def _sec_text(self, secs: int):
-		if secs < 60:
+class TimeDelta():
+	def __init__(self, start: datetime.datetime, end: datetime.datetime | None = None):
+		self._start = start
+		self._end = end
+
+	@property
+	def duration(self):
+		return (self._end - self._start).total_seconds()
+
+	@property
+	def time_since_start(self):
+		return (datetime.datetime.now(datetime.UTC) - self._start).total_seconds()
+
+	@property
+	def time_since_end(self):
+		return (datetime.datetime.now(datetime.UTC) - self._end).total_seconds()
+
+	def _duration_text(self, secs: float):
+		if secs < 1:
+			return f"{secs * 1000} ms"
+		else:
+			secs = round(secs)
+			if secs < 60:
+				return f"{secs} sec"
+			elif secs < 60 * 60:
+				return f"{secs // 60}:{secs % 60:02d} m:s"
+			elif secs < 24 * 60 * 60:
+				return f"{secs // 3600}:{secs % 3600 // 60:02d}:{secs % 3600 % 60:02d} h:m:s"
+			else:
+				(days, secs) = divmod(secs, 86400)
+				return f"{days}d {secs // 3600}:{secs % 3600 // 60:02d}:{secs % 3600 % 60:02d} h:m:s"
+
+	def _event_text(self, secs: float):
+		if secs < 1:
+			return f"{secs * 1000} ms"
+		elif secs < 60:
 			secs = round(secs)
 			return f"{secs} second{'s' if secs != 1 else ''}"
 		elif secs < 60 * 60:
@@ -42,10 +74,17 @@ class TimeDelta():
 			return f"{days} day{'s' if days != 1 else ''}"
 
 	def __format__(self, fmtstr: str):
-		if self._secs < 0:
-			return f"{self._sec_text(-self._secs)} ago"
+		if fmtstr == "d":
+			if self._end is None:
+				return "N/A"
+			else:
+				return self._duration_text(self.duration)
 		else:
-			return f"in {self._sec_text(self._secs)}"
+			tss = self.time_since_start
+			if tss < 0:
+				return f"in {self._event_text(-tss)}"
+			else:
+				return f"{self._event_text(tss)} ago"
 
 	def __str__(self):
 		return format(self)

@@ -114,7 +114,7 @@ class TestcaseRunner():
 						submission_run_result.testrun_status = TestrunStatus.Terminated
 					else:
 						submission_run_result.testrun_status = TestrunStatus.Failed
-					submission_run_result.error_details = str(json_data.get("exception", "N/A"))
+					submission_run_result.error_details = json_data.get("exception")
 
 				if "id" not in json_data:
 					continue
@@ -151,6 +151,7 @@ class TestcaseRunner():
 			submission_run_result = await submission.run(self, interactive = self._interactive)
 			self._evaluate_run_result(runid, submission_run_result)
 			self._db.commit()
+			return runid
 
 	async def _run(self, submissions: list["Submission"]):
 		self._process_semaphore = asyncio.Semaphore(self._concurrent_process_count)
@@ -158,9 +159,12 @@ class TestcaseRunner():
 		batch_count = (len(submissions) + self._concurrent_process_count - 1) // self._concurrent_process_count
 		wctime_mins = round((self.total_maximum_runtime_secs * batch_count) / 60)
 		_log.debug("Now testing %d submission(s) against %d testcases, maximum runtime per submission is %d:%02d minutes:seconds; worst case total runtime is %d:%02d hours:minutes", len(submissions), len(self._testcases), self.total_maximum_runtime_secs // 60, self.total_maximum_runtime_secs % 60, wctime_mins // 60, wctime_mins % 60)
+		tasks = [ ]
 		async with asyncio.TaskGroup() as task_group:
 			for submission in submissions:
-				task_group.create_task(self._run_submission(submission))
+				tasks.append(task_group.create_task(self._run_submission(submission)))
+
+		return [ task.result() for task in tasks ]
 
 	def run(self, submissions: list["Submission"]):
 		return asyncio.run(self._run(submissions))

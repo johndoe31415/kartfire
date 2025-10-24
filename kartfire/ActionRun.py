@@ -24,6 +24,7 @@ import os
 from .CmdlineAction import CmdlineAction
 from .TestcaseRunner import TestcaseRunner
 from .Submission import Submission
+from .ResultPrinter import ResultPrinter
 
 class ActionRun(CmdlineAction):
 	def run(self):
@@ -42,4 +43,8 @@ class ActionRun(CmdlineAction):
 			print(f"{ignored_count} arguments were ignored because they were no directories.", file = sys.stderr)
 		if len(submissions) == 0:
 			print("No submissions to test found.", file = sys.stderr)
-		runner.run(submissions)
+		run_ids = runner.run(submissions)
+
+		rp = ResultPrinter(self._db)
+		for run_id in run_ids:
+			rp.print_overview(run_id)

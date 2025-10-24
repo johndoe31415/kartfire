@@ -22,18 +22,18 @@
 import json
 from .Enums import TestrunStatus
 from .CmdlineAction import CmdlineAction
+from .ResultPrinter import ResultPrinter
 
 class ActionResults(CmdlineAction):
 	def _print_summary(self):
-#		for row in self._db.get_run_overview():
-#			print(dict(row))
-		for row in self._db.get_run_overview():
-			print(f"{row['runid']:5d} {row['source']:15s} {TestrunStatus(row['status']).name:14s} {row['run_start_ts']} {row['run_end_ts']} {row['error_details']}")
+		for runid in self._db.get_latest_runids():
+			self._result_printer.print_overview(runid)
 
 	def _print_run(self, runid: int):
 		pass
 
 	def run(self):
+		self._result_printer = ResultPrinter(self._db)
 		if len(self._args.run_id) == 0:
 			self._print_summary()
 		else:

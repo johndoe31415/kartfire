@@ -148,7 +148,7 @@ class Database():
 		self._change_count += 1
 
 	def close_testrun(self, runid: int, submission_run_result: "SubmissionRunResult"):
-		self._cursor.execute("UPDATE testrun SET status = ?, error_details = ?, run_end_ts = ?, stderr = ? WHERE runid = ?;", (submission_run_result.testrun_status.value, submission_run_result.error_details, self.utcnow(), submission_run_result.stderr, runid))
+		self._cursor.execute("UPDATE testrun SET status = ?, error_details = ?, run_end_ts = ?, stderr = ? WHERE runid = ?;", (submission_run_result.testrun_status.value, self._dict2str(submission_run_result.error_details), self.utcnow(), submission_run_result.stderr, runid))
 		self._change_count += 1
 
 	def _get_tcids_for_selector_part(self, testcase_selector_part: str):
@@ -225,10 +225,13 @@ class Database():
 			testcase = self._get_testcase(row["tcid"], contained_collections = contained_collections[row["tcid"]])
 			yield testcase
 
-	def get_run_overview(self):
+	def get_latest_runids(self, max_list_length: int = 10) -> list[int]:
+		return [ row["runid"] for row in self._cursor.execute("SELECT runid FROM testrun ORDER BY run_start_ts DESC LIMIT ?;", (max_list_length, )).fetchall() ]
+
+	def get_run_overview(self, runid: int):
 		return self._cursor.execute("""
-			SELECT runid, collection, source, source_metadata, run_start_ts, run_end_ts, max_permissible_runtime_secs, max_permissible_ram_mib, status, error_details FROM testrun ORDER BY run_start_ts DESC LIMIT 50;
-		""").fetchall()
+			SELECT runid, collection, source, source_metadata, run_start_ts, run_end_ts, max_permissible_runtime_secs, max_permissible_ram_mib, status, error_details FROM testrun WHERE runid = ?;
+		""", (runid, )).fetchone()
 
 	def get_run_details(self, runid: int):
 		testrun = dict(self._cursor.execute("SELECT * FROM testrun WHERE runid = ?;", (runid, )).fetchone())

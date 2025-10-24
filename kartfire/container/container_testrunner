@@ -28,17 +28,32 @@ import argparse
 import contextlib
 
 class ContainerRunFailedException(Exception):
-	def __init__(self, code: str, msg: str):
-		super().__init__(self, msg)
+	def __init__(self, msg: str, code: str, cmd: list[str], execution_hint: str):
+		super().__init__(msg)
 		self._code = code
+		self._cmd = cmd
+		self._execution_hint = execution_hint
 
-	@property
-	def code(self):
-		return self._code
+	def to_dict(self):
+		result = {
+			"text": str(self),
+			"code": self._code,
+			"cmd": self._cmd,
+			"execution_hint": self._execution_hint,
+		}
+		if self.__cause__ is not None:
+			result.update({
+				"cause": {
+					"type": self.__cause__.__class__.__name__,
+					"text": str(self.__cause__),
+				},
+			})
+		return result
 
 class ContainerTestRunner():
 	def __init__(self, args):
 		self._args = args
+
 		with open(self._args.configuration) as f:
 			self._config = json.load(f)
 
@@ -46,34 +61,34 @@ class ContainerTestRunner():
 	def verbose(self):
 		return max(self._config["verbose"], self._args.verbose)
 
-	def _execute(self, cmd: list[str], timeout: float):
+	def _execute(self, cmd: list[str], timeout: float, execution_hint: str):
 		try:
 			exec_result = subprocess.run(cmd, timeout = timeout)
 		except subprocess.TimeoutExpired as e:
-			raise ContainerRunFailedException("exec_timeout", f"{cmd}: Process execution terminated with timeout ({timeout:.0f} seconds)") from e
+			raise ContainerRunFailedException(f"{execution_hint} terminated with timeout ({timeout:.0f} seconds)", code = "exec_timeout", cmd = cmd, execution_hint = execution_hint) from e
 		except PermissionError as e:
-			raise ContainerRunFailedException("exec_permission", f"{cmd}: Process execution terminated with {e.__class__.__name__}. Check that the target is executable: {str(e)}") from e
+			raise ContainerRunFailedException(f"{execution_hint} terminated with {e.__class__.__name__}", code = "exec_permission", cmd = cmd, execution_hint = execution_hint) from e
 		except Exception as e:
-			raise ContainerRunFailedException("exec_other", f"{cmd}: Process execution terminated with {e.__class__.__name__}: {str(e)}") from e
+			raise ContainerRunFailedException(f"{execution_hint} terminated with {e.__class__.__name__}", code = "exec_other", cmd = cmd, execution_hint = execution_hint) from e
 
 		if exec_result.returncode == -9:
-			raise ContainerRunFailedException("exec_oom", f"{cmd}: Process execution terminated with out-of-memory error")
+			raise ContainerRunFailedException(f"{execution_hint} terminated with out-of-memory error", code = "exec_oom", cmd = cmd, execution_hint = execution_hint)
 		elif exec_result.returncode != 0:
-			raise ContainerRunFailedException("exec_failed", f"{cmd}: Process execution terminated with return code {exec_result.returncode}")
+			raise ContainerRunFailedException(f"{execution_hint} terminated with return code {exec_result.returncode}", code = "exec_failed", cmd = cmd, execution_hint = execution_hint)
 
 	def _unpack(self):
 		with contextlib.suppress(FileExistsError):
 			os.makedirs(self._config["container_dut_dir"])
-		self._execute([ "tar", "-x", "-C", self._config["container_dut_dir"], "-f", self._config["container_submission_tar_file"] ], timeout = 10)
+		self._execute([ "tar", "-x", "-C", self._config["container_dut_dir"], "-f", self._config["container_submission_tar_file"] ], timeout = 10, execution_hint = "untar")
 
 	def _setup(self):
 		setup_executable = f"{self._config['container_dut_dir']}/{self._config['setup_name']}"
 		if os.path.exists(setup_executable):
-			self._execute([ setup_executable ], timeout = self._config["max_setup_time_secs"])
+			self._execute([ setup_executable ], timeout = self._config["max_setup_time_secs"], execution_hint = "build")
 
 	def _run(self):
 		solution_executable = f"{self._config['container_dut_dir']}/{self._config['solution_name']}"
-		self._execute([ solution_executable, self._config["container_testcase_file"] ], timeout = self._config["max_runtime_secs"])
+		self._execute([ solution_executable, self._config["container_testcase_file"] ], timeout = self._config["max_runtime_secs"], execution_hint = "test")
 
 	def run(self):
 		try:
@@ -84,8 +99,7 @@ class ContainerTestRunner():
 			print()
 			print(json.dumps({
 				"_": "9d83e7a5-bb94-40a1-9f59-a6586d2c3c94",
-				"code": e.code,
-				"exception": str(e),
+				"exception": e.to_dict(),
 			}))
 			sys.exit(1)
 

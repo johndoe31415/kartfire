@@ -38,7 +38,7 @@ class ActionReference(CmdlineAction):
 		if len(ctr) != 1:
 			print("Have multiple statuses:")
 			for (status, count) in ctr.most_common():
-				print(f"{status:-30s} {count}")
+				print(f"{status:<30s} {count}")
 			TODO
 
 		for result in run_details["results"]:
