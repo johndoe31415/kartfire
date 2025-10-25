@@ -147,13 +147,16 @@ class Docker():
 			self._cleanup_tasks[1].append(running_container.rm())
 		return running_container
 
-	async def create_network(self, network_name: str | None = None, allow_inter_container_connectivity: bool = True, allow_wan_access: bool = False, auto_cleanup: bool = True):
+	async def create_network(self, network_name: str | None = None, allow_inter_container_connectivity: bool = True, allow_wan_access: bool = False, auto_cleanup: bool = True, use_ipv6_only: bool = True):
 		if network_name is None:
 			network_name = f"kartfire_{os.urandom(8).hex()}"
 		cmd = [ self._docker_executable, "network", "create" ]
 		cmd += [ "-d", "bridge" ]
 		cmd += [ "--opt", f"com.docker.network.bridge.enable_icc={'true' if allow_inter_container_connectivity else 'false'}" ]
 		cmd += [ "--opt", f"com.docker.network.bridge.enable_ip_masquerade={'true' if allow_wan_access else 'false'}" ]
+		if use_ipv6_only:
+			cmd += [ "--ipv6" ]
+			cmd += [ "--opt", f"com.docker.network.enable_ipv4=false" ]
 		cmd += [ network_name ]
 		network_id = (await ExecTools.async_check_output(cmd)).decode("ascii").rstrip("\r\n")
 		network = DockerNetwork(self, network_id, allow_wan_access = allow_wan_access)

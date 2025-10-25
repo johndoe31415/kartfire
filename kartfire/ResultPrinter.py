@@ -23,7 +23,8 @@ import datetime
 import tzlocal
 import pytz
 import json
-from .Enums import TestrunStatus
+import collections
+from .Enums import TestrunStatus, TestresultStatus
 from .TimeDelta import TimeDelta
 
 class ResultColorizer():
@@ -58,10 +59,46 @@ class ResultColorizer():
 		else:
 			return self.green
 
+class ResultBar():
+	def __init__(self, display: tuple, clear_color: str, length: int = 30):
+		self._display = display
+		self._clear_color = clear_color
+		self._length = length
+
+	def __call__(self, counts: dict):
+		total_count = sum(counts.values())
+		if total_count == 0:
+			return "[" + (" " * self._length) + "]"
+
+		result = { }
+		total_chars = 0
+		for (value, symbol, color) in self._display:
+			match_count = counts.get(value, 0)
+			if match_count > 0:
+				char_count = max(1, round(match_count / total_count * self._length))
+				total_chars += char_count
+				result[value] = char_count
+
+		while total_chars > self._length:
+			maxc = max(result.values())
+			for (value, count) in result.items():
+				if count == maxc:
+					result[value] -= 1
+					total_chars -= 1
+
+		result_string = [ "[" ]
+		for (value, symbol, color) in self._display:
+			if value in result:
+				result_string.append(f"{color}{symbol * result[value]}{self._clear_color}")
+		result_string += [ "]" ]
+		return "".join(result_string)
+
+
 class ResultPrinter():
 	def __init__(self, db: "Database"):
 		self._db = db
 		self._output_tz = tzlocal.get_localzone()
+		self._color = ResultColorizer()
 
 	def _parse_utc_ts_str(self, utc_ts_str: str):
 		return datetime.datetime.strptime(utc_ts_str, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo = datetime.UTC)
@@ -87,14 +124,37 @@ class ResultPrinter():
 	def _print_overview(self, row: "Row"):
 		td = self._timedelta(row["run_start_ts"], row["run_end_ts"])
 		error_details = json.loads(row["error_details"])
+		result_bar = ResultBar((
+			(TestresultStatus.Pass, "+", self._color.green),
+			(TestresultStatus.Fail, "-", self._color.red),
+			(TestresultStatus.NoAnswer, "_", self._color.red),
+			(TestresultStatus.Indeterminate, "?", self._color.yellow),
+		), self._color.clr)
+
+		sorted_status = [ (count, status) for (status, count) in row["result_count"].items() ]
+		sorted_status.sort(reverse = True)
+		if len(sorted_status) == 1:
+			sorted_status_str = f"All {sorted_status[0][1].name}"
+		else:
+			total_count = sum(count for (count, status) in sorted_status)
+			sorted_status_str = ", ".join(f"{count}/{count / total_count * 100:.1f}% {status.name}" for (count, status) in sorted_status)
+
+		source_meta = json.loads(row["source_metadata"])
+		if ("meta" in source_meta) and ("git" in source_meta["meta"]) and ("shortcommit" in source_meta["meta"]["git"]):
+			source_str = f"{row['source']}:{source_meta['meta']['git']['shortcommit']}"
+		else:
+			source_str = f"{row['source']}"
+
 		columns = [
 			f"{row['runid']:5d}",
-			f"{row['source']:15s}",
+			f"{source_str:25s}",
 			f"{TestrunStatus(row['status']).name:14s}",
-			f"  {self._fmtts(row['run_start_ts'])}-{self._fmtts(row['run_end_ts'], 'time')}",
-			f"  {td}  ",
-			f"  {td:d}  ",
+			f"  {self._fmtts(row['run_start_ts'])}-{self._fmtts(row['run_end_ts'], 'time')} ({td})",
+			f"  runtime {td:d}  ",
+			f"  {result_bar(row['result_count'])}"
+			f"  {sorted_status_str}"
 		]
+
 		if error_details is not None:
 			columns.append(f"{error_details['text']}")
 		print(" ".join(columns))
@@ -102,3 +162,43 @@ class ResultPrinter():
 	def print_overview(self, runid: int):
 		row = self._db.get_run_overview(runid)
 		self._print_overview(row)
+
+	def _print_answer(self, run_details: dict, testcase_result: dict):
+		testcase = testcase_result["testcase"]
+		status = TestresultStatus(testcase_result["status"])
+		query = testcase.query
+		correct_response = testcase.correct_response
+		received_result = json.loads(testcase_result["received_result"])
+		print(f"Testcase {testcase.tcid} of run {run_details['runid']} marked as {status.name}. Action \"{testcase.action}\", arguments:")
+		print(json.dumps(query, indent = "\t", sort_keys = True))
+		print()
+		print("Excepted response:")
+		print(json.dumps(correct_response, indent = "\t", sort_keys = True))
+		print()
+		print("Received response:")
+		print(json.dumps(received_result, indent = "\t", sort_keys = True))
+		print()
+		print("~" * 120)
+
+	def print_details(self, runid: int):
+		max_failed_cases_per_action = 2
+		row = self._db.get_run_details(runid)
+		source_meta = json.loads(row["source_metadata"])
+		if ("meta" in source_meta) and ("git" in source_meta["meta"]) and ("shortcommit" in source_meta["meta"]["git"]):
+			source_str = f"{row['source']}:{source_meta['meta']['git']['shortcommit']}"
+		else:
+			source_str = f"{row['source']}"
+
+		try:
+			user_name = source_meta["meta"]["json"]["kartfire"]["name"]
+		except KeyError:
+			user_name = "unknown author"
+		print(f"Showing failed cases of {source_str} of {user_name} run ID {runid}, max of {max_failed_cases_per_action} fails per action")
+
+		action_count = collections.Counter()
+		for result in row["results"]:
+			status = TestresultStatus(result["status"])
+			if status == TestresultStatus.Fail:
+				action_count[result["testcase"].action] += 1
+				if action_count[result["testcase"].action] <= max_failed_cases_per_action:
+					self._print_answer(row, result)

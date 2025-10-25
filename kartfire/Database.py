@@ -186,10 +186,11 @@ class Database():
 	def add_tcids_to_collection(self, collection_name: str, tcids: set[int]) -> None:
 		collectionid = self._get_collectionid(collection_name)
 		for tcid in tcids:
-			self._insert("testcollection_testcases", {
-				"collectionid": collectionid,
-				"tcid": tcid,
-			})
+			with contextlib.suppress(sqlite3.IntegrityError):
+				self._insert("testcollection_testcases", {
+					"collectionid": collectionid,
+					"tcid": tcid,
+				})
 
 	def remove_tcids_from_collection(self, collection_name: str, tcids: set[int]) -> None:
 		collectionid = self._get_collectionid(collection_name)
@@ -229,9 +230,20 @@ class Database():
 		return [ row["runid"] for row in self._cursor.execute("SELECT runid FROM testrun ORDER BY run_start_ts DESC LIMIT ?;", (max_list_length, )).fetchall() ]
 
 	def get_run_overview(self, runid: int):
-		return self._cursor.execute("""
-			SELECT runid, collection, source, source_metadata, run_start_ts, run_end_ts, max_permissible_runtime_secs, max_permissible_ram_mib, status, error_details FROM testrun WHERE runid = ?;
-		""", (runid, )).fetchone()
+		row = dict(self._cursor.execute("""
+			SELECT runid, collection, source, source_metadata, run_start_ts, run_end_ts, max_permissible_runtime_secs, max_permissible_ram_mib, status, error_details FROM testrun
+			WHERE runid = ?;
+		""", (runid, )).fetchone())
+		row["result_count"] = self.get_run_result_count(runid)
+		return row
+
+	def get_run_result_count(self, runid: int):
+		return { TestresultStatus(row["status"]): row["count"] for row in  self._cursor.execute("""
+			SELECT testresult.status, COUNT(testrun.runid) AS count FROM testrun
+			JOIN testresult ON testrun.runid = testresult.runid
+			WHERE testrun.runid = ?
+			GROUP BY testrun.runid, testresult.status;
+		""", (runid, )).fetchall() }
 
 	def get_run_details(self, runid: int):
 		testrun = dict(self._cursor.execute("SELECT * FROM testrun WHERE runid = ?;", (runid, )).fetchone())

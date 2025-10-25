@@ -27,9 +27,14 @@ from .Submission import Submission
 from .ResultPrinter import ResultPrinter
 
 class ActionRun(CmdlineAction):
+	def _submission_finished(self, run_id: int):
+		self._rp.print_overview(run_id)
+
 	def run(self):
+		self._rp = ResultPrinter(self._db)
 		tc_collection = self._db.get_testcase_collection(self._args.collection_name)
 		runner = TestcaseRunner(tc_collection, self._test_fixture_config, self._db, interactive = self._args.interactive)
+		runner.register_finished_callback(self._submission_finished)
 		ignored_count = 0
 		submissions = [ ]
 		for submission_dir in self._args.submission_dir:
@@ -44,7 +49,3 @@ class ActionRun(CmdlineAction):
 		if len(submissions) == 0:
 			print("No submissions to test found.", file = sys.stderr)
 		run_ids = runner.run(submissions)
-
-		rp = ResultPrinter(self._db)
-		for run_id in run_ids:
-			rp.print_overview(run_id)

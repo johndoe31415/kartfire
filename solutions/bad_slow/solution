@@ -8,8 +8,6 @@ testcase_file = sys.argv[1]
 with open(testcase_file) as f:
 	testcases = json.load(f)
 
-responses = { }
-
 for (tcid, testcase) in testcases["testcases"].items():
 	time.sleep(0.5 + random.random())
 	args = testcase["arguments"]
@@ -27,6 +25,5 @@ for (tcid, testcase) in testcases["testcases"].items():
 			raise Exception(f"Unsupported testcase action: {testcase['action']}")
 
 	print(json.dumps({ "id": tcid, "reply": result }))
-	responses[tcid] = result
 
 print("This comment should be ignored.", file = sys.stderr)

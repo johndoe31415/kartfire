@@ -1,5 +1,5 @@
 #	kartfire - Test framework to consistently run submission files
-#	Copyright (C) 2023-2024 Johannes Bauer
+#	Copyright (C) 2023-2025 Johannes Bauer
 #
 #	This file is part of kartfire.
 #
@@ -111,6 +111,9 @@ class ExecTools():
 #		print(cmd)
 		proc = await asyncio.create_subprocess_exec(*cmd, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
 		(stdout, stderr) = await proc.communicate()
+#		print(stdout)
+#		print("="*120)
+#		print(stderr)
 		if proc.returncode != 0:
 			raise SubprocessRunError(f"Command failed to execute, returncode {proc.returncode}: {CmdlineEscape().cmdline(cmd)}")
 		return (stdout, stderr)

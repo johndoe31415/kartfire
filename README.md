@@ -41,6 +41,9 @@ Expected answer:
 }
 ```
 
+## Dependencies
+Docker v28 IPv6 only network ("Error response from daemon: all predefined address pools have been fully subnetted")
+
 ## Execution
 TODO
 

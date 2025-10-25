@@ -26,16 +26,16 @@ from .ResultPrinter import ResultPrinter
 
 class ActionResults(CmdlineAction):
 	def _print_summary(self):
-		for runid in self._db.get_latest_runids():
-			self._result_printer.print_overview(runid)
+		for run_id in self._db.get_latest_runids(50):
+			self._result_printer.print_overview(run_id)
 
-	def _print_run(self, runid: int):
-		pass
+	def _print_run(self, run_id: int):
+		self._result_printer.print_details(run_id)
 
 	def run(self):
 		self._result_printer = ResultPrinter(self._db)
 		if len(self._args.run_id) == 0:
 			self._print_summary()
 		else:
-			for runid in self._args.run_id:
-				self._print_run(runid)
+			for run_id in self._args.run_id:
+				self._print_run(run_id)
