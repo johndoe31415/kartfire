@@ -26,7 +26,7 @@ from .ResultPrinter import ResultPrinter
 
 class ActionResults(CmdlineAction):
 	def _print_summary(self):
-		for run_id in self._db.get_latest_runids(50):
+		for run_id in self._db.get_latest_run_ids(50):
 			self._result_printer.print_overview(run_id)
 
 	def _print_run(self, run_id: int):

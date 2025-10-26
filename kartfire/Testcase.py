@@ -23,17 +23,17 @@ import dataclasses
 
 @dataclasses.dataclass(slots = True, order = True, frozen = True)
 class Testcase():
-	tcid: int
+	tc_id: int
 	action: str
-	query: dict
-	correct_response: dict | None = None
+	arguments: dict
+	correct_reply: dict | None = None
 	dependencies: dict | None = None
 	contained_collections: set | None = None		# Not necessarily populated
 
 	def guest_dict(self):
 		return {
 			"action": self.action,
-			"arguments": self.query,
+			"arguments": self.arguments,
 		}
 
 	def __format__(self, fmtstr: str):
@@ -41,15 +41,15 @@ class Testcase():
 			contained = ""
 		else:
 			contained = f"[ {', '.join(sorted(self.contained_collections))} ]"
-		return f"{self.tcid:5d} {self.action:<15s} {contained:<15s} {str(self.query)[:70]:70}  =>  {'?' if self.correct_response is None else str(self.correct_response)[:30]}"
+		return f"{self.tc_id:5d} {self.action:<15s} {contained:<15s} {str(self.arguments)[:70]:70}  =>  {'?' if self.correct_reply is None else str(self.correct_reply)[:30]}"
 
 class TestcaseCollection():
 	def __init__(self, name: str, testcases: list[Testcase], reference_runtime_secs: float | None = None):
 		self._name = name
 		self._testcases = testcases
 		self._reference_runtime_secs = reference_runtime_secs
-		self._testcases.sort(key = lambda tc: (tc.action, tc.tcid))
-		self._testcases_by_tcid = { tc.tcid: tc for tc in self._testcases }
+		self._testcases.sort(key = lambda tc: (tc.action, tc.tc_id))
+		self._testcases_by_tc_id = { tc.tc_id: tc for tc in self._testcases }
 
 	@property
 	def name(self):
@@ -63,8 +63,8 @@ class TestcaseCollection():
 		for testcase in self._testcases:
 			print(f"{testcase}")
 
-	def __contains__(self, tcid: int):
-		return tcid in self._testcases_by_tcid
+	def __contains__(self, tc_id: int):
+		return tc_id in self._testcases_by_tc_id
 
 	def __len__(self):
 		return len(self._testcases)
@@ -72,8 +72,8 @@ class TestcaseCollection():
 	def __iter__(self):
 		return iter(self._testcases)
 
-	def __getitem__(self, tcid: int):
-		return self._testcases_by_tcid[tcid]
+	def __getitem__(self, tc_id: int):
+		return self._testcases_by_tc_id[tc_id]
 
 	def __str__(self):
 		return f"Collection \"{self.name}\": {len(self._testcases)} TCs, nominal runtime {'unknown' if (self.reference_runtime_secs is None) else f'{self.reference_runtime_secs:.0f} secs'}"

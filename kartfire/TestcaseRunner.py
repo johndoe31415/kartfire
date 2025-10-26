@@ -105,7 +105,7 @@ class TestcaseRunner():
 			raise InternalError("Limitations on RAM/process count allow running of no process at all.")
 		return concurrent
 
-	def _evaluate_run_result(self, runid: int, submission_run_result: "SubmissionRunResult"):
+	def _evaluate_run_result(self, run_id: int, submission_run_result: "SubmissionRunResult"):
 		for stdout_line in submission_run_result.stdout.decode("utf-8", errors = "ignore").split("\n"):
 			try:
 				json_data = json.loads(stdout_line)
@@ -126,37 +126,37 @@ class TestcaseRunner():
 					continue
 				if not json_data["id"].isdigit():
 					continue
-				tcid = int(json_data["id"])
-				if tcid not in self._testcases:
-					print(f"Submission returned TCID {tcid} which is not not in testcase battery")
+				tc_id = int(json_data["id"])
+				if tc_id not in self._testcases:
+					print(f"Submission returned TCID {tc_id} which is not not in testcase battery")
 					continue
-				testcase = self._testcases[tcid]
+				testcase = self._testcases[tc_id]
 
-				if testcase.correct_response is None:
+				if testcase.correct_reply is None:
 					# No response available
 					test_result_status = TestresultStatus.Indeterminate
-				elif testcase.correct_response == json_data["reply"]:
+				elif testcase.correct_reply == json_data["reply"]:
 					test_result_status = TestresultStatus.Pass
 				else:
 					test_result_status = TestresultStatus.Fail
 
-				self._db.update_testresult(runid, tcid, json_data["reply"], test_result_status)
+				self._db.update_testresult(run_id, tc_id, json_data["reply"], test_result_status)
 				self._db.opportunistic_commit()
 			except json.decoder.JSONDecodeError:
 				pass
-		self._db.close_testrun(runid, submission_run_result)
+		self._db.close_testrun(run_id, submission_run_result)
 		self._db.commit()
 
 	async def _run_submission(self, submission: "Submission"):
 		async with self._process_semaphore:
 			_log.info("Starting testing of submission \"%s\"", submission)
-			runid = self._db.create_testrun(submission, self._testcases)
+			run_id = self._db.create_testrun(submission, self._testcases)
 			self._db.commit()
 			submission_run_result = await submission.run(self, interactive = self._interactive)
-			self._evaluate_run_result(runid, submission_run_result)
+			self._evaluate_run_result(run_id, submission_run_result)
 			self._db.commit()
 			for callback in self._submission_test_finished_callbacks:
-				callback(runid)
+				callback(run_id)
 
 	async def _run(self, submissions: list["Submission"]):
 		self._process_semaphore = asyncio.Semaphore(self._concurrent_process_count)

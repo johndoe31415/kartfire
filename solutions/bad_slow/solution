@@ -9,7 +9,7 @@ with open(testcase_file) as f:
 	testcases = json.load(f)
 
 for (tcid, testcase) in testcases["testcases"].items():
-	time.sleep(0.5 + random.random())
+	time.sleep(1.5 + 2 * random.random())
 	args = testcase["arguments"]
 	match testcase["action"]:
 		case "add":

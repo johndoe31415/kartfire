@@ -1,57 +1,52 @@
 [
 	{
 		"action": "add",
-		"query": {
+		"arguments": {
 			"a": 3,
 			"b": 99
 		},
-		"correct_response": {
+		"correct_reply": {
 			"sum": 102
-		},
-		"reference_runtime_secs": 0.1
+		}
 	},
 	{
 		"action": "add",
-		"query": {
+		"arguments": {
 			"a": 0,
 			"b": 0
 		},
-		"correct_response": {
+		"correct_reply": {
 			"sum": 0
-		},
-		"reference_runtime_secs": 0.1
+		}
 	},
 	{
 		"action": "add",
-		"query": {
+		"arguments": {
 			"a": 33,
 			"b": 99
 		},
-		"correct_response": {
+		"correct_reply": {
 			"sum": 132
-		},
-		"reference_runtime_secs": 0.1
+		}
 	},
 	{
 		"action": "sub",
-		"query": {
+		"arguments": {
 			"a": 33,
 			"b": 99
 		},
-		"correct_response": {
+		"correct_reply": {
 			"difference": -66
-		},
-		"reference_runtime_secs": 0.1
+		}
 	},
 	{
 		"action": "mul",
-		"query": {
+		"arguments": {
 			"a": 33,
 			"b": 99
 		},
-		"correct_response": {
+		"correct_reply": {
 			"product": 3267
-		},
-		"reference_runtime_secs": 0.1
+		}
 	}
 ]

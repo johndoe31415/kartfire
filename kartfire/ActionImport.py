@@ -33,7 +33,7 @@ class ActionImport(CmdlineAction):
 			testcases = json.load(f)
 		for testcase in testcases:
 			try:
-				self._db.create_testcase(action = testcase["action"], query = testcase["query"], created_ts = now, correct_response = testcase.get("correct_response"), dependencies = testcase.get("dependencies"))
+				self._db.create_testcase(action = testcase["action"], arguments = testcase["arguments"], created_utcts = now, correct_reply = testcase.get("correct_reply"), dependencies = testcase.get("dependencies"))
 				imported_count += 1
 			except sqlite3.IntegrityError:
 				duplicate_skipped_count += 1

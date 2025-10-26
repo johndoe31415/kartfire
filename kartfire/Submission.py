@@ -84,7 +84,7 @@ class Submission():
 			"verbose":							2 if interactive else 0,
 		}
 		container_testcases = {
-			"testcases": { str(testcase.tcid): testcase.guest_dict() for testcase in runner.testcases },
+			"testcases": { str(testcase.tc_id): testcase.guest_dict() for testcase in runner.testcases },
 		}
 
 		container_command = [ "/container_testrunner" ]

@@ -43,6 +43,6 @@ class ActionReference(CmdlineAction):
 
 		for result in run_details["results"]:
 			if (result["status"] == "indeterminate") or ((result["status"] == "fail") and self._args.pick_failed_answers):
-				self._db.set_reference_answer(result["testcase"].tcid, json.loads(result["received_result"]))
+				self._db.set_reference_answer(result["testcase"].tc_id, json.loads(result["received_reply_json"]))
 				self._db.opportunistic_commit()
 		self._db.commit()

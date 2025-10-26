@@ -39,12 +39,12 @@ class ActionCollection(CmdlineAction):
 				return
 
 		if (self._args.testcase_selector is not None):
-			tcids = self._db.get_tcids_by_selector(self._args.testcase_selector)
-			if len(tcids) > 0:
+			tc_ids = self._db.get_tc_ids_by_selector(self._args.testcase_selector)
+			if len(tc_ids) > 0:
 				if self._args.remove:
-					self._db.remove_tcids_from_collection(self._args.collection_name, tcids)
+					self._db.remove_tc_ids_from_collection(self._args.collection_name, tc_ids)
 				else:
-					self._db.add_tcids_to_collection(self._args.collection_name, tcids)
+					self._db.add_tc_ids_to_collection(self._args.collection_name, tc_ids)
 			collection = self._db.get_testcase_collection(self._args.collection_name)
 
 		self._db.commit()

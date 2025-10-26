@@ -24,16 +24,28 @@ import json
 import contextlib
 import datetime
 import collections
+from .SqliteORM import SqliteORM
 from .Testcase import Testcase, TestcaseCollection
 from .Enums import TestrunStatus, TestresultStatus
 from .Exceptions import NoSuchCollectionException
 
-class Database():
+class Database(SqliteORM):
 	def __init__(self, filename: str):
-		self._change_count = 0
-		self._conn = sqlite3.connect(filename)
-		self._conn.row_factory = sqlite3.Row
-		self._cursor = self._conn.cursor()
+		super().__init__(filename)
+		self._map_type("testcases:arguments", "json")
+		self._map_type("testcases:correct_reply", "json")
+		self._map_type("testcases:dependencies", "json")
+		self._map_type("testcases:created_utcts", "utcts")
+
+		self._map_type("testrun:source_metadata", "json")
+		self._map_type("testrun:run_start_utcts", "utcts")
+		self._map_type("testrun:run_end_utcts", "utcts")
+		self._map_type("testrun:dependencies", "json")
+		self._map_type("testrun:status", "enum", TestrunStatus)
+		self._map_type("testrun:error_details", "json")
+
+		self._map_type("testresult:received_reply", "json")
+		self._map_type("testresult:status", "enum", TestresultStatus)
 
 		# Five minutes of blocking time before giving up
 		self._cursor.execute(f"PRAGMA busy_timeout = {5 * 60 * 1000}")
@@ -41,32 +53,13 @@ class Database():
 		with contextlib.suppress(sqlite3.OperationalError):
 			self._cursor.execute("""\
 			CREATE TABLE testcases (
-				tcid integer PRIMARY KEY,
-				action char(64) NOT NULL,
-				query varchar(4096) NOT NULL,
-				correct_response varchar(4096) NULL,
+				tc_id integer PRIMARY KEY,
+				action varchar(64) NOT NULL,
+				arguments varchar(4096) NOT NULL,
+				correct_reply varchar(4096) NULL,
 				dependencies varchar(1024) NULL,
-				created_ts varchar(64) NOT NULL,
-				UNIQUE(action, query)
-			);
-			""")
-
-		with contextlib.suppress(sqlite3.OperationalError):
-			self._cursor.execute("""\
-			CREATE TABLE testrun (
-				runid integer PRIMARY KEY,
-				collection varchar(128) NOT NULL,
-				source varchar(256),
-				source_metadata varchar(4096),
-				run_start_ts varchar(64) NOT NULL,
-				run_end_ts varchar(64) NULL,
-				max_permissible_runtime_secs float NOT NULL,
-				max_permissible_ram_mib integer NOT NULL,
-				dependencies varchar(4096) NOT NULL,
-				status varchar(256) NOT NULL DEFAULT 'running',
-				error_details varchar(1024) NULL,
-				stderr blob NULL,
-				CHECK((status = 'running') OR (status = 'finished') OR (status = 'failed') OR (status = 'build_failed') OR (status = 'aborted') OR (status = 'terminated'))
+				created_utcts varchar(64) NOT NULL,
+				UNIQUE(action, arguments)
 			);
 			""")
 
@@ -74,189 +67,194 @@ class Database():
 			self._cursor.execute("""\
 			CREATE TABLE testcollection (
 				name varchar(128) PRIMARY KEY,
-				collectionid integer NOT NULL UNIQUE,
+				collection_id integer NOT NULL UNIQUE,
 				reference_runtime_secs float NULL
 			);
 			""")
 
 		with contextlib.suppress(sqlite3.OperationalError):
 			self._cursor.execute("""\
+			CREATE TABLE testrun (
+				run_id integer PRIMARY KEY,
+				collection varchar(128) NOT NULL REFERENCES testcollection(name),
+				source varchar(256),
+				source_metadata varchar(4096),
+				run_start_utcts varchar(64) NOT NULL,
+				run_end_utcts varchar(64) NULL,
+				max_permissible_runtime_secs float NOT NULL,
+				max_permissible_ram_mib integer NOT NULL,
+				dependencies varchar(4096) NOT NULL,
+				status varchar(32) NOT NULL DEFAULT 'running',
+				error_details varchar(4096) NULL,
+				stderr blob NULL,
+				CHECK((status = 'running') OR (status = 'finished') OR (status = 'failed') OR (status = 'build_failed') OR (status = 'aborted') OR (status = 'terminated'))
+			);
+			""")
+
+		with contextlib.suppress(sqlite3.OperationalError):
+			self._cursor.execute("""\
 			CREATE TABLE testcollection_testcases (
-				collectionid integer NOT NULL REFERENCES testcollection(collectionid),
-				tcid integer NOT NULL REFERENCES testcases(tcid),
-				UNIQUE(collectionid, tcid)
+				collection_id integer NOT NULL REFERENCES testcollection(collection_id),
+				tc_id integer NOT NULL REFERENCES testcases(tc_id),
+				UNIQUE(collection_id, tc_id)
 			);
 			""")
 
 		with contextlib.suppress(sqlite3.OperationalError):
 			self._cursor.execute("""\
 			CREATE TABLE testresult (
-				tcid integer REFERENCES testcases(tcid),
-				runid integer REFERENCES testrun(runid),
-				received_result varchar(4096) NULL,
-				status varchar(16) NOT NULL DEFAULT 'no_answer',
-				UNIQUE(tcid, runid),
+				tc_id integer REFERENCES testcases(tc_id),
+				run_id integer REFERENCES testrun(run_id),
+				received_reply varchar(4096) NULL,
+				status varchar(32) NOT NULL DEFAULT 'no_answer',
+				UNIQUE(tc_id, run_id),
 				CHECK((status = 'no_answer') OR (status = 'pass') OR (status = 'fail') OR (status = 'indeterminate'))
 			);
 			""")
 
-	@staticmethod
-	def _dict2str(values: dict):
-		return json.dumps(values, sort_keys = True, separators = (",", ":"))
-
-	@staticmethod
-	def utcnow():
-		return datetime.datetime.now(datetime.UTC).isoformat()[:-6] + "Z"
-
-	def _insert(self, table_name: str, value_dict: dict):
-		fields = list(value_dict)
-		values = [ value_dict[field] for field in fields ]
-		query = f"INSERT INTO {table_name} ({','.join(field for field in fields)}) VALUES ({','.join([ '?' ] * len(fields))});"
-		result = self._cursor.execute(query, values)
-		self._change_count += 1
-		return result.lastrowid
-
-	def create_testcase(self, action: str, query: dict, created_ts: datetime.datetime, correct_response: dict | None = None, dependencies: dict | None = None):
+	def create_testcase(self, action: str, arguments: dict, created_utcts: datetime.datetime, correct_reply: dict | None = None, dependencies: dict | None = None):
 		self._insert("testcases", {
 			"action": action,
-			"query": self._dict2str(query),
-			"created_ts": created_ts.isoformat(),
-			"correct_response": None if (correct_response is None) else self._dict2str(correct_response),
-			"dependencies": None if (dependencies is None) else self._dict2str(dependencies),
+			"arguments": arguments,
+			"created_utcts": created_utcts,
+			"correct_reply": correct_reply,
+			"dependencies": dependencies,
 		})
 
 	def create_testrun(self, submission: "Submission", testcases: "TestcaseCollection"):
-		runid = self._insert("testrun", {
+		run_id = self._insert("testrun", {
 			"source": submission.shortname,
-			"source_metadata": self._dict2str(submission.to_dict()),
-			"run_start_ts": self.utcnow(),
-			"max_permissible_runtime_secs": 999999,
-			"max_permissible_ram_mib": 999999,
-			"dependencies": "TODO",
-			"status": "running",
+			"source_metadata": submission.to_dict(),
+			"run_start_utcts": datetime.datetime.now(datetime.UTC),
+			"max_permissible_runtime_secs": 999999,		# TODO
+			"max_permissible_ram_mib": 999999,		# TODO
+			"dependencies": "TODO",		# TODO
+			"status": TestrunStatus.Running,
 			"collection": testcases.name,
 		})
 		for testcase in testcases:
 			self._insert("testresult", {
-				"tcid":		testcase.tcid,
-				"runid":	runid,
+				"tc_id":		testcase.tc_id,
+				"run_id":	run_id,
 			})
-		return runid
+		return run_id
 
-	def update_testresult(self, runid: int, tcid: int, received_result: dict, test_result_status: TestresultStatus):
-		self._cursor.execute("UPDATE testresult SET received_result = ?, status = ? WHERE (tcid = ?) AND (runid = ?);", (self._dict2str(received_result), test_result_status.value, tcid, runid))
-		self._change_count += 1
+	def update_testresult(self, run_id: int, tc_id: int, received_reply: dict, test_result_status: TestresultStatus):
+		self._mapped_execute("UPDATE testresult SET received_reply = ?, status = ? WHERE (tc_id = ?) AND (run_id = ?);",
+							(received_reply, "testresult:received_reply"),
+							(test_result_status, "testresult:status"),
+							tc_id, run_id)
+		self._increase_uncommitted_write_count()
 
-	def close_testrun(self, runid: int, submission_run_result: "SubmissionRunResult"):
-		self._cursor.execute("UPDATE testrun SET status = ?, error_details = ?, run_end_ts = ?, stderr = ? WHERE runid = ?;", (submission_run_result.testrun_status.value, self._dict2str(submission_run_result.error_details), self.utcnow(), submission_run_result.stderr, runid))
-		self._change_count += 1
+	def close_testrun(self, run_id: int, submission_run_result: "SubmissionRunResult"):
+		self._mapped_execute("UPDATE testrun SET status = ?, error_details = ?, run_end_utcts = ?, stderr = ? WHERE run_id = ?;",
+							(submission_run_result.testrun_status, "testrun:status"),
+							(submission_run_result.error_details, "testrun:error_details"),
+							(datetime.datetime.now(datetime.UTC), "testrun:run_end_utcts"),
+							submission_run_result.stderr,
+							run_id)
+		self._increase_uncommitted_write_count()
 
-	def _get_tcids_for_selector_part(self, testcase_selector_part: str):
+	def _get_tc_ids_for_selector_part(self, testcase_selector_part: str):
 		if testcase_selector_part.isdigit():
 			return set([ int(testcase_selector_part) ])
 		elif testcase_selector_part == "*":
-			return set(row["tcid"] for row in self._cursor.execute("SELECT tcid FROM testcases;").fetchall())
+			return set(row["tc_id"] for row in self._cursor.execute("SELECT tc_id FROM testcases;").fetchall())
 		elif testcase_selector_part.startswith("@"):
 			action = testcase_selector_part[1:]
-			return set(row["tcid"] for row in self._cursor.execute("SELECT tcid FROM testcases WHERE action = ?;", (action, )).fetchall())
+			return set(row["tc_id"] for row in self._cursor.execute("SELECT tc_id FROM testcases WHERE action = ?;", (action, )).fetchall())
 		else:
 			raise NoSuchCollectionException(f"Invalid testcase selector: {testcase_selector_part}")
 
-	def get_tcids_by_selector(self, testcase_selector: str) -> set[int]:
-		tcids = set()
+	def get_tc_ids_by_selector(self, testcase_selector: str) -> set[int]:
+		tc_ids = set()
 		for testcase_selector_part in [ part.strip() for part in testcase_selector.split(",") ]:
-			tcids |= self._get_tcids_for_selector_part(testcase_selector_part)
-		return tcids
+			tc_ids |= self._get_tc_ids_for_selector_part(testcase_selector_part)
+		return tc_ids
 
-	def _get_testcase(self, tcid: int, contained_collections: set | None = None) -> Testcase:
-		row = dict(self._cursor.execute("SELECT action, query, correct_response, dependencies FROM testcases WHERE tcid = ?;", (tcid, )).fetchone())
-		for key in [ "query", "correct_response", "dependencies" ]:
+	def _get_testcase(self, tc_id: int, contained_collections: set | None = None) -> Testcase:
+		row = dict(self._cursor.execute("SELECT action, arguments, correct_reply, dependencies FROM testcases WHERE tc_id = ?;", (tc_id, )).fetchone())
+		for key in [ "arguments", "correct_reply", "dependencies" ]:
 			if row[key] is not None:
 				row[key] = json.loads(row[key])
-		row["tcid"] = tcid
+		row["tc_id"] = tc_id
 		row["contained_collections"] = contained_collections
 		return Testcase(**row)
 
-	def _get_collectionid(self, collection_name: str) -> int:
-		collectionid = self._cursor.execute("SELECT collectionid FROM testcollection WHERE name = ? LIMIT 1 COLLATE NOCASE;", (collection_name, )).fetchone()
-		if collectionid is None:
+	def _get_collection_id(self, collection_name: str) -> int:
+		collection_id = self._cursor.execute("SELECT collection_id FROM testcollection WHERE name = ? LIMIT 1 COLLATE NOCASE;", (collection_name, )).fetchone()
+		if collection_id is None:
 			raise NoSuchCollectionException(f"No such test case collection: {collection_name}")
-		return collectionid["collectionid"]
+		return collection_id["collection_id"]
 
-	def add_tcids_to_collection(self, collection_name: str, tcids: set[int]) -> None:
-		collectionid = self._get_collectionid(collection_name)
-		for tcid in tcids:
+	def add_tc_ids_to_collection(self, collection_name: str, tc_ids: set[int]) -> None:
+		collection_id = self._get_collection_id(collection_name)
+		for tc_id in tc_ids:
 			with contextlib.suppress(sqlite3.IntegrityError):
 				self._insert("testcollection_testcases", {
-					"collectionid": collectionid,
-					"tcid": tcid,
+					"collection_id": collection_id,
+					"tc_id": tc_id,
 				})
 
-	def remove_tcids_from_collection(self, collection_name: str, tcids: set[int]) -> None:
-		collectionid = self._get_collectionid(collection_name)
-		for tcid in tcids:
-			self._cursor.execute("DELETE FROM testcollection_testcases WHERE (collectionid = ?) AND (tcid = ?);", (collectionid, tcid))
+	def remove_tc_ids_from_collection(self, collection_name: str, tc_ids: set[int]) -> None:
+		collection_id = self._get_collection_id(collection_name)
+		for tc_id in tc_ids:
+			self._cursor.execute("DELETE FROM testcollection_testcases WHERE (collection_id = ?) AND (tc_id = ?);", (collection_id, tc_id))
 
 	def get_testcase_collection(self, collection_name: str) -> TestcaseCollection:
-		collectionid = self._get_collectionid(collection_name)
-		row = self._cursor.execute("SELECT name, reference_runtime_secs FROM testcollection WHERE collectionid = ?;", (collectionid, )).fetchone()
-		tcids = set(row["tcid"] for row in self._cursor.execute("SELECT tcid FROM testcollection_testcases WHERE collectionid = ?;", (collectionid, )).fetchall())
-		testcases = [ self._get_testcase(tcid) for tcid in tcids ]
+		collection_id = self._get_collection_id(collection_name)
+		row = self._cursor.execute("SELECT name, reference_runtime_secs FROM testcollection WHERE collection_id = ?;", (collection_id, )).fetchone()
+		tc_ids = set(row["tc_id"] for row in self._cursor.execute("SELECT tc_id FROM testcollection_testcases WHERE collection_id = ?;", (collection_id, )).fetchall())
+		testcases = [ self._get_testcase(tc_id) for tc_id in tc_ids ]
 		return TestcaseCollection(name = row["name"], testcases = testcases, reference_runtime_secs = row["reference_runtime_secs"])
 
 	def create_collection(self, collection_name: str):
-		self._change_count += 1
-		return self._cursor.execute("INSERT INTO testcollection (collectionid, name) VALUES ((SELECT COALESCE(MAX(collectionid) + 1, 1) FROM testcollection), ?);", (collection_name, )).lastrowid
-
-	def opportunistic_commit(self, max_change_count: int = 100):
-		if self._change_count > max_change_count:
-			self.commit()
+		self._increase_uncommitted_write_count()
+		return self._cursor.execute("INSERT INTO testcollection (collection_id, name) VALUES ((SELECT COALESCE(MAX(collection_id) + 1, 1) FROM testcollection), ?);", (collection_name, )).lastrowid
 
 	def get_all_testcases(self) -> iter:
-		tags = ((row["tcid"], row["name"]) for row in self._cursor.execute("""\
-				SELECT tcid, name FROM testcollection_testcases
-					JOIN testcollection ON testcollection.collectionid = testcollection_testcases.collectionid;
+		tags = ((row["tc_id"], row["name"]) for row in self._cursor.execute("""\
+				SELECT tc_id, name FROM testcollection_testcases
+					JOIN testcollection ON testcollection.collection_id = testcollection_testcases.collection_id;
 					""").fetchall())
 
 		contained_collections = collections.defaultdict(set)
-		for (tcid, collection_name) in tags:
-			contained_collections[tcid].add(collection_name)
+		for (tc_id, collection_name) in tags:
+			contained_collections[tc_id].add(collection_name)
 
-		for row in self._cursor.execute("SELECT tcid FROM testcases;").fetchall():
-			testcase = self._get_testcase(row["tcid"], contained_collections = contained_collections[row["tcid"]])
+		for row in self._cursor.execute("SELECT tc_id FROM testcases;").fetchall():
+			testcase = self._get_testcase(row["tc_id"], contained_collections = contained_collections[row["tc_id"]])
 			yield testcase
 
-	def get_latest_runids(self, max_list_length: int = 10) -> list[int]:
-		return [ row["runid"] for row in self._cursor.execute("SELECT runid FROM testrun ORDER BY run_start_ts DESC LIMIT ?;", (max_list_length, )).fetchall() ]
+	def get_latest_run_ids(self, max_list_length: int = 10) -> list[int]:
+		return [ row["run_id"] for row in self._cursor.execute("SELECT run_id FROM testrun ORDER BY run_start_utcts DESC LIMIT ?;", (max_list_length, )).fetchall() ]
 
-	def get_run_overview(self, runid: int):
-		row = dict(self._cursor.execute("""
-			SELECT runid, collection, source, source_metadata, run_start_ts, run_end_ts, max_permissible_runtime_secs, max_permissible_ram_mib, status, error_details FROM testrun
-			WHERE runid = ?;
-		""", (runid, )).fetchone())
-		row["result_count"] = self.get_run_result_count(runid)
+	def get_run_overview(self, run_id: int):
+		row = self._mapped_execute("""
+			SELECT run_id, collection, source, source_metadata, run_start_utcts, run_end_utcts, max_permissible_runtime_secs, max_permissible_ram_mib, status, error_details FROM testrun
+			WHERE run_id = ?;
+		""", run_id)._mapped_fetchone("testrun")
+		row["result_count"] = self.get_run_result_count(run_id)
 		return row
 
-	def get_run_result_count(self, runid: int):
+	def get_run_result_count(self, run_id: int):
 		return { TestresultStatus(row["status"]): row["count"] for row in  self._cursor.execute("""
-			SELECT testresult.status, COUNT(testrun.runid) AS count FROM testrun
-			JOIN testresult ON testrun.runid = testresult.runid
-			WHERE testrun.runid = ?
-			GROUP BY testrun.runid, testresult.status;
-		""", (runid, )).fetchall() }
+			SELECT testresult.status, COUNT(testrun.run_id) AS count FROM testrun
+			JOIN testresult ON testrun.run_id = testresult.run_id
+			WHERE testrun.run_id = ?
+			GROUP BY testrun.run_id, testresult.status;
+		""", (run_id, )).fetchall() }
 
-	def get_run_details(self, runid: int):
-		testrun = dict(self._cursor.execute("SELECT * FROM testrun WHERE runid = ?;", (runid, )).fetchone())
-		testrun["results"] = [ dict(row) for row in self._cursor.execute("SELECT tcid, received_result, status FROM testresult WHERE runid = ? ORDER BY tcid ASC;", (runid, )).fetchall() ]
+	def get_run_details(self, run_id: int):
+		testrun = dict(self._cursor.execute("SELECT * FROM testrun WHERE run_id = ?;", (run_id, )).fetchone())
+		testrun["results"] = [ dict(row) for row in self._mapped_fetchall("SELECT tc_id, received_reply, status FROM testresult WHERE run_id = ? ORDER BY tc_id ASC;", (run_id, )).fetchall() ]
 		for result in testrun["results"]:
-			result["testcase"] = self._get_testcase(result["tcid"])
-			del result["tcid"]
+			result["testcase"] = self._get_testcase(result["tc_id"])
+			del result["tc_id"]
 		return testrun
 
-	def set_reference_answer(self, tcid: int, correct_response: dict):
-		self._cursor.execute("UPDATE testcases SET correct_response = ? WHERE tcid = ?;", (self._dict2str(correct_response), tcid))
-		self._change_count += 1
-
-	def commit(self):
-		self._conn.commit()
-		self._change_count = 0
+	def set_reference_answer(self, tc_id: int, correct_reply: dict):
+		self._mapped_execute("UPDATE testcases SET correct_reply = ? WHERE tc_id = ?;",
+					(correct_reply, "testcases:correct_reply"),
+					tc_id)
+		self._increase_uncommitted_write_count()
