@@ -58,7 +58,7 @@ class SqliteORM():
 				raise ValueError(f"Unknown type descriptor: {self._types[type_name]}")
 
 	def _map_db_to_py_value(self, value: any, type_name: str):
-		if type_name not in self._types:
+		if (value is None) or (type_name not in self._types):
 			# No mapping occurs
 			return value
 
@@ -110,7 +110,7 @@ class SqliteORM():
 	def _mapped_fetchone(self, *table_names: tuple[str]):
 		return self._map_db_to_py(self._cursor.fetchone(), *table_names)
 
-	def _mapped_fetchall(self):
+	def _mapped_fetchall(self, *table_names: tuple[str]):
 		return [ self._map_db_to_py(row, *table_names) for row in self._cursor.fetchall() ]
 
 	def _increase_uncommitted_write_count(self):

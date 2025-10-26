@@ -112,6 +112,9 @@ class Database(SqliteORM):
 			);
 			""")
 
+		with contextlib.suppress(sqlite3.OperationalError):
+			self._cursor.execute("CREATE index testresult_run_id_idx ON testresult(run_id);")
+
 	def create_testcase(self, action: str, arguments: dict, created_utcts: datetime.datetime, correct_reply: dict | None = None, dependencies: dict | None = None):
 		self._insert("testcases", {
 			"action": action,
@@ -134,7 +137,7 @@ class Database(SqliteORM):
 		})
 		for testcase in testcases:
 			self._insert("testresult", {
-				"tc_id":		testcase.tc_id,
+				"tc_id":	testcase.tc_id,
 				"run_id":	run_id,
 			})
 		return run_id
@@ -234,24 +237,23 @@ class Database(SqliteORM):
 			SELECT run_id, collection, source, source_metadata, run_start_utcts, run_end_utcts, max_permissible_runtime_secs, max_permissible_ram_mib, status, error_details FROM testrun
 			WHERE run_id = ?;
 		""", run_id)._mapped_fetchone("testrun")
-		row["result_count"] = self.get_run_result_count(run_id)
 		return row
 
 	def get_run_result_count(self, run_id: int):
-		return { TestresultStatus(row["status"]): row["count"] for row in  self._cursor.execute("""
+		return [ (TestresultStatus(row["status"]), row["count"]) for row in self._cursor.execute("""
 			SELECT testresult.status, COUNT(testrun.run_id) AS count FROM testrun
 			JOIN testresult ON testrun.run_id = testresult.run_id
 			WHERE testrun.run_id = ?
-			GROUP BY testrun.run_id, testresult.status;
-		""", (run_id, )).fetchall() }
+			GROUP BY testrun.run_id, testresult.status
+			ORDER BY count DESC;
+		""", (run_id, )).fetchall() ]
 
 	def get_run_details(self, run_id: int):
-		testrun = dict(self._cursor.execute("SELECT * FROM testrun WHERE run_id = ?;", (run_id, )).fetchone())
-		testrun["results"] = [ dict(row) for row in self._mapped_fetchall("SELECT tc_id, received_reply, status FROM testresult WHERE run_id = ? ORDER BY tc_id ASC;", (run_id, )).fetchall() ]
-		for result in testrun["results"]:
-			result["testcase"] = self._get_testcase(result["tc_id"])
-			del result["tc_id"]
-		return testrun
+		return self._mapped_execute("""
+			SELECT testcases.tc_id, testcases.action, testcases.arguments, testcases.correct_reply, received_reply, status FROM testresult
+				JOIN testcases ON testcases.tc_id = testresult.tc_id
+				WHERE run_id = ?;
+			""", run_id)._mapped_fetchall("testcases", "testresult")
 
 	def set_reference_answer(self, tc_id: int, correct_reply: dict):
 		self._mapped_execute("UPDATE testcases SET correct_reply = ? WHERE tc_id = ?;",

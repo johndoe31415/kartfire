@@ -25,7 +25,7 @@ import pytz
 import json
 import collections
 from .Enums import TestrunStatus, TestresultStatus
-from .TimeDelta import TimeDelta
+from .RunResult import RunResult
 
 class ResultColorizer():
 	def __init__(self, ansi: bool = True):
@@ -65,26 +65,26 @@ class ResultBar():
 		self._clear_color = clear_color
 		self._length = length
 
-	def __call__(self, counts: dict):
-		total_count = sum(counts.values())
-		if total_count == 0:
+	def __call__(self, run_result: RunResult):
+		if not run_result.have_results:
+			# No tests run?
 			return "[" + (" " * self._length) + "]"
 
 		result = { }
-		total_chars = 0
+		total_chars_used = 0
 		for (value, symbol, color) in self._display:
-			match_count = counts.get(value, 0)
+			match_count = run_result.result_count_dict.get(value, 0)
 			if match_count > 0:
-				char_count = max(1, round(match_count / total_count * self._length))
-				total_chars += char_count
+				char_count = max(1, round(match_count / run_result.total_testcase_count * self._length))
+				total_chars_used += char_count
 				result[value] = char_count
 
-		while total_chars > self._length:
+		while total_chars_used > self._length:
 			maxc = max(result.values())
 			for (value, count) in result.items():
 				if count == maxc:
 					result[value] -= 1
-					total_chars -= 1
+					total_chars_used -= 1
 
 		result_string = [ "[" ]
 		for (value, symbol, color) in self._display:
@@ -112,9 +112,12 @@ class ResultPrinter():
 			case _:
 				raise ValueError(format_str)
 
-	def _print_overview(self, row: "Row"):
-		td = TimeDelta(row["run_start_utcts"], row["run_end_utcts"])
-		error_details = row["error_details"]
+	def print_overview(self, run_id: int):
+		run_result = RunResult(self._db, run_id)
+
+#		td = TimeDelta(row["run_start_utcts"], row["run_end_utcts"])
+#		error_details = row["error_details"]
+
 		result_bar = ResultBar((
 			(TestresultStatus.Pass, "+", self._color.green),
 			(TestresultStatus.Fail, "-", self._color.red),
@@ -122,37 +125,27 @@ class ResultPrinter():
 			(TestresultStatus.Indeterminate, "?", self._color.yellow),
 		), self._color.clr)
 
-		sorted_status = [ (count, status) for (status, count) in row["result_count"].items() ]
-		sorted_status.sort(reverse = True)
-		if len(sorted_status) == 1:
-			sorted_status_str = f"All {sorted_status[0][1].name}"
-		else:
-			total_count = sum(count for (count, status) in sorted_status)
-			sorted_status_str = ", ".join(f"{count}/{count / total_count * 100:.1f}% {status.name}" for (count, status) in sorted_status)
+		columns = [ ]
 
-		source_meta = row["source_metadata"]
-		if ("meta" in source_meta) and ("git" in source_meta["meta"]) and ("shortcommit" in source_meta["meta"]["git"]):
-			source_str = f"{row['source']}:{source_meta['meta']['git']['shortcommit']}"
-		else:
-			source_str = f"{row['source']}"
+		columns.append(f"{run_result.run_id:5d}")
+		columns.append(f"{run_result.source:<30s}")
+		columns.append(f"{result_bar(run_result)}")
+		columns.append(f"{run_result.status_text}")
 
-		columns = [
-			f"{row['run_id']:5d}",
-			f"{source_str:25s}",
-			f"{TestrunStatus(row['status']).name:14s}",
-			f"  {self._fmtts(row['run_start_utcts'])}-{self._fmtts(row['run_end_utcts'], 'time')} ({td})",
-			f"  runtime {td:d}  ",
-			f"  {result_bar(row['result_count'])}"
-			f"  {sorted_status_str}"
-		]
 
-		if error_details is not None:
-			columns.append(f"{error_details['text']}")
+#		columns = [
+#			f"{row['run_id']:5d}",
+#			f"{source_str:25s}",
+#			f"{TestrunStatus(row['status']).name:14s}",
+#			f"  {self._fmtts(row['run_start_utcts'])}-{self._fmtts(row['run_end_utcts'], 'time')} ({td})",
+#			f"  runtime {td:d}  ",
+#			f"  {result_bar(row['result_count'])}"
+#			f"  {sorted_status_str}"
+#		]
+#
+#		if error_details is not None:
+#			columns.append(f"{error_details['text']}")
 		print(" ".join(columns))
-
-	def print_overview(self, run_id: int):
-		row = self._db.get_run_overview(run_id)
-		self._print_overview(row)
 
 	def _print_answer(self, run_details: dict, testcase_result: dict):
 		testcase = testcase_result["testcase"]
