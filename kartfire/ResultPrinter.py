@@ -131,6 +131,7 @@ class ResultPrinter():
 		columns.append(f"{run_result.source:<30s}")
 		columns.append(f"{result_bar(run_result)}")
 		columns.append(f"{run_result.status_text}")
+		columns.append(f"{run_result.error_text}")
 
 
 #		columns = [
@@ -147,13 +148,12 @@ class ResultPrinter():
 #			columns.append(f"{error_details['text']}")
 		print(" ".join(columns))
 
-	def _print_answer(self, run_details: dict, testcase_result: dict):
-		testcase = testcase_result["testcase"]
-		status = TestresultStatus(testcase_result["status"])
-		arguments = testcase.arguments
-		correct_reply = testcase.correct_reply
-		received_reply_json = json.loads(testcase_result["received_reply_json"])
-		print(f"Testcase {testcase.tc_id} of run {run_details['run_id']} marked as {status.name}. Action \"{testcase.action}\", arguments:")
+	def _print_answer(self, testcase_result: dict):
+		status = testcase_result["status"]
+		arguments = testcase_result["arguments"]
+		correct_reply = testcase_result["correct_reply"]
+		received_reply_json = testcase_result["received_reply"]
+		print(f"Testcase {testcase_result['tc_id']} marked as {status.name}. Action \"{testcase_result['action']}\", arguments:")
 		print(json.dumps(arguments, indent = "\t", sort_keys = True))
 		print()
 		print("Correct reply:")
@@ -165,24 +165,23 @@ class ResultPrinter():
 		print("~" * 120)
 
 	def print_details(self, run_id: int):
+		run_result = RunResult(self._db, run_id)
 		max_failed_cases_per_action = 2
-		row = self._db.get_run_details(run_id)
-		source_meta = json.loads(row["source_metadata"])
-		if ("meta" in source_meta) and ("git" in source_meta["meta"]) and ("shortcommit" in source_meta["meta"]["git"]):
-			source_str = f"{row['source']}:{source_meta['meta']['git']['shortcommit']}"
-		else:
-			source_str = f"{row['source']}"
+#		row = self._db.get_run_details(run_id)
 
-		try:
-			user_name = source_meta["meta"]["json"]["kartfire"]["name"]
-		except KeyError:
-			user_name = "unknown author"
-		print(f"Showing failed cases of {source_str} of {user_name} run ID {run_id}, max of {max_failed_cases_per_action} fails per action")
-
+		print(f"Showing failed cases of {run_result.source} of {run_result.solution_author} run ID {run_id} (run result {run_result.overview['status'].name}), max of {max_failed_cases_per_action} fails per action:")
 		action_count = collections.Counter()
-		for result in row["results"]:
+		for result in run_result.testresult_details:
 			status = TestresultStatus(result["status"])
 			if status == TestresultStatus.Fail:
-				action_count[result["testcase"].action] += 1
-				if action_count[result["testcase"].action] <= max_failed_cases_per_action:
-					self._print_answer(row, result)
+				action_count[result["action"]] += 1
+				if action_count[result["action"]] <= max_failed_cases_per_action:
+					self._print_answer(result)
+		if run_result.overview['status'] == TestrunStatus.Failed:
+			print("~" * 120)
+			stderr = run_result.full_overview["stderr"]
+			if len(stderr) > 0:
+				print()
+				print(f"{run_result.error_text}, showing stderr output:")
+				print(stderr.decode("utf-8", errors = "ignore").strip("\r\n"))
+		print("=" * 120)

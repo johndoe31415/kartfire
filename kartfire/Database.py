@@ -232,9 +232,9 @@ class Database(SqliteORM):
 	def get_latest_run_ids(self, max_list_length: int = 10) -> list[int]:
 		return [ row["run_id"] for row in self._cursor.execute("SELECT run_id FROM testrun ORDER BY run_start_utcts DESC LIMIT ?;", (max_list_length, )).fetchall() ]
 
-	def get_run_overview(self, run_id: int):
-		row = self._mapped_execute("""
-			SELECT run_id, collection, source, source_metadata, run_start_utcts, run_end_utcts, max_permissible_runtime_secs, max_permissible_ram_mib, status, error_details FROM testrun
+	def get_run_overview(self, run_id: int, full_overview: bool = False):
+		row = self._mapped_execute(f"""
+			SELECT {'*' if full_overview else 'run_id, collection, source, source_metadata, run_start_utcts, run_end_utcts, max_permissible_runtime_secs, max_permissible_ram_mib, status, error_details'} FROM testrun
 			WHERE run_id = ?;
 		""", run_id)._mapped_fetchone("testrun")
 		return row

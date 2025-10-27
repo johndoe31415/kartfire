@@ -35,6 +35,10 @@ class RunResult():
 		return self._db.get_run_overview(self._run_id)
 
 	@functools.cached_property
+	def full_overview(self):
+		return self._db.get_run_overview(self._run_id, full_overview = True)
+
+	@functools.cached_property
 	def result_count(self):
 		return self._db.get_run_result_count(self._run_id)
 
@@ -72,3 +76,17 @@ class RunResult():
 			return f"{self.overview['source']}:{self.overview['source_metadata']['meta']['git']['shortcommit']}"
 		else:
 			return f"{self.overview['source']}"
+
+	@property
+	def solution_author(self):
+		try:
+			return self.overview["source_metadata"]["meta"]["json"]["kartfire"]["name"]
+		except KeyError:
+			user_name = "unknown author"
+
+	@property
+	def error_text(self):
+		if self.overview["error_details"] is not None:
+			return self.overview["error_details"]["text"]
+		else:
+			return ""
