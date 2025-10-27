@@ -131,7 +131,7 @@ class Database(SqliteORM):
 			"run_start_utcts": datetime.datetime.now(datetime.UTC),
 			"max_permissible_runtime_secs": 999999,		# TODO
 			"max_permissible_ram_mib": 999999,		# TODO
-			"dependencies": "TODO",		# TODO
+			"dependencies": testcases.dependencies,
 			"status": TestrunStatus.Running,
 			"collection": testcases.name,
 		})

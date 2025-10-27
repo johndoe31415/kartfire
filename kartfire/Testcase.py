@@ -50,14 +50,32 @@ class TestcaseCollection():
 		self._reference_runtime_secs = reference_runtime_secs
 		self._testcases.sort(key = lambda tc: (tc.action, tc.tc_id))
 		self._testcases_by_tc_id = { tc.tc_id: tc for tc in self._testcases }
+		self._dependencies = self._compute_dependencies()
 
 	@property
 	def name(self):
 		return self._name
 
 	@property
+	def dependencies(self):
+		return self._dependencies
+
+	@property
 	def reference_runtime_secs(self):
 		return self._reference_runtime_secs
+
+	def _compute_dependencies(self):
+		dependencies = { }
+		dependency_src = { }
+		for tc in self._testcases:
+			if tc.dependencies is not None:
+				for (dependency_key, dependency_parameters) in tc.dependencies.items():
+					if (dependency_key not in dependencies):
+						dependencies[dependency_key] = dependency_parameters
+						dependency_src[dependency_key] = tc
+					elif dependencies[dependency_key] != dependency_parameters:
+						raise ValueError(f"Incompatible testcase dependencies. TC {tc.tc_id} and {dependency_src[dependency_key].tc_id} both require a dependency called {dependency_key}, but with incompatible arguments. {tc.tc_id}={dependency_parameters} while {dependency_src[dependency_key].tc_id}={dependency_src[dependency_key].dependencies[dependency_key]}")
+		return dependencies
 
 	def print(self):
 		for testcase in self._testcases:

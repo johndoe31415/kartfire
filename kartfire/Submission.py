@@ -87,9 +87,10 @@ class Submission():
 			"testcases": { str(testcase.tc_id): testcase.guest_dict() for testcase in runner.testcases },
 		}
 
-		container_command = [ "/container_testrunner" ]
+		original_container_command = [ "/container_testrunner" ]
+		container_command = original_container_command
 		if interactive:
-			print(f"Would have run: {' '.join(container_command)}")
+			print(f"Trigger test runner using: {' '.join(container_command)}")
 			container_command = [ "/bin/bash" ]
 
 		_log.debug("Creating docker container to run submission \"%s\"", str(self))
@@ -99,10 +100,10 @@ class Submission():
 
 			# Start all dependent servers (e.g., a server container that the
 			# submission needs to connect to)
-#			for (server_alias, server_config) in runner.required_server_containers.items():
-#				_log.debug("Starting dependent server %s with config %s.", server_alias, str(server_config))
-#				server_container = await docker.create_container(docker_image_name = server_config["image"], command = server_config["command"], network = network, network_alias = server_alias, run_name_prefix = f"hlp_{self.shortname}_{server_alias}")
-#				await server_container.start()
+			for (server_alias, server_config) in runner.testcases.dependencies.items():
+				_log.debug("Starting dependent server %s with config %s.", server_alias, str(server_config))
+				server_container = await docker.create_container(docker_image_name = server_config["image"], command = server_config["command"], network = network, network_alias = server_alias, run_name_prefix = f"hlp_{self.shortname}_{server_alias}")
+				await server_container.start()
 
 			container = await docker.create_container(docker_image_name = runner.config.docker_container, command = container_command, network = network, max_memory_mib = runner.config.max_memory_mib, interactive = interactive, run_name_prefix = f"run_{self.shortname}")
 			await container.cp(self.container_testrunner_filename, "/container_testrunner")
@@ -111,6 +112,8 @@ class Submission():
 				await container.cp(tmp.name, container_meta["container_submission_tar_file"])
 			await container.write_json(container_meta, "/meta.json", pretty_print = interactive)
 			await container.write_json(container_testcases, container_meta["container_testcase_file"], pretty_print = interactive)
+			if interactive:
+				await container.cpdata(f"{' '.join(original_container_command)}\n".encode("utf-8"), "/root/.bash_history")
 			await container.start()
 			if interactive:
 				await container.attach()

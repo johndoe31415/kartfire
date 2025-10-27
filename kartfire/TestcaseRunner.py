@@ -25,9 +25,6 @@ import functools
 import json
 from .Tools import SystemTools
 from .Enums import TestrunStatus, TestresultStatus
-#from .Exceptions import InternalError
-#from .SubmissionEvaluation import SubmissionEvaluation
-#from .Docker import Docker
 
 _log = logging.getLogger(__spec__.name)
 
