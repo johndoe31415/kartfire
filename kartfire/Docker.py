@@ -156,7 +156,7 @@ class Docker():
 		cmd += [ "--opt", f"com.docker.network.bridge.enable_ip_masquerade={'true' if allow_wan_access else 'false'}" ]
 		if use_ipv6_only:
 			cmd += [ "--ipv6" ]
-			cmd += [ "--opt", f"com.docker.network.enable_ipv4=false" ]
+			cmd += [ "--opt", "com.docker.network.enable_ipv4=false" ]
 		cmd += [ network_name ]
 		network_id = (await ExecTools.async_check_output(cmd)).decode("ascii").rstrip("\r\n")
 		network = DockerNetwork(self, network_id, allow_wan_access = allow_wan_access)

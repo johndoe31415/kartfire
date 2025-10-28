@@ -19,7 +19,6 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
-import json
 from .CmdlineAction import CmdlineAction
 
 class ActionList(CmdlineAction):

@@ -19,8 +19,6 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
-import json
-from .Enums import TestrunStatus
 from .CmdlineAction import CmdlineAction
 from .ResultPrinter import ResultPrinter
 

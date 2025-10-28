@@ -87,7 +87,7 @@ class RunResult():
 		try:
 			return self.overview["source_metadata"]["meta"]["json"]["kartfire"]["name"]
 		except KeyError:
-			user_name = "unknown author"
+			return "unknown author"
 
 	@property
 	def error_text(self):

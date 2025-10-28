@@ -19,11 +19,10 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
-import datetime
-import tzlocal
-import pytz
 import json
 import collections
+import datetime
+import tzlocal
 from .Enums import TestrunStatus, TestresultStatus
 from .RunResult import RunResult
 

@@ -19,7 +19,6 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
-import json
 import contextlib
 from .Exceptions import NoSuchCollectionException
 from .CmdlineAction import CmdlineAction

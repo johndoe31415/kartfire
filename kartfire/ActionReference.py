@@ -19,8 +19,6 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
-import json
-import collections
 from .CmdlineAction import CmdlineAction
 from .RunResult import RunResult
 from .Enums import TestresultStatus
@@ -44,3 +42,4 @@ class ActionReference(CmdlineAction):
 					self._db.set_reference_answer(result["tc_id"], result["received_reply"])
 					self._db.opportunistic_commit()
 		self._db.commit()
+		return 0
