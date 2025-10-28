@@ -23,7 +23,6 @@ import os
 import tempfile
 import asyncio
 import logging
-import functools
 import json
 import dataclasses
 from .Tools import SystemTools
@@ -62,13 +61,6 @@ class TestcaseRunner():
 	@property
 	def config(self):
 		return self._config
-
-	@functools.cached_property
-	def total_maximum_runtime_secs(self):
-		timeout = 30
-		timeout += self._config.max_setup_time_secs
-		timeout = round(timeout)
-		return timeout
 
 	@property
 	def container_testrunner_filename(self):
@@ -158,7 +150,7 @@ class TestcaseRunner():
 			print(f"Trigger test runner using: {' '.join(container_command)}")
 			container_command = [ "/bin/bash" ]
 
-		_log.debug("Creating docker container to run submission \"%s\"", str(self))
+		_log.debug(f"Creating docker container to run submission \"%s\", time allowance is {'infinite' if (container_meta['max_runtime_secs'] is None) else f'{container_meta['max_runtime_secs']:.1f} secs'}", str(submission))
 
 		async with Docker(docker_executable = self._config.docker_executable) as docker:
 			network = await docker.create_network()
@@ -211,10 +203,7 @@ class TestcaseRunner():
 
 	async def _run(self, submissions: list["Submission"]):
 		self._process_semaphore = asyncio.Semaphore(self._concurrent_process_count)
-
-		batch_count = (len(submissions) + self._concurrent_process_count - 1) // self._concurrent_process_count
-		wctime_mins = round((self.total_maximum_runtime_secs * batch_count) / 60)
-		_log.debug("Now testing %d submission(s) against %d testcases, maximum runtime per submission is %d:%02d minutes:seconds; worst case total runtime is %d:%02d hours:minutes", len(submissions), len(self._testcases), self.total_maximum_runtime_secs // 60, self.total_maximum_runtime_secs % 60, wctime_mins // 60, wctime_mins % 60)
+		_log.debug("Now testing %d submission(s) against %d testcases", len(submissions), len(self._testcases))
 		async with asyncio.TaskGroup() as task_group:
 			for submission in submissions:
 				task_group.create_task(self._run_submission(submission))

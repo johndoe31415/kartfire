@@ -265,6 +265,10 @@ class Database(SqliteORM):
 				WHERE run_id = ?;
 			""", run_id)._mapped_fetchall("testcases", "testresult")
 
+	def set_reference_runtime(self, collection_name: str, runtime_secs: float):
+		self._cursor.execute("UPDATE testcollection SET reference_runtime_secs = ? WHERE name = ?;", (runtime_secs, collection_name))
+		self._increase_uncommitted_write_count()
+
 	def set_reference_answer(self, tc_id: int, correct_reply: dict):
 		self._mapped_execute("UPDATE testcases SET correct_reply = ? WHERE tc_id = ?;",
 					(correct_reply, "testcases:correct_reply"),
