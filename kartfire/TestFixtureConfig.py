@@ -75,11 +75,11 @@ class TestFixtureConfig():
 
 	@property
 	def minimum_testbatch_time_secs(self):
-		return self._config.get("minimum_testbatch_time_secs", 0.5)
+		return self._config.get("minimum_testbatch_time_secs", 3)
 
 	@property
 	def reference_time_factor(self):
-		return self._config.get("reference_time_factor", 10)
+		return self._config.get("reference_time_factor", 4)
 
 	@property
 	def allow_network(self):

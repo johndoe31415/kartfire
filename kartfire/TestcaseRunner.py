@@ -19,15 +19,27 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
+import os
+import tempfile
 import asyncio
 import logging
 import functools
 import json
+import dataclasses
 from .Tools import SystemTools
 from .Enums import TestrunStatus, TestresultStatus
 from .Exceptions import InternalError
+from .Docker import Docker
 
 _log = logging.getLogger(__spec__.name)
+
+@dataclasses.dataclass
+class SubmissionRunResult():
+	submission: "Submission"
+	stdout: bytes
+	stderr: bytes
+	testrun_status: TestrunStatus
+	error_details: dict | None = None
 
 class TestcaseRunner():
 	def __init__(self, testcase_collection: "TestcaseCollection", test_fixture_config: "TestFixtureConfig", database: "Database", interactive: bool = False):
@@ -57,6 +69,10 @@ class TestcaseRunner():
 		timeout += self._config.max_setup_time_secs
 		timeout = round(timeout)
 		return timeout
+
+	@property
+	def container_testrunner_filename(self):
+		return os.path.realpath(os.path.dirname(__file__)) + "/container/container_testrunner"
 
 	def _determine_concurrent_process_count(self):
 		host_memory_mib = SystemTools.get_host_memory_mib()
@@ -111,12 +127,83 @@ class TestcaseRunner():
 		self._db.close_testrun(run_id, submission_run_result)
 		self._db.commit()
 
+	def _determine_max_permissible_runtime_secs(self, collection: "TestcaseCollection"):
+		if (collection.reference_runtime_secs is None) or (self._config.reference_time_factor is None):
+			# Infinity, never timeout solutions (this should only be done for
+			# known good solutions to gauge the reference time)
+			return None
+		else:
+			return self._config.minimum_testbatch_time_secs + (collection.reference_runtime_secs * self._config.reference_time_factor)
+
+	async def _run_submission_collection(self, submission: "Submission", collection: "TestcaseCollection"):
+		container_meta = {
+			"container_dut_dir":				"/dut",
+			"container_submission_tar_file":	"/dut.tar",
+			"container_testcase_file":			"/testcases.json",
+
+			"setup_name":						self._config.setup_name,
+			"max_setup_time_secs":				self._config.max_setup_time_secs,
+			"solution_name":					self._config.solution_name,
+			"max_runtime_secs":					self._determine_max_permissible_runtime_secs(collection),
+
+			"verbose":							2 if self._interactive else 0,
+		}
+		container_testcases = {
+			"testcases": { str(testcase.tc_id): testcase.guest_dict() for testcase in collection },
+		}
+
+		original_container_command = [ "/container_testrunner" ]
+		container_command = original_container_command
+		if self._interactive:
+			print(f"Trigger test runner using: {' '.join(container_command)}")
+			container_command = [ "/bin/bash" ]
+
+		_log.debug("Creating docker container to run submission \"%s\"", str(self))
+
+		async with Docker(docker_executable = self._config.docker_executable) as docker:
+			network = await docker.create_network()
+
+			# Start all dependent servers (e.g., a server container that the
+			# submission needs to connect to)
+			for (server_alias, server_config) in collection.dependencies.items():
+				_log.debug("Starting dependent server %s with config %s.", server_alias, str(server_config))
+				server_container = await docker.create_container(docker_image_name = server_config["image"], command = server_config["command"], network = network, network_alias = server_alias, run_name_prefix = f"hlp_{submission.shortname}_{server_alias}")
+				await server_container.start()
+
+			container = await docker.create_container(docker_image_name = self._config.docker_container, command = container_command, network = network, max_memory_mib = self._config.max_memory_mib, interactive = self._interactive, run_name_prefix = f"run_{submission.shortname}")
+			await container.cp(self.container_testrunner_filename, "/container_testrunner")
+			with tempfile.NamedTemporaryFile(suffix = ".tar") as tmp:
+				await submission.create_submission_tarfile(tmp.name)
+				await container.cp(tmp.name, container_meta["container_submission_tar_file"])
+			await container.write_json(container_meta, "/meta.json", pretty_print = self._interactive)
+			await container.write_json(container_testcases, container_meta["container_testcase_file"], pretty_print = self._interactive)
+			if self._interactive:
+				await container.cpdata(f"{' '.join(original_container_command)}\n".encode("utf-8"), "/root/.bash_history")
+			await container.start()
+			if self._interactive:
+				await container.attach()
+
+			finished = await container.wait_timeout(container_meta["max_runtime_secs"])
+			if finished is None:
+				# Docker container time timed out
+				_log.debug("Docker container with submission \"%s\" timed out after %d seconds", str(submission), container_meta["max_runtime_secs"])
+				testrun_status = TestrunStatus.Terminated
+			elif finished == 0:
+				_log.debug("Docker container with submission \"%s\" exited normally.", str(submission))
+				testrun_status = TestrunStatus.Finished
+			else:
+				_log.debug("Docker container with submission \"%s\" exited with status code %d.", str(submission), finished)
+				testrun_status = TestrunStatus.Failed
+
+			(stdout, stderr) = await container.logs()
+			return SubmissionRunResult(submission = submission, stdout = stdout, stderr = stderr, testrun_status = testrun_status)
+
 	async def _run_submission(self, submission: "Submission"):
 		async with self._process_semaphore:
 			_log.info("Starting testing of submission \"%s\"", submission)
 			run_id = self._db.create_testrun(submission, self._testcases)
 			self._db.commit()
-			submission_run_result = await submission.run(self, interactive = self._interactive)
+			submission_run_result = await self._run_submission_collection(submission, self._testcases)
 			self._evaluate_run_result(run_id, submission_run_result)
 			self._db.commit()
 			for callback in self._submission_test_finished_callbacks:

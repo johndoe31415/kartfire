@@ -101,7 +101,11 @@ class RunningDockerContainer():
 		cmd = [ self._docker.executable, "rm", self._container_id ]
 		await ExecTools.async_check_call(cmd, stdout = subprocess.DEVNULL)
 
-	async def wait_timeout(self, timeout: float, check_interval: float = 1.0):
+	async def wait_timeout(self, timeout: float | None, check_interval: float = 1.0):
+		if timeout is None:
+			# Infinity
+			return await self.wait()
+
 		end_time = time.time() + timeout
 		while True:
 			inspection_result = await self.inspect()
