@@ -27,16 +27,21 @@ from .Submission import Submission
 from .ResultPrinter import ResultPrinter
 
 class ActionRun(CmdlineAction):
-	def _submission_finished(self, run_id: int):
+	def _run_finished_callback(self, submission: Submission, run_id: int):
 		self._rp.print_overview(run_id)
 		self._run_ids.append(run_id)
+
+	def _all_runs_finished_callback(self, submission: Submission, run_ids: list[int]):
+		pass
 
 	def run(self):
 		self._run_ids = [ ]
 		self._rp = ResultPrinter(self._db)
-		tc_collection = self._db.get_testcase_collection(self._args.collection_name)
-		runner = TestcaseRunner(tc_collection, self._test_fixture_config, self._db, interactive = self._args.interactive)
-		runner.register_finished_callback(self._submission_finished)
+		collection_names = self._args.collection_name.split(",")
+		tc_collections = [ self._db.get_testcase_collection(collection_name) for collection_name in collection_names ]
+		runner = TestcaseRunner(tc_collections, self._test_fixture_config, self._db, interactive = self._args.interactive)
+		runner.register_run_finished_callback(self._run_finished_callback)
+		runner.register_all_runs_finished_callback(self._all_runs_finished_callback)
 		ignored_count = 0
 		submissions = [ ]
 		for submission_dir in self._args.submission_dir:

@@ -41,22 +41,22 @@ class SubmissionRunResult():
 	error_details: dict | None = None
 
 class TestcaseRunner():
-	def __init__(self, testcase_collection: "TestcaseCollection", test_fixture_config: "TestFixtureConfig", database: "Database", interactive: bool = False):
-		self._testcases = testcase_collection
+	def __init__(self, testcase_collections: list["TestcaseCollection"], test_fixture_config: "TestFixtureConfig", database: "Database", interactive: bool = False):
+		self._testcase_collections = testcase_collections
 		self._config = test_fixture_config
 		self._db = database
 		self._interactive = interactive
-		_log.debug("Successfully started testcase runner with %d testcases", len(self._testcases))
+		_log.debug("Successfully started testcase runner with %d collections and %s total testcases", len(self._testcase_collections), sum(len(collection) for collection in self._testcase_collections))
 		self._concurrent_process_count = self._determine_concurrent_process_count()
 		self._process_semaphore = None
-		self._submission_test_finished_callbacks = [ ]
+		self._submission_run_finished_callbacks = [ ]
+		self._submission_all_runs_finished_callbacks = [ ]
 
-	def register_finished_callback(self, callback: callable):
-		self._submission_test_finished_callbacks.append(callback)
+	def register_run_finished_callback(self, callback: callable):
+		self._submission_run_finished_callbacks.append(callback)
 
-	@property
-	def testcases(self):
-		return self._testcases
+	def register_all_runs_finished_callback(self, callback: callable):
+		self._submission_all_runs_finished_callbacks.append(callback)
 
 	@property
 	def config(self):
@@ -77,7 +77,7 @@ class TestcaseRunner():
 			raise InternalError("Limitations on RAM/process count allow running of no process at all.")
 		return concurrent
 
-	def _evaluate_run_result(self, run_id: int, submission_run_result: "SubmissionRunResult"):
+	def _evaluate_run_result(self, run_id: int, collection: "TestcaseCollection", submission_run_result: "SubmissionRunResult"):
 		for stdout_line in submission_run_result.stdout.decode("utf-8", errors = "ignore").split("\n"):
 			try:
 				json_data = json.loads(stdout_line)
@@ -99,10 +99,10 @@ class TestcaseRunner():
 				if not json_data["id"].isdigit():
 					continue
 				tc_id = int(json_data["id"])
-				if tc_id not in self._testcases:
+				if tc_id not in collection:
 					print(f"Submission returned TCID {tc_id} which is not not in testcase battery")
 					continue
-				testcase = self._testcases[tc_id]
+				testcase = collection[tc_id]
 
 				if testcase.correct_reply is None:
 					# No response available
@@ -193,17 +193,22 @@ class TestcaseRunner():
 	async def _run_submission(self, submission: "Submission"):
 		async with self._process_semaphore:
 			_log.info("Starting testing of submission \"%s\"", submission)
-			run_id = self._db.create_testrun(submission, self._testcases)
-			self._db.commit()
-			submission_run_result = await self._run_submission_collection(submission, self._testcases)
-			self._evaluate_run_result(run_id, submission_run_result)
-			self._db.commit()
-			for callback in self._submission_test_finished_callbacks:
-				callback(run_id)
+			run_ids = [ ]
+			for collection in self._testcase_collections:
+				run_id = self._db.create_testrun(submission, collection)
+				run_ids.append(run_id)
+				self._db.commit()
+				submission_run_result = await self._run_submission_collection(submission, collection)
+				self._evaluate_run_result(run_id, collection, submission_run_result)
+				self._db.commit()
+				for callback in self._submission_run_finished_callbacks:
+					callback(submission, run_id)
+			for callback in self._submission_all_runs_finished_callbacks:
+				callback(submission, run_ids)
 
 	async def _run(self, submissions: list["Submission"]):
 		self._process_semaphore = asyncio.Semaphore(self._concurrent_process_count)
-		_log.debug("Now testing %d submission(s) against %d testcases", len(submissions), len(self._testcases))
+		_log.debug("Now testing %d submission(s) against %d collections", len(submissions), len(self._testcase_collections))
 		async with asyncio.TaskGroup() as task_group:
 			for submission in submissions:
 				task_group.create_task(self._run_submission(submission))

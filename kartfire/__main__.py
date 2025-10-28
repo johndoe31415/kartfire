@@ -59,7 +59,7 @@ def main():
 		parser.add_argument("-C", "--test-fixture-config", metavar = "filename", help = "Specify a specific test fixture configuration to use. If omitted, tries to look in the local directory for a file named 'kartfire_test_fixture.json' before falling back to default values.")
 		parser.add_argument("-D", "--database-filename", metavar = "file", default = "kartfire.sqlite3", help = "Database filename to use. Defaults to %(default)s.")
 		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
-		parser.add_argument("collection_name", help = "Test collection name to execute.")
+		parser.add_argument("collection_name", help = "Test collection name(s) to execute, possibly separated by commas.")
 		parser.add_argument("submission_dir", nargs = "+", help = "Directory/directories that should be run as a testcase inside containers.")
 	mc.register("run", "Run solution(s) against a battery of testcases", genparser, action = ActionRun)
 
