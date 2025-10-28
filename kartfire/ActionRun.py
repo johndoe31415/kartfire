@@ -29,8 +29,10 @@ from .ResultPrinter import ResultPrinter
 class ActionRun(CmdlineAction):
 	def _submission_finished(self, run_id: int):
 		self._rp.print_overview(run_id)
+		self._run_ids.append(run_id)
 
 	def run(self):
+		self._run_ids = [ ]
 		self._rp = ResultPrinter(self._db)
 		tc_collection = self._db.get_testcase_collection(self._args.collection_name)
 		runner = TestcaseRunner(tc_collection, self._test_fixture_config, self._db, interactive = self._args.interactive)
@@ -48,4 +50,8 @@ class ActionRun(CmdlineAction):
 			print(f"{ignored_count} arguments were ignored because they were no directories.", file = sys.stderr)
 		if len(submissions) == 0:
 			print("No submissions to test found.", file = sys.stderr)
-		run_ids = runner.run(submissions)
+		runner.run(submissions)
+
+		print("=" * 120)
+		for run_id in sorted(self._run_ids):
+			self._rp.print_overview(run_id)

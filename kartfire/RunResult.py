@@ -20,6 +20,7 @@
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
 import functools
+from .TimeDelta import TimeDelta
 
 class RunResult():
 	def __init__(self, db: "Database", run_id: int):
@@ -29,6 +30,10 @@ class RunResult():
 	@property
 	def run_id(self):
 		return self._run_id
+
+	@property
+	def runtime(self):
+		return TimeDelta(self.overview["run_start_utcts"], self.overview["run_end_utcts"])
 
 	@functools.cached_property
 	def overview(self):

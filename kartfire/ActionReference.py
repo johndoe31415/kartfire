@@ -27,19 +27,20 @@ from .Enums import TestresultStatus
 
 class ActionReference(CmdlineAction):
 	def run(self):
-		run_result = RunResult(self._db, self._args.run_id)
-		if not run_result.have_results:
-			print(f"Cannot apply run id {self._args.run_id} as reference: no answers present in solution.")
-			return 1
+		for collection_name in self._args.collection_name:
+			run_id = self._db.get_latest_run_id(collection_name = collection_name, submission_name = self._args.submission_name)
+			run_result = RunResult(self._db, run_id)
+			if not run_result.have_results:
+				print(f"Cannot apply run id {run_id} as reference: no answers present in solution.")
+				return 1
 
-		if len(run_result.result_count) != 1:
-			print("Have multiple statuses:")
-			for (status, count) in run_result.result_count:
-				print(f"{status:<30s} {count}")
+			if len(run_result.result_count) != 1:
+				print("Have multiple statuses:")
+				for (status, count) in run_result.result_count:
+					print(f"{status:<30s} {count}")
 
-
-		for result in run_result.testresult_details:
-			if (result["status"] == TestresultStatus.Indeterminate) or ((result["status"] == TestresultStatus.Fail) and self._args.pick_failed_answers):
-				self._db.set_reference_answer(result["tc_id"], result["received_reply"])
-				self._db.opportunistic_commit()
+			for result in run_result.testresult_details:
+				if (result["status"] == TestresultStatus.Indeterminate) or ((result["status"] == TestresultStatus.Fail) and self._args.pick_failed_answers):
+					self._db.set_reference_answer(result["tc_id"], result["received_reply"])
+					self._db.opportunistic_commit()
 		self._db.commit()

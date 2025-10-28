@@ -130,7 +130,8 @@ def main():
 		parser.add_argument("-a", "--allow-failed-status", action = "store_true", help = "Allow failed test run status and failed testcases.")
 		parser.add_argument("-f", "--pick-failed-answers", action = "store_true", help = "Pick not only 'indeterminate' answers, but also those marked as wrong.")
 		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
-		parser.add_argument("run_id", help = "Run ID to select as reference")
+		parser.add_argument("submission_name", help = "Name of the submission that was run and should be used as a reference.")
+		parser.add_argument("collection_name", nargs = "+", help = "Test collection name(s) that was/were run.")
 	mc.register("reference", "Mark a solution's results as the reference answers", genparser, action = ActionReference)
 
 	returncode = mc.run(sys.argv[1:])
