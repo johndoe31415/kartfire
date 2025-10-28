@@ -21,16 +21,9 @@
 
 import os
 import json
-import tempfile
 import functools
-import dataclasses
-import logging
 from .Exceptions import InvalidSubmissionException
-from .Docker import Docker
 from .Tools import ExecTools, GitTools, MiscTools
-from .Enums import TestrunStatus
-
-_log = logging.getLogger(__spec__.name)
 
 class Submission():
 	def __init__(self, submission_directory: str):
