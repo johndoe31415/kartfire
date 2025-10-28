@@ -28,6 +28,7 @@ from .ActionRun import ActionRun
 from .ActionResults import ActionResults
 from .ActionReference import ActionReference
 from .ActionScram import ActionScram
+from .ActionDockerPrune import ActionDockerPrune
 
 def main():
 	mc = MultiCommand(description = "Kartfire container testing framework CLI tool.", run_method = True)
@@ -80,6 +81,10 @@ def main():
 	def genparser(parser):
 		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
 	mc.register("scram", "Perform a Docker SCRAM, effectively terminating every Docker-related things that were started by kartfire", genparser, action = ActionScram)
+
+	def genparser(parser):
+		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
+	mc.register("docker-prune", "Prune Docker remains (networks and dangling containers)", genparser, action = ActionDockerPrune)
 
 	returncode = mc.run(sys.argv[1:])
 	return (returncode or 0)

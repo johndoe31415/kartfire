@@ -130,6 +130,7 @@ class Docker():
 	async def create_container(self, docker_image_name: str, command: list, network: DockerNetwork, network_alias: str | None = None, max_memory_mib: int | None = None, interactive: bool = False, auto_cleanup: bool = True, run_name_prefix: str | None = None):
 		# Create docker container, but do not start yet
 		cmd = [ self._docker_executable, "create" ]
+		cmd += [ "--label", "kartfire" ]
 		cmd += [ "--network", network.network_id ]
 		if not network.allow_wan_access:
 			cmd += [ "--dns", "0.0.0.0", "--dns-search", "localdomain" ]
@@ -156,6 +157,7 @@ class Docker():
 			network_name = f"kartfire_{os.urandom(8).hex()}"
 		cmd = [ self._docker_executable, "network", "create" ]
 		cmd += [ "-d", "bridge" ]
+		cmd += [ "--label", "kartfire" ]
 		cmd += [ "--opt", f"com.docker.network.bridge.enable_icc={'true' if allow_inter_container_connectivity else 'false'}" ]
 		cmd += [ "--opt", f"com.docker.network.bridge.enable_ip_masquerade={'true' if allow_wan_access else 'false'}" ]
 		if use_ipv6_only:
@@ -194,6 +196,12 @@ class Docker():
 			if container_id == "":
 				continue
 			yield RunningDockerContainer(self, container_id)
+
+	def prune_all_kartfire_containers(self):
+		subprocess.check_call([ self.executable, "container", "prune", "--force", "--filter", "label=kartfire" ])
+
+	def prune_all_kartfire_networks(self):
+		subprocess.check_call([ self.executable, "network", "prune", "--force", "--filter", "label=kartfire" ])
 
 if __name__ == "__main__":
 	async def main_run():
