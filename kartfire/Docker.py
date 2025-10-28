@@ -188,6 +188,12 @@ class Docker():
 		for (order_id, task_list) in sorted(self._cleanup_tasks.items()):
 			await self._execute_task_list(task_list)
 
+	def get_all_kartfire_containers(self):
+		container_ids = subprocess.check_output([ self.executable, "ps", "--filter", "name=^kartfire_", "--format", "{{.ID}}", "--no-trunc" ])
+		for container_id in container_ids.decode("ascii").split("\n"):
+			if container_id == "":
+				continue
+			yield RunningDockerContainer(self, container_id)
 
 if __name__ == "__main__":
 	async def main_run():

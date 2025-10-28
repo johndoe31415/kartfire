@@ -40,7 +40,7 @@ class TimeDelta():
 
 	def _duration_text(self, secs: float):
 		if secs < 1:
-			return f"{secs * 1000} ms"
+			return f"{secs * 1000:.0f} ms"
 		else:
 			secs = round(secs)
 			if secs < 60:
@@ -55,7 +55,7 @@ class TimeDelta():
 
 	def _event_text(self, secs: float):
 		if secs < 1:
-			return f"{secs * 1000} ms"
+			return f"{secs * 1000:.0f} ms"
 		elif secs < 60:
 			secs = round(secs)
 			return f"{secs} second{'s' if secs != 1 else ''}"

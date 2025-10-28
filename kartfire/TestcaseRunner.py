@@ -167,10 +167,10 @@ class TestcaseRunner():
 			# submission needs to connect to)
 			for (server_alias, server_config) in collection.dependencies.items():
 				_log.debug("Starting dependent server %s with config %s.", server_alias, str(server_config))
-				server_container = await docker.create_container(docker_image_name = server_config["image"], command = server_config["command"], network = network, network_alias = server_alias, run_name_prefix = f"hlp_{submission.shortname}_{server_alias}")
+				server_container = await docker.create_container(docker_image_name = server_config["image"], command = server_config["command"], network = network, network_alias = server_alias, run_name_prefix = f"kartfire_hlp_{submission.shortname}_{server_alias}")
 				await server_container.start()
 
-			container = await docker.create_container(docker_image_name = self._config.docker_container, command = container_command, network = network, max_memory_mib = self._config.max_memory_mib, interactive = self._interactive, run_name_prefix = f"run_{submission.shortname}")
+			container = await docker.create_container(docker_image_name = self._config.docker_container, command = container_command, network = network, max_memory_mib = self._config.max_memory_mib, interactive = self._interactive, run_name_prefix = f"kartfire_run_{submission.shortname}")
 			await container.cp(self.container_testrunner_filename, "/container_testrunner")
 			with tempfile.NamedTemporaryFile(suffix = ".tar") as tmp:
 				await submission.create_submission_tarfile(tmp.name)
