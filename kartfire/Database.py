@@ -24,13 +24,17 @@ import json
 import contextlib
 import datetime
 import collections
+import os
 from .SqliteORM import SqliteORM
 from .Testcase import Testcase, TestcaseCollection
 from .Enums import TestrunStatus, TestresultStatus
-from .Exceptions import NoSuchCollectionException
+from .Exceptions import NoSuchCollectionException, NoDatabaseFoundException
 
 class Database(SqliteORM):
 	def __init__(self, filename: str):
+		if not os.path.isfile(filename):
+			raise NoDatabaseFoundException(f"There is no kartfire database at {filename}. Create an empty file if you want one to be created.")
+
 		super().__init__(filename)
 		self._map_type("testcases:arguments", "json")
 		self._map_type("testcases:correct_reply", "json")

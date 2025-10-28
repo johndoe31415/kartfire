@@ -28,3 +28,4 @@ class SubprocessRunError(InternalError): pass
 class UnsupportedFileException(KartfireException): pass
 
 class NoSuchCollectionException(KartfireException): pass
+class NoDatabaseFoundException(KartfireException): pass
