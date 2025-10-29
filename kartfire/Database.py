@@ -19,13 +19,13 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
-import kartfire
 import sqlite3
 import json
 import contextlib
 import datetime
 import collections
 import os
+import kartfire
 from .SqliteORM import SqliteORM
 from .Testcase import Testcase, TestcaseCollection
 from .Enums import TestrunStatus, TestresultStatus
@@ -322,7 +322,7 @@ class Database(SqliteORM):
 		return [ row["multirun_id"] for row in self._cursor.execute("SELECT multirun_id FROM multirun ORDER BY build_start_utcts DESC LIMIT ?;", (max_list_length, )).fetchall() ]
 
 	def get_multirun_overview(self, multirun_id: int):
-		row = self._mapped_execute(f"""
+		row = self._mapped_execute("""
 			SELECT multirun_id, source, source_metadata, build_start_utcts, build_end_utcts, build_runtime_secs, build_runtime_allowance_secs, build_status, build_error_details FROM multirun
 				WHERE multirun_id = ?;
 		""", multirun_id)._mapped_fetchone("multirun")
@@ -337,7 +337,7 @@ class Database(SqliteORM):
 		return row
 
 	def get_run_overviews_of_multirun(self, multirun_id: int):
-		return self._mapped_execute(f"""
+		return self._mapped_execute("""
 			SELECT run_id, multirun_id, collection, run_start_utcts, run_end_utcts, runtime_secs, runtime_allowance_secs, max_permissible_ram_mib, status, error_details, testcollection.reference_runtime_secs FROM testrun
 				LEFT JOIN testcollection ON testcollection.name = testrun.collection
 				WHERE multirun_id = ?

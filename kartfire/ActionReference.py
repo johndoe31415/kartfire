@@ -33,7 +33,7 @@ class ActionReference(CmdlineAction):
 		multirun_result = MultiRunResult(self._db, multirun_id)
 		for run_result in multirun_result:
 			if not run_result.have_results:
-				print(f"Cannot apply run id {run_id} as reference: no answers present in solution.")
+				print(f"Cannot apply run id {run_result.run_id} as reference: no answers present in solution.")
 				return 1
 
 			if len(run_result.result_count) != 1:
