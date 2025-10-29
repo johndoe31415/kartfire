@@ -1,4 +1,5 @@
 #!/bin/bash
 echo "Compiling..."
+echo "this is on stderr" >&2
 sleep 1
 echo "Done!"

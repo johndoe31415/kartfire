@@ -101,6 +101,16 @@ class RunningDockerContainer():
 		cmd = [ self._docker.executable, "rm", self._container_id ]
 		await ExecTools.async_check_call(cmd, stdout = subprocess.DEVNULL)
 
+	async def commit(self, repository: str | None = None, temporary_image: bool = True):
+		cmd = [ self._docker.executable, "commit", self._container_id ]
+		if repository is not None:
+			cmd.append(f"{repository}:{os.urandom(16).hex()}")
+		output = await ExecTools.async_check_output(cmd)
+		committed_image_id = output.decode("ascii").rstrip("\r\n")
+		if temporary_image:
+			self._docker.add_cleanup_task(self._docker.remove_image(committed_image_id), priority = 5)
+		return committed_image_id
+
 	async def wait_timeout(self, timeout: float | None, check_interval: float = 1.0):
 		if timeout is None:
 			# Infinity
@@ -122,10 +132,19 @@ class Docker():
 	def __init__(self, docker_executable: str = "docker"):
 		self._docker_executable = docker_executable
 		self._cleanup_tasks = collections.defaultdict(list)
+		self._networks = [ ]
 
 	@property
 	def executable(self):
 		return self._docker_executable
+
+	@property
+	def networks(self):
+		return self._networks
+
+	def add_cleanup_task(self, task: callable, priority: int = 0):
+		self._cleanup_tasks[priority].append(task)
+		return self
 
 	async def create_container(self, docker_image_name: str, command: list, network: DockerNetwork, network_alias: str | None = None, max_memory_mib: int | None = None, interactive: bool = False, auto_cleanup: bool = True, run_name_prefix: str | None = None):
 		# Create docker container, but do not start yet
@@ -168,12 +187,16 @@ class Docker():
 		network = DockerNetwork(self, network_id, allow_wan_access = allow_wan_access)
 		if auto_cleanup:
 			self._cleanup_tasks[1].append(network.rm())
+		self._networks.append(network)
 		return network
 
 	def inspect_image(self, image_name: str):
 		cmd = [ self.executable, "image", "inspect", image_name ]
 		output = subprocess.check_output(cmd)
 		return json.loads(output)[0]
+
+	async def remove_image(self, image_name: str):
+		await ExecTools.async_check_call([ self._docker_executable, "image", "rm", image_name ], stdout = subprocess.DEVNULL)
 
 	async def __aenter__(self):
 		return self
@@ -202,6 +225,9 @@ class Docker():
 
 	def prune_all_kartfire_networks(self):
 		subprocess.check_call([ self.executable, "network", "prune", "--force", "--filter", "label=kartfire" ])
+
+	def prune_all_kartfire_images(self):
+		subprocess.check_call([ self.executable, "image", "prune", "--force", "--filter", "label=kartfire" ])
 
 if __name__ == "__main__":
 	async def main_run():

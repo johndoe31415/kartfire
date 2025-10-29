@@ -42,8 +42,12 @@ class Database(SqliteORM):
 		self._map_type("testcases:dependencies", "json")
 		self._map_type("testcases:created_utcts", "utcts")
 
-		self._map_type("testrun:source_metadata", "json")
-		self._map_type("testrun:environment_metadata", "json")
+		self._map_type("multirun:source_metadata", "json")
+		self._map_type("multirun:environment_metadata", "json")
+		self._map_type("multirun:build_start_utcts", "utcts")
+		self._map_type("multirun:build_end_utcts", "utcts")
+		self._map_type("multirun:build_status", "enum", TestrunStatus)
+
 		self._map_type("testrun:run_start_utcts", "utcts")
 		self._map_type("testrun:run_end_utcts", "utcts")
 		self._map_type("testrun:dependencies", "json")
@@ -78,18 +82,36 @@ class Database(SqliteORM):
 			);
 			""")
 
+		# A multirun consists of an (optinal) build step and possible many
+		# testruns (each with their own collections)
+		with contextlib.suppress(sqlite3.OperationalError):
+			self._cursor.execute("""\
+			CREATE TABLE multirun (
+				multirun_id integer PRIMARY KEY,
+				source varchar(256) NOT NULL,
+				source_metadata varchar(4096) NOT NULL,
+				environment_metadata varchar(4096) NOT NULL,
+				build_start_utcts varchar(64) NOT NULL,
+				build_end_utcts varchar(64) NULL,
+				total_time_secs float NULL,								-- total time, redundant to (run_end_utcts - run_start_utcts); for scheduling purposes, redundant for efficiency reasons
+				build_status varchar(32) NOT NULL DEFAULT 'running',
+				build_stdout blob NULL,
+				build_stderr blob NULL,
+				build_runtime_secs float NULL,							-- pure runtime of the build script; for output relative to the user
+				build_max_permissible_runtime_secs float NULL,
+				CHECK((build_status = 'running') OR (build_status = 'finished') OR (build_status = 'failed') OR (build_status = 'aborted') OR (build_status = 'terminated'))
+			);
+			""")
+
 		with contextlib.suppress(sqlite3.OperationalError):
 			self._cursor.execute("""\
 			CREATE TABLE testrun (
 				run_id integer PRIMARY KEY,
+				multirun_id integer NOT NULL REFERENCES multiruns(multirun_id),
 				collection varchar(128) NOT NULL REFERENCES testcollection(name),
-				source varchar(256),
-				source_metadata varchar(4096),
-				environment_metadata varchar(4096),
 				run_start_utcts varchar(64) NOT NULL,
 				run_end_utcts varchar(64) NULL,
 				runtime_secs float NULL,						-- pure runtime of the run testcase script; for output relative to the user
-				total_time_secs float NULL,						-- total time, redundant to (run_end_utcts - run_start_utcts); for scheduling purposes, redundant for efficiency reasons
 				testcase_count integer NOT NULL,				-- total amount of associated testcases with this run
 				max_permissible_runtime_secs float NULL,
 				max_permissible_ram_mib integer NOT NULL,
@@ -97,7 +119,7 @@ class Database(SqliteORM):
 				status varchar(32) NOT NULL DEFAULT 'running',
 				error_details varchar(4096) NULL,
 				stderr blob NULL,
-				CHECK((status = 'running') OR (status = 'finished') OR (status = 'failed') OR (status = 'build_failed') OR (status = 'aborted') OR (status = 'terminated'))
+				CHECK((status = 'running') OR (status = 'finished') OR (status = 'failed') OR (status = 'aborted') OR (status = 'terminated'))
 			);
 			""")
 
@@ -113,8 +135,8 @@ class Database(SqliteORM):
 		with contextlib.suppress(sqlite3.OperationalError):
 			self._cursor.execute("""\
 			CREATE TABLE testresult (
-				tc_id integer REFERENCES testcases(tc_id),
-				run_id integer REFERENCES testrun(run_id),
+				tc_id integer NOT NULL REFERENCES testcases(tc_id),
+				run_id integer NOT NULL REFERENCES testrun(run_id),
 				received_reply varchar(4096) NULL,
 				status varchar(32) NOT NULL DEFAULT 'no_answer',
 				UNIQUE(tc_id, run_id),
@@ -145,15 +167,31 @@ class Database(SqliteORM):
 			"dependencies": dependencies,
 		})
 
-	def create_testrun(self, submission: "Submission", testcase_collection: "TestcaseCollection", run_constraints: "RunConstraints", container_image_metadata: "ContainerImageMetadata"):
+	def create_multirun(self, submission: "Submission", build_constraints: "RunConstraints", container_image_metadata: "ContainerImageMetadata"):
 		env = {
 			"kartfire": kartfire.VERSION,
 			"image": container_image_metadata.to_dict(),
 		}
-		run_id = self._insert("testrun", {
+		multirun_id = self._insert("multirun", {
 			"source": submission.shortname,
 			"source_metadata": submission.to_dict(),
 			"environment_metadata": env,
+			"build_start_utcts": datetime.datetime.now(datetime.UTC),
+			"build_status": TestrunStatus.Running,
+		})
+		return multirun_id
+
+	def update_multirun_build_status(self, multirun_id: int, exec_result: "ExecutionResult"):
+		self._mapped_execute("UPDATE multirun SET build_end_utcts = ?, build_status = ?, build_runtime_secs = ? WHERE (multirun_id = ?);",
+								(datetime.datetime.now(datetime.UTC), "multirun:build_end_utcts"),
+								(exec_result.testrun_status, "multirun:build_status"),
+								exec_result.runtime_secs,
+								multirun_id)
+		self._increase_uncommitted_write_count()
+
+	def create_testrun(self, multirun_id: int, testcase_collection: "TestcaseCollection", run_constraints: "RunConstraints"):
+		run_id = self._insert("testrun", {
+			"multirun_id": multirun_id,
 			"run_start_utcts": datetime.datetime.now(datetime.UTC),
 			"testcase_count": len(testcase_collection),
 			"max_permissible_runtime_secs": run_constraints.max_permissible_runtime_secs,

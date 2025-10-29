@@ -78,7 +78,9 @@ class SqliteORM():
 	def _map_py_to_db(self, *parameters: tuple[any]) -> tuple[any]:
 		def _map(parameter):
 			if isinstance(parameter, tuple):
-				return self._map_py_to_db_value(parameter[0], parameter[1])
+				type_name = parameter[1]
+				assert(type_name in self._types)
+				return self._map_py_to_db_value(parameter[0], type_name)
 			else:
 				return parameter
 		return tuple(_map(parameter) for parameter in parameters)

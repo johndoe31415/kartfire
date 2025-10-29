@@ -34,13 +34,18 @@ from .Docker import Docker
 _log = logging.getLogger(__spec__.name)
 
 @dataclasses.dataclass
-class SubmissionRunResult():
-	submission: "Submission"
+class ExecutionResult():
 	stdout: bytes
 	stderr: bytes
 	testrun_status: TestrunStatus
 	error_details: dict | None = None
 	runtime_secs: float | None = None
+	pre_run_result: "any | None" = None
+	post_run_result: "any | None" = None
+
+@dataclasses.dataclass
+class BuildConstraints():
+	max_permissible_runtime_secs: float | None
 
 @dataclasses.dataclass
 class RunConstraints():
@@ -64,6 +69,14 @@ class ContainerImageMetadata():
 		return dataclasses.asdict(self)
 
 class TestRunner():
+	_DEFS = {
+		"container_testrunner":				"/container_testrunner",
+		"container_dut_dir":				"/dut",
+		"container_submission_tar_file":	"/dut.tar",
+		"container_testcase_file":			"/testcases.json",
+		"container_meta_file":				"/meta.json",
+	}
+
 	def __init__(self, testcase_collections: list["TestcaseCollection"], test_fixture_config: "TestFixtureConfig", database: "Database", interactive: bool = False):
 		self._testcase_collections = testcase_collections
 		self._config = test_fixture_config
@@ -73,13 +86,13 @@ class TestRunner():
 		self._concurrent_process_count = self._determine_concurrent_process_count()
 		self._process_semaphore = None
 		self._submission_run_finished_callbacks = [ ]
-		self._submission_all_runs_finished_callbacks = [ ]
+		self._submission_multirun_finished_callbacks = [ ]
 
 	def register_run_finished_callback(self, callback: callable):
 		self._submission_run_finished_callbacks.append(callback)
 
-	def register_all_runs_finished_callback(self, callback: callable):
-		self._submission_all_runs_finished_callbacks.append(callback)
+	def register_multirun_finished_callback(self, callback: callable):
+		self._submission_multirun_finished_callbacks.append(callback)
 
 	@property
 	def config(self):
@@ -154,18 +167,6 @@ class TestRunner():
 		return Docker(docker_executable = self._config.docker_executable)
 
 	async def _run_submission_collection(self, submission: "Submission", collection: "TestcaseCollection"):
-		container_meta = {
-			"container_dut_dir":				"/dut",
-			"container_submission_tar_file":	"/dut.tar",
-			"container_testcase_file":			"/testcases.json",
-
-			"setup_name":						self._config.setup_name,
-			"max_setup_time_secs":				self._config.max_setup_time_secs,
-			"solution_name":					self._config.solution_name,
-			"max_runtime_secs":					self._determine_max_permissible_runtime_secs(collection),
-
-			"verbose":							2 if self._interactive else 0,
-		}
 		container_testcases = {
 			"testcases": { str(testcase.tc_id): testcase.guest_dict() for testcase in collection },
 		}
@@ -185,7 +186,7 @@ class TestRunner():
 			# submission needs to connect to)
 			for (server_alias, server_config) in collection.dependencies.items():
 				_log.debug("Starting dependent server %s with config %s.", server_alias, str(server_config))
-				server_container = await docker.create_container(docker_image_name = server_config["image"], command = server_config["command"], network = network, network_alias = server_alias, run_name_prefix = f"kartfire_hlp_{submission.shortname}_{server_alias}")
+				server_container = await docker.create_container(docker_image_name = server_config["image"], command = server_config["command"], network = network, network_alias = server_alias, run_name_prefix = f"kartfire_dep_{submission.shortname}_{server_alias}")
 				await server_container.start()
 
 			container = await docker.create_container(docker_image_name = self._config.docker_container, command = container_command, network = network, max_memory_mib = self._config.max_memory_mib, interactive = self._interactive, run_name_prefix = f"kartfire_run_{submission.shortname}")
@@ -218,25 +219,111 @@ class TestRunner():
 			(stdout, stderr) = await container.logs()
 		return SubmissionRunResult(submission = submission, stdout = stdout, stderr = stderr, testrun_status = testrun_status, runtime_secs = runtime_secs)
 
+	async def _initialize_docker_env(self, docker: Docker):
+		await docker.create_network()
+
+	async def _execute_docker_container_run(self, docker: Docker, image_name: str, container_command: list[str], prefix: str, pre_run_hook: "callable | None" = None, post_run_hook: "callable | None" = None, timeout_secs: float | None = None) -> ExecutionResult:
+		(pre_run_result, post_run_result) = (None, None)
+		original_container_command = container_command
+		if self._interactive:
+			print(f"Running container {prefix} step: {' '.join(command)}")
+			container_command = [ "/bin/bash" ]
+
+		container = await docker.create_container(docker_image_name = image_name, command = container_command, network = docker.networks[0], max_memory_mib = self._config.max_memory_mib, interactive = self._interactive, run_name_prefix = f"kartfire_{prefix}")
+		if pre_run_hook is not None:
+			pre_run_result = await pre_run_hook(container)
+
+		if self._interactive:
+			await container.cpdata(f"{' '.join(original_container_command)}\n".encode("utf-8"), "/root/.bash_history")
+
+		await container.start()
+		if self._interactive:
+			await container.attach()
+
+		t0 = time.time()
+		status_code = await container.wait_timeout(timeout_secs)
+		runtime_secs = time.time() - t0
+
+
+		if status_code is None:
+			# Docker container time timed out
+			_log.debug("Docker container \"%s\" timed out after %d seconds", prefix, container_meta["max_runtime_secs"])
+			testrun_status = TestrunStatus.Terminated
+		elif status_code == 0:
+			_log.debug("Docker container \"%s\" exited normally.", prefix)
+			testrun_status = TestrunStatus.Finished
+			if post_run_hook is not None:
+				post_run_result = await post_run_hook(container)
+		else:
+			_log.debug("Docker container %s exited with status code %d.", prefix, status_code)
+			testrun_status = TestrunStatus.Failed
+
+		(stdout, stderr) = await container.logs()
+		return ExecutionResult(stdout = stdout, stderr = stderr, testrun_status = testrun_status, runtime_secs = runtime_secs, pre_run_result = pre_run_result, post_run_result = post_run_result)
+
+	async def _execute_build_step(self, docker: Docker, submission: "Submission"):
+		async def pre_run_hook(container: "RunningDockerContainer"):
+			with tempfile.NamedTemporaryFile(suffix = ".tar") as tmp:
+				await submission.create_submission_tarfile(tmp.name)
+				await container.cp(tmp.name, self._DEFS["container_submission_tar_file"])
+
+			container_meta = {
+				"container_dut_dir":				"/dut",
+				"container_submission_tar_file":	"/dut.tar",
+				"container_testcase_file":			"/testcases.json",
+				"build_name":						self._config.build_name,
+				"solution_name":					self._config.solution_name,
+				"verbose":							2 if self._interactive else 0,
+			}
+			await container.write_json(container_meta, self._DEFS["container_meta_file"], pretty_print = self._interactive)
+
+			await container.cp(self.container_testrunner_filename, self._DEFS["container_testrunner"])
+
+		async def post_run_hook(container: "RunningDockerContainer"):
+			committed_image_id = await container.commit(repository = "kartfire_testrun")
+			return committed_image_id
+
+		exec_result = await self._execute_docker_container_run(docker = docker, image_name = self._config.docker_container, container_command = [ "/container_testrunner", "--execute-build" ], prefix = f"bld_{submission.shortname}", pre_run_hook = pre_run_hook, post_run_hook = post_run_hook, timeout_secs = self._config.max_build_time_secs)
+		return exec_result
+
+	async def _execute_run_step(self, docker: Docker, submission: "Submission", collection: "TestcaseCollection", base_image_name: str):
+		timeout = self._determine_max_permissible_runtime_secs(collection)
+		return await self._execute_docker_container_run(docker = docker, image_name = base_image_name, container_command = [ "/container_testrunner", "--execute-run" ], prefix = f"run_{submission.shortname}", timeout_secs = timeout)
+
 	async def _run_submission(self, submission: "Submission"):
 		async with self._process_semaphore:
 			_log.info("Starting testing of submission \"%s\"", submission)
-			run_ids = [ ]
-			for collection in self._testcase_collections:
-				run_constraints = RunConstraints(max_permissible_runtime_secs = self._determine_max_permissible_runtime_secs(collection), max_permissible_ram_mib = self._config.max_memory_mib)
-				container_image_metadata = ContainerImageMetadata.collect(self._config.docker_container, self.docker)
 
+			build_constraints = BuildConstraints(max_permissible_runtime_secs = self._config.max_build_time_secs)
+			container_image_metadata = ContainerImageMetadata.collect(self._config.docker_container, self.docker)
+			multirun_id = self._db.create_multirun(submission, build_constraints = build_constraints, container_image_metadata = container_image_metadata)
+			self._db.commit()
 
-				run_id = self._db.create_testrun(submission, collection, run_constraints = run_constraints, container_image_metadata = container_image_metadata)
-				run_ids.append(run_id)
+			async with self.docker as docker:
+				await self._initialize_docker_env(docker)
+
+				build_result = await self._execute_build_step(docker, submission)
+				self._db.update_multirun_build_status(multirun_id, build_result)
 				self._db.commit()
-				submission_run_result = await self._run_submission_collection(submission, collection)
-				self._evaluate_run_result(run_id, collection, submission_run_result)
-				self._db.commit()
-				for callback in self._submission_run_finished_callbacks:
-					callback(submission, run_id)
-			for callback in self._submission_all_runs_finished_callbacks:
-				callback(submission, run_ids)
+				commited_base_image_id = build_result.post_run_result
+
+				run_ids = [ ]
+				for collection in self._testcase_collections:
+					run_constraints = RunConstraints(max_permissible_runtime_secs = self._determine_max_permissible_runtime_secs(collection), max_permissible_ram_mib = self._config.max_memory_mib)
+
+					run_id = self._db.create_testrun(multirun_id, collection, run_constraints = run_constraints)
+					run_ids.append(run_id)
+					self._db.commit()
+					run_result = await self._execute_run_step(docker, submission, collection, base_image_name = commited_base_image_id)
+
+					print(run_result)
+
+#					self._evaluate_run_result(run_id, collection, submission, run_result)
+#					self._db.commit()
+#					for callback in self._submission_run_finished_callbacks:
+#						callback(submission, run_id)
+#			for callback in self._submission_multirun_finished_callbacks:
+#				callback(submission, multirun_id)
 
 	async def _run(self, submissions: list["Submission"]):
 		self._process_semaphore = asyncio.Semaphore(self._concurrent_process_count)

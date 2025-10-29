@@ -61,7 +61,7 @@ class ContainerTestRunner():
 	def verbose(self):
 		return max(self._config["verbose"], self._args.verbose)
 
-	def _execute(self, cmd: list[str], timeout: float, execution_hint: str):
+	def _execute(self, cmd: list[str], execution_hint: str, timeout: float | None = None):
 		try:
 			exec_result = subprocess.run(cmd, timeout = timeout)
 		except subprocess.TimeoutExpired as e:
@@ -79,22 +79,28 @@ class ContainerTestRunner():
 	def _unpack(self):
 		with contextlib.suppress(FileExistsError):
 			os.makedirs(self._config["container_dut_dir"])
-		self._execute([ "tar", "-x", "-C", self._config["container_dut_dir"], "-f", self._config["container_submission_tar_file"] ], timeout = 10, execution_hint = "untar")
+		self._execute([ "tar", "-x", "-C", self._config["container_dut_dir"], "-f", self._config["container_submission_tar_file"] ], execution_hint = "untar")
 
-	def _setup(self):
-		setup_executable = f"{self._config['container_dut_dir']}/{self._config['setup_name']}"
-		if os.path.exists(setup_executable):
-			self._execute([ setup_executable ], timeout = self._config["max_setup_time_secs"], execution_hint = "build")
+	def _build(self):
+		build_executable = f"{self._config['container_dut_dir']}/{self._config['build_name']}"
+		if os.path.exists(build_executable):
+			self._execute([ build_executable ], execution_hint = "build")
 
 	def _run(self):
 		solution_executable = f"{self._config['container_dut_dir']}/{self._config['solution_name']}"
-		self._execute([ solution_executable, self._config["container_testcase_file"] ], timeout = self._config["max_runtime_secs"], execution_hint = "test")
+		self._execute([ solution_executable, self._config["container_testcase_file"] ], execution_hint = "test")
 
 	def run(self):
+		if (not self._args.execute_build) and (not self._args.execute_run):
+			print("Nothing to do, neither build nor run parameter given on command line.")
+			sys.exit(1)
+
 		try:
-			self._unpack()
-			self._setup()
-			self._run()
+			if self._args.execute_build:
+				self._unpack()
+				self._build()
+			if self._args.execute_run:
+				self._run()
 		except ContainerRunFailedException as e:
 			print()
 			print(json.dumps({
@@ -103,8 +109,10 @@ class ContainerTestRunner():
 			}))
 			sys.exit(1)
 
-parser = argparse.ArgumentParser(description = "Run testcases inside a kartfire container.")
-parser.add_argument("-c", "--configuration", metavar = "filename", default = "/meta.json", help = "Specifies configuretion file to use. Defaults to %(default)s.")
+parser = argparse.ArgumentParser(description = "Run build step or testcases inside a kartfire container.")
+parser.add_argument("-c", "--configuration", metavar = "filename", default = "/meta.json", help = "Specifies configuration file to use. Defaults to %(default)s.")
+parser.add_argument("-b", "--execute-build", action = "store_true", help = "Execute the build step.")
+parser.add_argument("-r", "--execute-run", action = "store_true", help = "Execute the run step.")
 parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
 args = parser.parse_args(sys.argv[1:])
 

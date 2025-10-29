@@ -22,10 +22,10 @@
 import enum
 
 class TestrunStatus(enum.Enum):
+	Skipped = "skipped"				# e.g., if a build step need not be executed
 	Running = "running"				# Still running
 	Finished = "finished"			# Run ran to completion
 	Failed = "failed"				# Something failed to start the run (e.g., docker container start error)
-	BuildFailed = "build_failed"	# Build step failed
 	Aborted = "aborted"				# User aborted run (e.g., Ctrl-C)
 	Terminated = "terminated"		# Run aborted (e.g., timeout or killed because of excessive resource use)
 

@@ -26,14 +26,20 @@ from .Exceptions import InvalidSubmissionException
 from .Tools import ExecTools, GitTools, MiscTools
 
 class Submission():
-	def __init__(self, submission_directory: str):
+	def __init__(self, submission_directory: str, test_fixture_config: "TestFixtureConfig"):
 		self._submission_dir = os.path.realpath(submission_directory)
+		self._test_fixture_config = test_fixture_config
 		if not os.path.isdir(self._submission_dir):
 			raise InvalidSubmissionException(f"{self._submission_dir} is not a directory")
 
 	@property
 	def shortname(self):
 		return os.path.basename(self._submission_dir)
+
+	@property
+	def requires_build_step(self):
+		build_script_filename = f"{self._submission_dir}/{self._test_fixture_config.setup_name}"
+		return os.path.exists(build_script_filename)
 
 	@functools.cached_property
 	def meta_info(self):

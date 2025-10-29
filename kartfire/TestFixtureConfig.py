@@ -50,8 +50,8 @@ class TestFixtureConfig():
 		return self._config.get("docker_container", "ghcr.io/johndoe31415/labwork-docker:master")
 
 	@property
-	def setup_name(self):
-		return self._config.get("setup_name", "setup")
+	def build_name(self):
+		return self._config.get("build_name", "build")
 
 	@property
 	def solution_name(self):
@@ -70,8 +70,8 @@ class TestFixtureConfig():
 		return self._config.get("max_concurrent_processes", multiprocessing.cpu_count())
 
 	@property
-	def max_setup_time_secs(self):
-		return self._config.get("max_setup_time_secs", 30)
+	def max_build_time_secs(self):
+		return self._config.get("max_build_time_secs", 30)
 
 	@property
 	def minimum_testbatch_time_secs(self):

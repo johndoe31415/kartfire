@@ -30,7 +30,7 @@ class ActionRun(CmdlineAction):
 	def _run_finished_callback(self, submission: Submission, run_id: int):
 		self._rp.print_overview(run_id)
 
-	def _all_runs_finished_callback(self, submission: Submission, run_ids: list[int]):
+	def _multirun_finished_callback(self, submission: Submission, run_ids: list[int]):
 		self._run_ids.append((submission, run_ids))
 
 	def run(self):
@@ -40,12 +40,12 @@ class ActionRun(CmdlineAction):
 		tc_collections = [ self._db.get_testcase_collection(collection_name) for collection_name in collection_names ]
 		runner = TestRunner(tc_collections, self._test_fixture_config, self._db, interactive = self._args.interactive)
 		runner.register_run_finished_callback(self._run_finished_callback)
-		runner.register_all_runs_finished_callback(self._all_runs_finished_callback)
+		runner.register_multirun_finished_callback(self._multirun_finished_callback)
 		ignored_count = 0
 		submissions = [ ]
 		for submission_dir in self._args.submission_dir:
 			if os.path.isdir(submission_dir):
-				submissions.append(Submission(submission_dir))
+				submissions.append(Submission(submission_dir, self._test_fixture_config))
 			else:
 				ignored_count += 1
 		if ignored_count == 1:
