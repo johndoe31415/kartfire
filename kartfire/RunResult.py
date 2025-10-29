@@ -95,7 +95,14 @@ class RunResult():
 		try:
 			return self.overview["source_metadata"]["meta"]["json"]["kartfire"]["name"]
 		except KeyError:
-			return "unknown author"
+			return None
+
+	@property
+	def solution_email(self):
+		try:
+			return self.overview["source_metadata"]["meta"]["json"]["kartfire"]["email"]
+		except KeyError:
+			return None
 
 	@property
 	def error_text(self):
@@ -103,3 +110,45 @@ class RunResult():
 			return self.overview["error_details"]["text"]
 		else:
 			return ""
+
+class RunMultiResult():
+	def __init__(self, db: "Database", run_ids: list[int]):
+		self._db = db
+		self._run_ids = run_ids
+		self._run_results = [ RunResult(self._db, run_id) for run_id in self._run_ids ]
+
+	@property
+	def first(self):
+		return self._run_results[0]
+
+	@property
+	def solution_authors(self):
+		authors = set(run_result.solution_author for run_result in self)
+		authors.discard(None)
+		if len(authors) == 0:
+			return None
+		else:
+			return authors
+
+	@property
+	def solution_emails(self):
+		emails = set(run_result.solution_email for run_result in self)
+		emails.discard(None)
+		if len(emails) == 0:
+			return None
+		else:
+			return emails
+
+	@property
+	def runtime(self):
+		return TimeDelta(sum(run_result.overview["runtime_secs"] for run_result in self))
+
+	@property
+	def reference_runtime(self):
+		return TimeDelta(sum(run_result.overview["reference_runtime_secs"] for run_result in self))
+
+	def __len__(self):
+		return len(self._run_results)
+
+	def __iter__(self):
+		return iter(self._run_results)

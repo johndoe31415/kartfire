@@ -19,27 +19,26 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
-from .CmdlineAction import CmdlineAction
-from .ResultPrinter import ResultPrinter
-from .ResultHTMLGenerator import ResultHTMLGenerator
+import json
+import collections
+import datetime
+import tzlocal
+import os
+import mako.lookup
+from .Enums import TestrunStatus, TestresultStatus
+from .RunResult import RunMultiResult
 
-class ActionResults(CmdlineAction):
-	def _print_summary(self):
-		for run_id in self._db.get_latest_run_ids(50):
-			self._result_printer.print_overview(run_id)
+class ResultHTMLGenerator():
+	def __init__(self, db: "Database"):
+		self._db = db
+		self._output_tz = tzlocal.get_localzone()
+		template_dir = os.path.dirname(__file__) + "/templates"
+		self._lookup = mako.lookup.TemplateLookup([ template_dir ], strict_undefined = True)
 
-	def _print_run(self, run_id: int):
-		self._result_printer.print_details(run_id)
-
-	def run(self):
-		self._result_printer = ResultPrinter(self._db)
-		if self._args.html_template is None:
-			if len(self._args.run_id) == 0:
-				self._print_summary()
-			else:
-				for run_id in self._args.run_id:
-					self._print_run(run_id)
-		else:
-			html_generator = ResultHTMLGenerator(self._db)
-			result = html_generator.create(run_ids = self._args.run_id, template_name = self._args.html_template)
-			print(result)
+	def create(self, run_ids: list[int], template_name: str):
+		template = self._lookup.get_template(template_name)
+		template_vars = {
+			"r": RunMultiResult(db = self._db, run_ids = run_ids),
+		}
+		rendered = template.render(**template_vars)
+		return rendered

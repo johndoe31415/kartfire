@@ -172,7 +172,7 @@ class ResultPrinter():
 		max_failed_cases_per_action = 2
 #		row = self._db.get_run_details(run_id)
 
-		print(f"Showing failed cases of {run_result.source} of {run_result.solution_author} run ID {run_id} (run result {run_result.overview['status'].name}), max of {max_failed_cases_per_action} fails per action:")
+		print(f"Showing failed cases of {run_result.source} of {run_result.solution_author or 'unknown author'} run ID {run_id} (run result {run_result.overview['status'].name}), max of {max_failed_cases_per_action} fails per action:")
 		action_count = collections.Counter()
 		for result in run_result.testresult_details:
 			status = TestresultStatus(result["status"])

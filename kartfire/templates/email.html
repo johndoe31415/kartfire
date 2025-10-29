@@ -1,1 +1,40 @@
-Foo
+<p>
+%if r.solution_authors is None:
+Hallo,
+%else:
+Hallo ${", ".join(sorted(r.solution_authors))},
+%endif
+</p>
+
+<p>
+anbei die Testergebnisse der Test-Pipeline, in der Ihre Lösung gegen ${len(r)} Testcollection${"s" if (len(r) != 1) else ""} geprüft wurde.
+</p>
+
+<p>
+Es war kein Build-Step erforderlich.
+</p>
+
+<p>
+Getestete Abgabe: <b>${r.first.source}</b>
+</p>
+
+<table>
+	<thead>
+		<tr><th>Run</th></tr>
+		<tr><th>Collection</th></tr>
+		<tr><th>LZ</th></tr>
+		<tr><th>Ref</th></tr>
+		<tr><th>Lim</th></tr>
+	</thead>
+	<tbody>
+		%for run in r:
+		<tr>
+			<td>${run.run_id}</td>
+			<td>${run.overview["collection"]}</td>
+			<td>${f"{run.runtime:d}"}</td>
+			<td>${f"{run.reference_runtime:d}"}</td>
+			<td>${f"{run.max_permissible_runtime:d}"}</td>
+		</tr>
+		%endfor
+	</tbody>
+</table>
