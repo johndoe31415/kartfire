@@ -47,6 +47,22 @@ class RunConstraints():
 	max_permissible_runtime_secs: float | None
 	max_permissible_ram_mib: int
 
+@dataclasses.dataclass
+class ContainerImageMetadata():
+	name: str
+	source: str
+	revision: str
+	created: str
+
+	@classmethod
+	def collect(cls, image_name: str, docker: Docker):
+		data = docker.inspect_image(image_name)
+		labels = data.get("Config", { }).get("Labels", { })
+		return cls(name = image_name, source = labels.get("org.opencontainers.image.source"), revision = labels.get("org.opencontainers.image.revision"), created = labels.get("org.opencontainers.image.created"))
+
+	def to_dict(self):
+		return dataclasses.asdict(self)
+
 class TestRunner():
 	def __init__(self, testcase_collections: list["TestcaseCollection"], test_fixture_config: "TestFixtureConfig", database: "Database", interactive: bool = False):
 		self._testcase_collections = testcase_collections
@@ -133,6 +149,9 @@ class TestRunner():
 			return None
 		else:
 			return self._config.minimum_testbatch_time_secs + self._config.max_setup_time_secs + (collection.reference_runtime_secs * self._config.reference_time_factor)
+	@property
+	def docker(self):
+		return Docker(docker_executable = self._config.docker_executable)
 
 	async def _run_submission_collection(self, submission: "Submission", collection: "TestcaseCollection"):
 		container_meta = {
@@ -159,7 +178,7 @@ class TestRunner():
 
 		_log.debug(f"Creating docker container to run submission \"%s\", time allowance is {'infinite' if (container_meta['max_runtime_secs'] is None) else f'{container_meta['max_runtime_secs']:.1f} secs'}", str(submission))
 
-		async with Docker(docker_executable = self._config.docker_executable) as docker:
+		async with self.docker as docker:
 			network = await docker.create_network()
 
 			# Start all dependent servers (e.g., a server container that the
@@ -204,7 +223,11 @@ class TestRunner():
 			_log.info("Starting testing of submission \"%s\"", submission)
 			run_ids = [ ]
 			for collection in self._testcase_collections:
-				run_id = self._db.create_testrun(submission, collection, run_constraints = RunConstraints(max_permissible_runtime_secs = self._determine_max_permissible_runtime_secs(collection), max_permissible_ram_mib = self._config.max_memory_mib))
+				run_constraints = RunConstraints(max_permissible_runtime_secs = self._determine_max_permissible_runtime_secs(collection), max_permissible_ram_mib = self._config.max_memory_mib)
+				container_image_metadata = ContainerImageMetadata.collect(self._config.docker_container, self.docker)
+
+
+				run_id = self._db.create_testrun(submission, collection, run_constraints = run_constraints, container_image_metadata = container_image_metadata)
 				run_ids.append(run_id)
 				self._db.commit()
 				submission_run_result = await self._run_submission_collection(submission, collection)

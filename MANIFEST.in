@@ -1,4 +1,5 @@
 recursive-include kartfire/container *
+recursive-include kartfire/templates *
 
 recursive-exclude kartfire *.pyc
 recursive-exclude kartfire .*.swp

@@ -19,6 +19,7 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
+import kartfire
 import sqlite3
 import json
 import contextlib
@@ -42,6 +43,7 @@ class Database(SqliteORM):
 		self._map_type("testcases:created_utcts", "utcts")
 
 		self._map_type("testrun:source_metadata", "json")
+		self._map_type("testrun:environment_metadata", "json")
 		self._map_type("testrun:run_start_utcts", "utcts")
 		self._map_type("testrun:run_end_utcts", "utcts")
 		self._map_type("testrun:dependencies", "json")
@@ -83,6 +85,7 @@ class Database(SqliteORM):
 				collection varchar(128) NOT NULL REFERENCES testcollection(name),
 				source varchar(256),
 				source_metadata varchar(4096),
+				environment_metadata varchar(4096),
 				run_start_utcts varchar(64) NOT NULL,
 				run_end_utcts varchar(64) NULL,
 				runtime_secs float NULL,						-- pure runtime of the run testcase script; for output relative to the user
@@ -142,10 +145,15 @@ class Database(SqliteORM):
 			"dependencies": dependencies,
 		})
 
-	def create_testrun(self, submission: "Submission", testcase_collection: "TestcaseCollection", run_constraints: "RunConstraints"):
+	def create_testrun(self, submission: "Submission", testcase_collection: "TestcaseCollection", run_constraints: "RunConstraints", container_image_metadata: "ContainerImageMetadata"):
+		env = {
+			"kartfire": kartfire.VERSION,
+			"image": container_image_metadata.to_dict(),
+		}
 		run_id = self._insert("testrun", {
 			"source": submission.shortname,
 			"source_metadata": submission.to_dict(),
+			"environment_metadata": env,
 			"run_start_utcts": datetime.datetime.now(datetime.UTC),
 			"testcase_count": len(testcase_collection),
 			"max_permissible_runtime_secs": run_constraints.max_permissible_runtime_secs,
