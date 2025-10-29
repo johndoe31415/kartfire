@@ -24,6 +24,7 @@ import tempfile
 import asyncio
 import logging
 import json
+import time
 import dataclasses
 from .Tools import SystemTools
 from .Enums import TestrunStatus, TestresultStatus
@@ -39,8 +40,14 @@ class SubmissionRunResult():
 	stderr: bytes
 	testrun_status: TestrunStatus
 	error_details: dict | None = None
+	runtime_secs: float | None = None
 
-class TestcaseRunner():
+@dataclasses.dataclass
+class RunConstraints():
+	max_permissible_runtime_secs: float | None
+	max_permissible_ram_mib: int
+
+class TestRunner():
 	def __init__(self, testcase_collections: list["TestcaseCollection"], test_fixture_config: "TestFixtureConfig", database: "Database", interactive: bool = False):
 		self._testcase_collections = testcase_collections
 		self._config = test_fixture_config
@@ -125,7 +132,7 @@ class TestcaseRunner():
 			# known good solutions to gauge the reference time)
 			return None
 		else:
-			return self._config.minimum_testbatch_time_secs + (collection.reference_runtime_secs * self._config.reference_time_factor)
+			return self._config.minimum_testbatch_time_secs + self._config.max_setup_time_secs + (collection.reference_runtime_secs * self._config.reference_time_factor)
 
 	async def _run_submission_collection(self, submission: "Submission", collection: "TestcaseCollection"):
 		container_meta = {
@@ -175,7 +182,9 @@ class TestcaseRunner():
 			if self._interactive:
 				await container.attach()
 
+			t0 = time.time()
 			finished = await container.wait_timeout(container_meta["max_runtime_secs"])
+			runtime_secs = time.time() - t0
 			if finished is None:
 				# Docker container time timed out
 				_log.debug("Docker container with submission \"%s\" timed out after %d seconds", str(submission), container_meta["max_runtime_secs"])
@@ -188,14 +197,14 @@ class TestcaseRunner():
 				testrun_status = TestrunStatus.Failed
 
 			(stdout, stderr) = await container.logs()
-			return SubmissionRunResult(submission = submission, stdout = stdout, stderr = stderr, testrun_status = testrun_status)
+			return SubmissionRunResult(submission = submission, stdout = stdout, stderr = stderr, testrun_status = testrun_status, runtime_secs = runtime_secs)
 
 	async def _run_submission(self, submission: "Submission"):
 		async with self._process_semaphore:
 			_log.info("Starting testing of submission \"%s\"", submission)
 			run_ids = [ ]
 			for collection in self._testcase_collections:
-				run_id = self._db.create_testrun(submission, collection)
+				run_id = self._db.create_testrun(submission, collection, run_constraints = RunConstraints(max_permissible_runtime_secs = self._determine_max_permissible_runtime_secs(collection), max_permissible_ram_mib = self._config.max_memory_mib))
 				run_ids.append(run_id)
 				self._db.commit()
 				submission_run_result = await self._run_submission_collection(submission, collection)

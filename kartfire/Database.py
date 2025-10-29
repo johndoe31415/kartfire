@@ -85,7 +85,9 @@ class Database(SqliteORM):
 				source_metadata varchar(4096),
 				run_start_utcts varchar(64) NOT NULL,
 				run_end_utcts varchar(64) NULL,
-				max_permissible_runtime_secs float NOT NULL,
+				runtime_secs float NULL,						-- pure runtime of the run testcase script; for output relative to the user
+				total_time_secs float NULL,						-- total time, redundant to (run_end_utcts - run_start_utcts); for scheduling purposes
+				max_permissible_runtime_secs float NULL,
 				max_permissible_ram_mib integer NOT NULL,
 				dependencies varchar(4096) NOT NULL,
 				status varchar(32) NOT NULL DEFAULT 'running',
@@ -128,13 +130,13 @@ class Database(SqliteORM):
 			"dependencies": dependencies,
 		})
 
-	def create_testrun(self, submission: "Submission", testcases: "TestcaseCollection"):
+	def create_testrun(self, submission: "Submission", testcases: "TestcaseCollection", run_constraints: "RunConstraints"):
 		run_id = self._insert("testrun", {
 			"source": submission.shortname,
 			"source_metadata": submission.to_dict(),
 			"run_start_utcts": datetime.datetime.now(datetime.UTC),
-			"max_permissible_runtime_secs": 999999,		# TODO
-			"max_permissible_ram_mib": 999999,		# TODO
+			"max_permissible_runtime_secs": run_constraints.max_permissible_runtime_secs,
+			"max_permissible_ram_mib": run_constraints.max_permissible_ram_mib,
 			"dependencies": testcases.dependencies,
 			"status": TestrunStatus.Running,
 			"collection": testcases.name,
@@ -154,10 +156,11 @@ class Database(SqliteORM):
 		self._increase_uncommitted_write_count()
 
 	def close_testrun(self, run_id: int, submission_run_result: "SubmissionRunResult"):
-		self._mapped_execute("UPDATE testrun SET status = ?, error_details = ?, run_end_utcts = ?, stderr = ? WHERE run_id = ?;",
+		self._mapped_execute("UPDATE testrun SET status = ?, error_details = ?, run_end_utcts = ?, runtime_secs = ?, stderr = ? WHERE run_id = ?;",
 							(submission_run_result.testrun_status, "testrun:status"),
 							(submission_run_result.error_details, "testrun:error_details"),
 							(datetime.datetime.now(datetime.UTC), "testrun:run_end_utcts"),
+							submission_run_result.runtime_secs,
 							submission_run_result.stderr,
 							run_id)
 		self._increase_uncommitted_write_count()
@@ -244,8 +247,9 @@ class Database(SqliteORM):
 
 	def get_run_overview(self, run_id: int, full_overview: bool = False):
 		row = self._mapped_execute(f"""
-			SELECT {'*' if full_overview else 'run_id, collection, source, source_metadata, run_start_utcts, run_end_utcts, max_permissible_runtime_secs, max_permissible_ram_mib, status, error_details'} FROM testrun
-			WHERE run_id = ?;
+			SELECT {'testrun.*' if full_overview else 'run_id, collection, source, source_metadata, run_start_utcts, run_end_utcts, runtime_secs, max_permissible_runtime_secs, max_permissible_ram_mib, status, error_details'}, testcollection.reference_runtime_secs FROM testrun
+				LEFT JOIN testcollection ON testcollection.name = testrun.collection
+				WHERE run_id = ?;
 		""", run_id)._mapped_fetchone("testrun")
 		return row
 

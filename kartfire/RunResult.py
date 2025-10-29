@@ -33,7 +33,15 @@ class RunResult():
 
 	@property
 	def runtime(self):
-		return TimeDelta(self.overview["run_start_utcts"], self.overview["run_end_utcts"])
+		return TimeDelta(self.overview["runtime_secs"])
+
+	@property
+	def max_permissible_runtime(self):
+		return TimeDelta(self.overview["max_permissible_runtime_secs"])
+
+	@property
+	def reference_runtime(self):
+		return TimeDelta(self.overview["reference_runtime_secs"])
 
 	@functools.cached_property
 	def overview(self):

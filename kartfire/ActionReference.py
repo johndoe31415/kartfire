@@ -37,7 +37,7 @@ class ActionReference(CmdlineAction):
 				for (status, count) in run_result.result_count:
 					print(f"{status:<30s} {count}")
 
-			self._db.set_reference_runtime(collection_name, run_result.runtime.duration)
+			self._db.set_reference_runtime(collection_name, run_result.runtime.duration_secs)
 			for result in run_result.testresult_details:
 				if (result["status"] == TestresultStatus.Indeterminate) or ((result["status"] == TestresultStatus.Fail) and self._args.pick_failed_answers):
 					self._db.set_reference_answer(result["tc_id"], result["received_reply"])

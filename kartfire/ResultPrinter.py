@@ -129,6 +129,8 @@ class ResultPrinter():
 		columns.append(f"{run_result.run_id:5d}")
 		columns.append(f"{run_result.source:<30s}")
 		columns.append(f"{run_result.overview['collection']:<25s}")
+		ts = f"[ref {run_result.reference_runtime:d} lim {run_result.max_permissible_runtime:d} act {run_result.runtime:d}]"
+		columns.append(f"{ts:<38s}")
 		columns.append(f"{result_bar(run_result)}")
 		columns.append(f"{run_result.status_text}")
 		columns.append(f"{run_result.runtime:d}")
