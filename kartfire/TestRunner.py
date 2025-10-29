@@ -198,6 +198,9 @@ class TestRunner():
 		status_code = await container.wait_timeout(timeout_secs)
 		runtime_secs = time.time() - t0
 
+		if post_run_hook is not None:
+			post_run_result = await post_run_hook(container, status_code)
+
 		if status_code is None:
 			# Docker container time timed out
 			_log.debug("Docker container \"%s\" timed out after %.1f seconds (allowance %.1f seconds)", prefix, runtime_secs, timeout_secs)
@@ -205,8 +208,6 @@ class TestRunner():
 		elif status_code == 0:
 			_log.debug("Docker container \"%s\" exited normally.", prefix)
 			testrun_status = TestrunStatus.Finished
-			if post_run_hook is not None:
-				post_run_result = await post_run_hook(container)
 		else:
 			_log.debug("Docker container %s exited with status code %d.", prefix, status_code)
 			testrun_status = TestrunStatus.Failed
@@ -232,23 +233,46 @@ class TestRunner():
 
 			await container.cp(self.container_testrunner_filename, self._DEFS["container_testrunner"])
 
-		async def post_run_hook(container: "RunningDockerContainer"):
-			committed_image_id = await container.commit(repository = "kartfire_testrun")
-			return committed_image_id
+		async def post_run_hook(container: "RunningDockerContainer", status_code: int):
+			if status_code == 0:
+				# Only commit image if build was actually successful
+				committed_image_id = await container.commit(repository = "kartfire_testrun")
+				return committed_image_id
 
 		exec_result = await self._execute_docker_container_run(docker = docker, image_name = self._config.docker_container, container_command = [ "/container_testrunner", "--execute-build" ], prefix = f"bld_{submission.shortname}", pre_run_hook = pre_run_hook, post_run_hook = post_run_hook, timeout_secs = self._config.max_build_time_secs)
 		self._evaluate_docker_stdout(exec_result)
 		return exec_result
 
 	async def _execute_run_step(self, docker: Docker, submission: "Submission", collection: "TestcaseCollection", base_image_name: str):
+		dependency_containers = [ ]
+
 		async def pre_run_hook(container: "RunningDockerContainer"):
 			container_testcases = {
 				"testcases": { str(testcase.tc_id): testcase.guest_dict() for testcase in collection },
 			}
 			await container.write_json(container_testcases, self._DEFS["container_testcase_file"], pretty_print = self._interactive)
 
+			# Start all dependent servers (e.g., a server container that the
+			# submission needs to connect to)
+			for (server_alias, server_config) in collection.dependencies.items():
+				_log.debug("Starting dependent server %s with config %s.", server_alias, str(server_config))
+				dependency_container = await docker.create_container(docker_image_name = server_config["image"], command = server_config["command"], network = docker.networks[0], network_alias = server_alias, run_name_prefix = f"kartfire_dep_{submission.shortname}_{server_alias}", auto_cleanup = False)
+				dependency_containers.append(dependency_container)
+				await dependency_container.start()
+
+		async def post_run_hook(container: "RunningDockerContainer", status_code: int):
+			# Cleanup dependent services regardless if the test succeeded
+			async def _stoprm(depedency_container: "RunningDockerContainer"):
+				await dependency_container.stop()
+				await dependency_container.wait()
+				await dependency_container.rm()
+
+			async with asyncio.TaskGroup() as task_group:
+				for dependency_container in dependency_containers:
+					task_group.create_task(_stoprm(dependency_container))
+
 		timeout = self._determine_runtime_allowance_secs(collection)
-		return await self._execute_docker_container_run(docker = docker, image_name = base_image_name, container_command = [ "/container_testrunner", "--execute-run" ], prefix = f"run_{submission.shortname}", pre_run_hook = pre_run_hook, timeout_secs = timeout)
+		return await self._execute_docker_container_run(docker = docker, image_name = base_image_name, container_command = [ "/container_testrunner", "--execute-run" ], prefix = f"run_{submission.shortname}", pre_run_hook = pre_run_hook, post_run_hook = post_run_hook, timeout_secs = timeout)
 
 	async def _run_submission(self, submission: "Submission"):
 		async with self._process_semaphore:
