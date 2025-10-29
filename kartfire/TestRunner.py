@@ -197,7 +197,7 @@ class TestRunner():
 				testrun_status = TestrunStatus.Failed
 
 			(stdout, stderr) = await container.logs()
-			return SubmissionRunResult(submission = submission, stdout = stdout, stderr = stderr, testrun_status = testrun_status, runtime_secs = runtime_secs)
+		return SubmissionRunResult(submission = submission, stdout = stdout, stderr = stderr, testrun_status = testrun_status, runtime_secs = runtime_secs)
 
 	async def _run_submission(self, submission: "Submission"):
 		async with self._process_semaphore:

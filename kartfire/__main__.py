@@ -27,6 +27,7 @@ from .ActionCollection import ActionCollection
 from .ActionRun import ActionRun
 from .ActionResults import ActionResults
 from .ActionReference import ActionReference
+from .ActionHighscore import ActionHighscore
 from .ActionScram import ActionScram
 from .ActionDockerPrune import ActionDockerPrune
 
@@ -77,6 +78,12 @@ def main():
 		parser.add_argument("submission_name", help = "Name of the submission that was run and should be used as a reference.")
 		parser.add_argument("collection_name", nargs = "+", help = "Test collection name(s) that was/were run.")
 	mc.register("reference", "Mark a solution's results as the reference answers", genparser, action = ActionReference)
+
+	def genparser(parser):
+		parser.add_argument("-D", "--database-filename", metavar = "file", default = "kartfire.sqlite3", help = "Database filename to use. Defaults to %(default)s.")
+		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
+		parser.add_argument("collection_name", help = "Test collection name(s) to judge, possibly separated by commas.")
+	mc.register("highscore", "Get a highscore list that comares the runtimes of runs that achieved 100% correctness", genparser, action = ActionHighscore)
 
 	def genparser(parser):
 		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")

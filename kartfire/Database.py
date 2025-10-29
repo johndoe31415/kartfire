@@ -86,7 +86,8 @@ class Database(SqliteORM):
 				run_start_utcts varchar(64) NOT NULL,
 				run_end_utcts varchar(64) NULL,
 				runtime_secs float NULL,						-- pure runtime of the run testcase script; for output relative to the user
-				total_time_secs float NULL,						-- total time, redundant to (run_end_utcts - run_start_utcts); for scheduling purposes
+				total_time_secs float NULL,						-- total time, redundant to (run_end_utcts - run_start_utcts); for scheduling purposes, redundant for efficiency reasons
+				testcase_count integer NOT NULL,				-- total amount of associated testcases with this run
 				max_permissible_runtime_secs float NULL,
 				max_permissible_ram_mib integer NOT NULL,
 				dependencies varchar(4096) NOT NULL,
@@ -121,6 +122,17 @@ class Database(SqliteORM):
 		with contextlib.suppress(sqlite3.OperationalError):
 			self._cursor.execute("CREATE index testresult_run_id_idx ON testresult(run_id);")
 
+		with contextlib.suppress(sqlite3.OperationalError):
+			self._cursor.execute("""CREATE VIEW successful_runs_runtimes AS
+				SELECT run_id, source, collection, runtime_secs FROM
+					(SELECT testrun.run_id, source, collection, COUNT(testresult.status) AS passed_count, testcase_count, runtime_secs FROM testrun
+						JOIN testresult ON testresult.run_id = testrun.run_id
+						WHERE (testrun.status = 'finished') AND (testresult.status = 'pass')
+						GROUP BY testrun.run_id)
+				WHERE passed_count = testcase_count;
+			""")
+
+
 	def create_testcase(self, action: str, arguments: dict, created_utcts: datetime.datetime, correct_reply: dict | None = None, dependencies: dict | None = None):
 		self._insert("testcases", {
 			"action": action,
@@ -130,18 +142,19 @@ class Database(SqliteORM):
 			"dependencies": dependencies,
 		})
 
-	def create_testrun(self, submission: "Submission", testcases: "TestcaseCollection", run_constraints: "RunConstraints"):
+	def create_testrun(self, submission: "Submission", testcase_collection: "TestcaseCollection", run_constraints: "RunConstraints"):
 		run_id = self._insert("testrun", {
 			"source": submission.shortname,
 			"source_metadata": submission.to_dict(),
 			"run_start_utcts": datetime.datetime.now(datetime.UTC),
+			"testcase_count": len(testcase_collection),
 			"max_permissible_runtime_secs": run_constraints.max_permissible_runtime_secs,
 			"max_permissible_ram_mib": run_constraints.max_permissible_ram_mib,
-			"dependencies": testcases.dependencies,
+			"dependencies": testcase_collection.dependencies,
 			"status": TestrunStatus.Running,
-			"collection": testcases.name,
+			"collection": testcase_collection.name,
 		})
-		for testcase in testcases:
+		for testcase in testcase_collection:
 			self._insert("testresult", {
 				"tc_id":	testcase.tc_id,
 				"run_id":	run_id,
@@ -156,11 +169,15 @@ class Database(SqliteORM):
 		self._increase_uncommitted_write_count()
 
 	def close_testrun(self, run_id: int, submission_run_result: "SubmissionRunResult"):
-		self._mapped_execute("UPDATE testrun SET status = ?, error_details = ?, run_end_utcts = ?, runtime_secs = ?, stderr = ? WHERE run_id = ?;",
+		now = datetime.datetime.now(datetime.UTC)
+		start_ts = self._mapped_execute("SELECT run_start_utcts FROM testrun WHERE run_id = ?;", run_id)._mapped_fetchone("testrun")["run_start_utcts"]
+		total_time_secs = (now - start_ts).total_seconds()
+		self._mapped_execute("UPDATE testrun SET status = ?, error_details = ?, run_end_utcts = ?, runtime_secs = ?, total_time_secs = ?, stderr = ? WHERE run_id = ?;",
 							(submission_run_result.testrun_status, "testrun:status"),
 							(submission_run_result.error_details, "testrun:error_details"),
-							(datetime.datetime.now(datetime.UTC), "testrun:run_end_utcts"),
+							(now, "testrun:run_end_utcts"),
 							submission_run_result.runtime_secs,
+							total_time_secs,
 							submission_run_result.stderr,
 							run_id)
 		self._increase_uncommitted_write_count()
@@ -278,3 +295,13 @@ class Database(SqliteORM):
 					(correct_reply, "testcases:correct_reply"),
 					tc_id)
 		self._increase_uncommitted_write_count()
+
+	def get_highscore(self, collection_name: str):
+		return self._mapped_execute("""
+			SELECT MIN(run_id) AS run_id, source, min_runtime_secs FROM
+				(SELECT run_id, source, collection, runtime_secs, MIN(runtime_secs) OVER (PARTITION BY source, collection) AS min_runtime_secs FROM successful_runs_runtimes) AS subqry
+				WHERE (runtime_secs = min_runtime_secs) AND (collection = ?)
+				GROUP BY source, collection, min_runtime_secs
+				ORDER BY min_runtime_secs ASC
+			;
+		""", collection_name)._mapped_fetchall()
