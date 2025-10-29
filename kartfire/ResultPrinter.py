@@ -111,12 +111,7 @@ class ResultPrinter():
 			case _:
 				raise ValueError(format_str)
 
-	def print_overview(self, run_id: int):
-		run_result = MultiRunResult.load_single_run(self._db, run_id)
-
-#		td = TimeDelta(row["run_start_utcts"], row["run_end_utcts"])
-#		error_details = row["error_details"]
-
+	def print_run_overview(self, run_result: "RunResult"):
 		result_bar = ResultBar((
 			(TestresultStatus.Pass, "+", self._color.green),
 			(TestresultStatus.Fail, "-", self._color.red),
@@ -125,8 +120,7 @@ class ResultPrinter():
 		), self._color.clr)
 
 		columns = [ ]
-
-		columns.append(f"{run_result.run_id:5d}")
+		columns.append(f"{run_result.full_id:<9s}")
 		columns.append(f"{run_result.multirun.source:<30s}")
 		columns.append(f"{run_result.overview['collection']:<25s}")
 		ts = f"[ref {run_result.reference_runtime:d} lim {run_result.runtime_allowance:d} act {run_result.runtime:d}]"
@@ -135,21 +129,23 @@ class ResultPrinter():
 		columns.append(f"{run_result.status_text}")
 		columns.append(f"{run_result.runtime:d}")
 		columns.append(f"{run_result.error_text}")
-
-
-#		columns = [
-#			f"{row['run_id']:5d}",
-#			f"{source_str:25s}",
-#			f"{TestrunStatus(row['status']).name:14s}",
-#			f"  {self._fmtts(row['run_start_utcts'])}-{self._fmtts(row['run_end_utcts'], 'time')} ({td})",
-#			f"  runtime {td:d}  ",
-#			f"  {result_bar(row['result_count'])}"
-#			f"  {sorted_status_str}"
-#		]
-#
-#		if error_details is not None:
-#			columns.append(f"{error_details['text']}")
 		print(" ".join(columns))
+
+	def print_multirun_overview(self, multirun_result: "MultiRunResult"):
+		if multirun_result.overview["build_status"] == TestrunStatus.Finished:
+			# Omit build information
+			for run_result in multirun_result:
+				self.print_run_overview(run_result)
+		else:
+			columns = [ ]
+			columns.append(f"{str(multirun_result.multirun_id):<9s}")
+			columns.append(f"{multirun_result.source:<30s}")
+			cell = f"build {multirun_result.overview['build_status'].name}: {multirun_result.build_error_text}"
+			columns.append(f"{cell:<64s}")
+			cell = f"[lim {multirun_result.build_allowance:d} act {multirun_result.build_runtime:d}]"
+			columns.append(f"{cell}")
+
+			print(" ".join(columns))
 
 	def _print_answer(self, testcase_result: dict):
 		status = testcase_result["status"]

@@ -25,10 +25,17 @@ from .CmdlineAction import CmdlineAction
 from .TestRunner import TestRunner
 from .Submission import Submission
 from .ResultPrinter import ResultPrinter
+from .RunResult import MultiRunResult
 
 class ActionRun(CmdlineAction):
+	def _build_finished_callback(self, multirun_id: int):
+		multirun_result = MultiRunResult(self._db, multirun_id)
+		if multirun_result.build_failed:
+			self._rp.print_multirun_overview(multirun_result)
+
 	def _run_finished_callback(self, submission: Submission, run_id: int):
-		self._rp.print_overview(run_id)
+		run_result = MultiRunResult.load_single_run(self._db, run_id)
+		self._rp.print_run_overview(run_result)
 
 	def _multirun_finished_callback(self, submission: Submission, run_ids: list[int]):
 		self._run_ids.append((submission, run_ids))
@@ -39,6 +46,7 @@ class ActionRun(CmdlineAction):
 		collection_names = self._args.collection_name.split(",")
 		tc_collections = [ self._db.get_testcase_collection(collection_name) for collection_name in collection_names ]
 		runner = TestRunner(tc_collections, self._test_fixture_config, self._db, interactive = self._args.interactive)
+		runner.register_build_finished_callback(self._build_finished_callback)
 		runner.register_run_finished_callback(self._run_finished_callback)
 		runner.register_multirun_finished_callback(self._multirun_finished_callback)
 		ignored_count = 0
@@ -57,6 +65,6 @@ class ActionRun(CmdlineAction):
 		runner.run(submissions)
 
 		print("=" * 120)
-		for (submission, run_ids) in sorted(self._run_ids, key = lambda entry: (entry[0].shortname, entry[1])):
-			for run_id in run_ids:
-				self._rp.print_overview(run_id)
+#		for (submission, run_ids) in sorted(self._run_ids, key = lambda entry: (entry[0].shortname, entry[1])):
+#			for run_id in run_ids:
+#				self._rp.print_overview(run_id)

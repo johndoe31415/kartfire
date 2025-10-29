@@ -21,6 +21,7 @@
 
 import functools
 from .TimeDelta import TimeDelta
+from .Enums import TestrunStatus
 
 class RunResult():
 	def __init__(self, db: "Database", multirun: "MultiRunResult", overview: dict):
@@ -100,9 +101,9 @@ class MultiRunResult():
 		self._multirun_id = multirun_id
 		self._overview = db.get_multirun_overview(multirun_id)
 		if preloaded_runs is not None:
-			self._runs = preloaded_runs
+			self._run_results = preloaded_runs
 		else:
-			self._runs = TODOLOAD
+			self._run_results = [ RunResult(db, self, run_result) for run_result in self._db.get_run_overviews_of_multirun(self._multirun_id) ]
 
 	@property
 	def multirun_id(self):
@@ -111,6 +112,10 @@ class MultiRunResult():
 	@property
 	def overview(self):
 		return self._overview
+
+	@property
+	def build_failed(self):
+		return self.overview["build_status"] != TestrunStatus.Finished
 
 	@classmethod
 	def load_single_run(cls, db: "Database", run_id: int):
@@ -148,14 +153,27 @@ class MultiRunResult():
 		except KeyError:
 			return None
 
-
+	@property
+	def build_error_text(self):
+		if self.overview["build_error_details"] is not None:
+			return self.overview["build_error_details"]["text"]
+		else:
+			return ""
 
 	@property
-	def runtime(self):
+	def build_allowance(self):
+		return TimeDelta(self.overview["build_runtime_allowance_secs"])
+
+	@property
+	def build_runtime(self):
+		return TimeDelta(self.overview["build_runtime_secs"])
+
+	@property
+	def test_runtime(self):
 		return TimeDelta(sum(run_result.overview["runtime_secs"] for run_result in self))
 
 	@property
-	def reference_runtime(self):
+	def test_reference_runtime(self):
 		return TimeDelta(sum(run_result.overview["reference_runtime_secs"] for run_result in self))
 
 	def __len__(self):

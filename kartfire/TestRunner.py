@@ -85,8 +85,12 @@ class TestRunner():
 		_log.debug("Successfully started testcase runner with %d collections and %s total testcases", len(self._testcase_collections), sum(len(collection) for collection in self._testcase_collections))
 		self._concurrent_process_count = self._determine_concurrent_process_count()
 		self._process_semaphore = None
+		self._submission_build_finished_callbacks = [ ]
 		self._submission_run_finished_callbacks = [ ]
 		self._submission_multirun_finished_callbacks = [ ]
+
+	def register_build_finished_callback(self, callback: callable):
+		self._submission_build_finished_callbacks.append(callback)
 
 	def register_run_finished_callback(self, callback: callable):
 		self._submission_run_finished_callbacks.append(callback)
@@ -113,7 +117,7 @@ class TestRunner():
 			raise InternalError("Limitations on RAM/process count allow running of no process at all.")
 		return concurrent
 
-	def _evaluate_run_result(self, run_id: int, collection: "TestcaseCollection", exec_result: "ExecutionResult"):
+	def _evaluate_docker_stdout(self, exec_result: "ExecutionResult", run_id: int = None, collection: "TestcaseCollection | None" = None):
 		for stdout_line in exec_result.stdout.decode("utf-8", errors = "ignore").split("\n"):
 			try:
 				json_data = json.loads(stdout_line)
@@ -128,32 +132,34 @@ class TestRunner():
 						exec_result.testrun_status = TestrunStatus.Failed
 					exec_result.error_details = json_data.get("exception")
 
-				if "id" not in json_data:
-					continue
-				if "reply" not in json_data:
-					continue
-				if not json_data["id"].isdigit():
-					continue
-				tc_id = int(json_data["id"])
-				if tc_id not in collection:
-					print(f"Submission returned TCID {tc_id} which is not not in testcase battery")
-					continue
-				testcase = collection[tc_id]
+				if run_id is not None:
+					if "id" not in json_data:
+						continue
+					if "reply" not in json_data:
+						continue
+					if not json_data["id"].isdigit():
+						continue
+					tc_id = int(json_data["id"])
+					if tc_id not in collection:
+						print(f"Submission returned TCID {tc_id} which is not not in testcase battery")
+						continue
+					testcase = collection[tc_id]
 
-				if testcase.correct_reply is None:
-					# No response available
-					test_result_status = TestresultStatus.Indeterminate
-				elif testcase.correct_reply == json_data["reply"]:
-					test_result_status = TestresultStatus.Pass
-				else:
-					test_result_status = TestresultStatus.Fail
+					if testcase.correct_reply is None:
+						# No response available
+						test_result_status = TestresultStatus.Indeterminate
+					elif testcase.correct_reply == json_data["reply"]:
+						test_result_status = TestresultStatus.Pass
+					else:
+						test_result_status = TestresultStatus.Fail
 
-				self._db.update_testresult(run_id, tc_id, json_data["reply"], test_result_status)
-				self._db.opportunistic_commit()
+					self._db.update_testresult(run_id, tc_id, json_data["reply"], test_result_status)
+					self._db.opportunistic_commit()
 			except json.decoder.JSONDecodeError:
 				pass
-		self._db.close_testrun(run_id, exec_result)
-		self._db.commit()
+		if run_id is not None:
+			self._db.close_testrun(run_id, exec_result)
+			self._db.commit()
 
 	def _determine_runtime_allowance_secs(self, collection: "TestcaseCollection"):
 		if (collection.reference_runtime_secs is None) or (self._config.reference_time_factor is None):
@@ -231,6 +237,7 @@ class TestRunner():
 			return committed_image_id
 
 		exec_result = await self._execute_docker_container_run(docker = docker, image_name = self._config.docker_container, container_command = [ "/container_testrunner", "--execute-build" ], prefix = f"bld_{submission.shortname}", pre_run_hook = pre_run_hook, post_run_hook = post_run_hook, timeout_secs = self._config.max_build_time_secs)
+		self._evaluate_docker_stdout(exec_result)
 		return exec_result
 
 	async def _execute_run_step(self, docker: Docker, submission: "Submission", collection: "TestcaseCollection", base_image_name: str):
@@ -259,6 +266,9 @@ class TestRunner():
 				self._db.update_multirun_build_status(multirun_id, build_result)
 				self._db.commit()
 
+				for callback in self._submission_build_finished_callbacks:
+					callback(multirun_id)
+
 				if build_result.testrun_status == TestrunStatus.Finished:
 					# Only continue running tests if build actually worked
 					commited_base_image_id = build_result.post_run_result
@@ -271,7 +281,7 @@ class TestRunner():
 						run_ids.append(run_id)
 						self._db.commit()
 						run_result = await self._execute_run_step(docker, submission, collection, base_image_name = commited_base_image_id)
-						self._evaluate_run_result(run_id, collection, run_result)
+						self._evaluate_docker_stdout(run_result, run_id, collection)
 						self._db.commit()
 						for callback in self._submission_run_finished_callbacks:
 							callback(submission, run_id)

@@ -9,7 +9,7 @@ with open(testcase_file) as f:
 	testcases = json.load(f)
 
 for (tcid, testcase) in testcases["testcases"].items():
-	time.sleep(1.5 + 2 * random.random())
+	time.sleep(1.5 + random.random())
 	args = testcase["arguments"]
 	match testcase["action"]:
 		case "add":
@@ -25,5 +25,6 @@ for (tcid, testcase) in testcases["testcases"].items():
 			raise Exception(f"Unsupported testcase action: {testcase['action']}")
 
 	print(json.dumps({ "id": tcid, "reply": result }))
+	sys.stdout.flush()
 
 print("This comment should be ignored.", file = sys.stderr)
