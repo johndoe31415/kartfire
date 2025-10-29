@@ -47,6 +47,7 @@ class Database(SqliteORM):
 		self._map_type("multirun:build_start_utcts", "utcts")
 		self._map_type("multirun:build_end_utcts", "utcts")
 		self._map_type("multirun:build_status", "enum", TestrunStatus)
+		self._map_type("multirun:build_error_details", "json")
 
 		self._map_type("testrun:run_start_utcts", "utcts")
 		self._map_type("testrun:run_end_utcts", "utcts")
@@ -93,12 +94,13 @@ class Database(SqliteORM):
 				environment_metadata varchar(4096) NOT NULL,
 				build_start_utcts varchar(64) NOT NULL,
 				build_end_utcts varchar(64) NULL,
-				total_time_secs float NULL,								-- total time, redundant to (run_end_utcts - run_start_utcts); for scheduling purposes, redundant for efficiency reasons
+				total_time_secs float NULL,								-- total time for the whole run, including running of all testruns, i.e., from build_start_utcts to the last testrun.run_end_utcts
 				build_status varchar(32) NOT NULL DEFAULT 'running',
 				build_stdout blob NULL,
 				build_stderr blob NULL,
 				build_runtime_secs float NULL,							-- pure runtime of the build script; for output relative to the user
-				build_max_permissible_runtime_secs float NULL,
+				build_runtime_allowance_secs float NULL,
+				build_error_details varchar(4096) NULL,
 				CHECK((build_status = 'running') OR (build_status = 'finished') OR (build_status = 'failed') OR (build_status = 'aborted') OR (build_status = 'terminated'))
 			);
 			""")
@@ -113,7 +115,7 @@ class Database(SqliteORM):
 				run_end_utcts varchar(64) NULL,
 				runtime_secs float NULL,						-- pure runtime of the run testcase script; for output relative to the user
 				testcase_count integer NOT NULL,				-- total amount of associated testcases with this run
-				max_permissible_runtime_secs float NULL,
+				runtime_allowance_secs float NULL,
 				max_permissible_ram_mib integer NOT NULL,
 				dependencies varchar(4096) NOT NULL,
 				status varchar(32) NOT NULL DEFAULT 'running',
@@ -178,14 +180,18 @@ class Database(SqliteORM):
 			"environment_metadata": env,
 			"build_start_utcts": datetime.datetime.now(datetime.UTC),
 			"build_status": TestrunStatus.Running,
+			"build_runtime_allowance_secs": build_constraints.runtime_allowance_secs,
 		})
 		return multirun_id
 
 	def update_multirun_build_status(self, multirun_id: int, exec_result: "ExecutionResult"):
-		self._mapped_execute("UPDATE multirun SET build_end_utcts = ?, build_status = ?, build_runtime_secs = ? WHERE (multirun_id = ?);",
+		self._mapped_execute("UPDATE multirun SET build_end_utcts = ?, build_status = ?, build_stdout = ?, build_stderr = ?, build_runtime_secs = ?, build_error_details = ? WHERE (multirun_id = ?);",
 								(datetime.datetime.now(datetime.UTC), "multirun:build_end_utcts"),
 								(exec_result.testrun_status, "multirun:build_status"),
+								exec_result.stdout,
+								exec_result.stderr,
 								exec_result.runtime_secs,
+							   (exec_result.error_details, "multirun:build_error_details"),
 								multirun_id)
 		self._increase_uncommitted_write_count()
 
@@ -194,7 +200,7 @@ class Database(SqliteORM):
 			"multirun_id": multirun_id,
 			"run_start_utcts": datetime.datetime.now(datetime.UTC),
 			"testcase_count": len(testcase_collection),
-			"max_permissible_runtime_secs": run_constraints.max_permissible_runtime_secs,
+			"runtime_allowance_secs": run_constraints.runtime_allowance_secs,
 			"max_permissible_ram_mib": run_constraints.max_permissible_ram_mib,
 			"dependencies": testcase_collection.dependencies,
 			"status": TestrunStatus.Running,
@@ -214,18 +220,22 @@ class Database(SqliteORM):
 							tc_id, run_id)
 		self._increase_uncommitted_write_count()
 
-	def close_testrun(self, run_id: int, submission_run_result: "SubmissionRunResult"):
+	def close_testrun(self, run_id: int, exec_result: "ExecutionResult"):
 		now = datetime.datetime.now(datetime.UTC)
-		start_ts = self._mapped_execute("SELECT run_start_utcts FROM testrun WHERE run_id = ?;", run_id)._mapped_fetchone("testrun")["run_start_utcts"]
-		total_time_secs = (now - start_ts).total_seconds()
-		self._mapped_execute("UPDATE testrun SET status = ?, error_details = ?, run_end_utcts = ?, runtime_secs = ?, total_time_secs = ?, stderr = ? WHERE run_id = ?;",
-							(submission_run_result.testrun_status, "testrun:status"),
-							(submission_run_result.error_details, "testrun:error_details"),
+		self._mapped_execute("UPDATE testrun SET status = ?, error_details = ?, run_end_utcts = ?, runtime_secs = ?, stderr = ? WHERE run_id = ?;",
+							(exec_result.testrun_status, "testrun:status"),
+							(exec_result.error_details, "testrun:error_details"),
 							(now, "testrun:run_end_utcts"),
-							submission_run_result.runtime_secs,
-							total_time_secs,
-							submission_run_result.stderr,
+							exec_result.runtime_secs,
+							exec_result.stderr,
 							run_id)
+		self._increase_uncommitted_write_count()
+
+	def close_multirun(self, multirun_id: int):
+		now = datetime.datetime.now(datetime.UTC)
+		start_ts = self._mapped_execute("SELECT build_start_utcts FROM multirun WHERE multirun_id = ?;", multirun_id)._mapped_fetchone("multirun")["build_start_utcts"]
+		total_time_secs = (now - start_ts).total_seconds()
+		self._cursor.execute("UPDATE multirun SET total_time_secs = ? WHERE multirun_id = ?;", (total_time_secs, multirun_id))
 		self._increase_uncommitted_write_count()
 
 	def _get_tc_ids_for_selector_part(self, testcase_selector_part: str):
@@ -308,9 +318,16 @@ class Database(SqliteORM):
 	def get_latest_run_ids(self, max_list_length: int = 10) -> list[int]:
 		return [ row["run_id"] for row in self._cursor.execute("SELECT run_id FROM testrun ORDER BY run_start_utcts DESC LIMIT ?;", (max_list_length, )).fetchall() ]
 
+	def get_multirun_overview(self, multirun_id: int):
+		row = self._mapped_execute(f"""
+			SELECT multirun_id, source, source_metadata, build_start_utcts, build_end_utcts, build_runtime_secs, build_runtime_allowance_secs, build_status, build_error_details FROM multirun
+				WHERE multirun_id = ?;
+		""", multirun_id)._mapped_fetchone("multirun")
+		return row
+
 	def get_run_overview(self, run_id: int, full_overview: bool = False):
 		row = self._mapped_execute(f"""
-			SELECT {'testrun.*' if full_overview else 'run_id, collection, source, source_metadata, run_start_utcts, run_end_utcts, runtime_secs, max_permissible_runtime_secs, max_permissible_ram_mib, status, error_details'}, testcollection.reference_runtime_secs FROM testrun
+			SELECT {'testrun.*' if full_overview else 'run_id, multirun_id, collection, run_start_utcts, run_end_utcts, runtime_secs, runtime_allowance_secs, max_permissible_ram_mib, status, error_details'}, testcollection.reference_runtime_secs FROM testrun
 				LEFT JOIN testcollection ON testcollection.name = testrun.collection
 				WHERE run_id = ?;
 		""", run_id)._mapped_fetchone("testrun")

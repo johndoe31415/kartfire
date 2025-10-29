@@ -24,7 +24,7 @@ import collections
 import datetime
 import tzlocal
 from .Enums import TestrunStatus, TestresultStatus
-from .RunResult import RunResult
+from .RunResult import MultiRunResult
 
 class ResultColorizer():
 	def __init__(self, ansi: bool = True):
@@ -64,7 +64,7 @@ class ResultBar():
 		self._clear_color = clear_color
 		self._length = length
 
-	def __call__(self, run_result: RunResult):
+	def __call__(self, run_result: "RunResult"):
 		if not run_result.have_results:
 			# No tests run?
 			return "[" + (" " * self._length) + "]"
@@ -112,7 +112,7 @@ class ResultPrinter():
 				raise ValueError(format_str)
 
 	def print_overview(self, run_id: int):
-		run_result = RunResult(self._db, run_id)
+		run_result = MultiRunResult.load_single_run(self._db, run_id)
 
 #		td = TimeDelta(row["run_start_utcts"], row["run_end_utcts"])
 #		error_details = row["error_details"]
@@ -127,9 +127,9 @@ class ResultPrinter():
 		columns = [ ]
 
 		columns.append(f"{run_result.run_id:5d}")
-		columns.append(f"{run_result.source:<30s}")
+		columns.append(f"{run_result.multirun.source:<30s}")
 		columns.append(f"{run_result.overview['collection']:<25s}")
-		ts = f"[ref {run_result.reference_runtime:d} lim {run_result.max_permissible_runtime:d} act {run_result.runtime:d}]"
+		ts = f"[ref {run_result.reference_runtime:d} lim {run_result.runtime_allowance:d} act {run_result.runtime:d}]"
 		columns.append(f"{ts:<38s}")
 		columns.append(f"{result_bar(run_result)}")
 		columns.append(f"{run_result.status_text}")

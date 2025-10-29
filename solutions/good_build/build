@@ -3,3 +3,6 @@ echo "Compiling..."
 echo "this is on stderr" >&2
 sleep 1
 echo "Done!"
+
+cd $(dirname $0)
+ln -s solution-moo solution

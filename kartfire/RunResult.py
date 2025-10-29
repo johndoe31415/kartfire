@@ -23,29 +23,38 @@ import functools
 from .TimeDelta import TimeDelta
 
 class RunResult():
-	def __init__(self, db: "Database", run_id: int):
+	def __init__(self, db: "Database", multirun: "MultiRunResult", overview: dict):
 		self._db = db
-		self._run_id = run_id
+		self._multirun = multirun
+		self._overview = overview
+
+	@property
+	def full_id(self):
+		return f"{self.multirun.multirun_id}.{self.run_id}"
 
 	@property
 	def run_id(self):
-		return self._run_id
+		return self._overview["run_id"]
+
+	@property
+	def multirun(self):
+		return self._multirun
+
+	@property
+	def overview(self):
+		return self._overview
 
 	@property
 	def runtime(self):
 		return TimeDelta(self.overview["runtime_secs"])
 
 	@property
-	def max_permissible_runtime(self):
-		return TimeDelta(self.overview["max_permissible_runtime_secs"])
+	def runtime_allowance(self):
+		return TimeDelta(self.overview["runtime_allowance_secs"])
 
 	@property
 	def reference_runtime(self):
 		return TimeDelta(self.overview["reference_runtime_secs"])
-
-	@functools.cached_property
-	def overview(self):
-		return self._db.get_run_overview(self._run_id)
 
 	@functools.cached_property
 	def full_overview(self):
@@ -53,7 +62,7 @@ class RunResult():
 
 	@functools.cached_property
 	def result_count(self):
-		return self._db.get_run_result_count(self._run_id)
+		return self._db.get_run_result_count(self.run_id)
 
 	@functools.cached_property
 	def result_count_dict(self):
@@ -72,16 +81,51 @@ class RunResult():
 		return len(self.result_count) > 0
 
 	@property
-	def have_git_info(self):
-		source_metadata = self.overview["source_metadata"]
-		return ("meta" in source_metadata) and ("git" in source_metadata["meta"]) and ("commit" in source_metadata["meta"]["git"])
-
-	@property
 	def status_text(self):
 		if len(self.result_count) == 1:
 			return f"All {self.result_count[0][0].name}"
 		else:
 			return ", ".join(f"{count}/{count / self.total_testcase_count * 100:.1f}% {status.name}" for (status, count) in self.result_count)
+
+	@property
+	def error_text(self):
+		if self.overview["error_details"] is not None:
+			return self.overview["error_details"]["text"]
+		else:
+			return ""
+
+class MultiRunResult():
+	def __init__(self, db: "Database", multirun_id: int, preloaded_runs: list[RunResult] | None = None):
+		self._db = db
+		self._multirun_id = multirun_id
+		self._overview = db.get_multirun_overview(multirun_id)
+		if preloaded_runs is not None:
+			self._runs = preloaded_runs
+		else:
+			self._runs = TODOLOAD
+
+	@property
+	def multirun_id(self):
+		return self._multirun_id
+
+	@property
+	def overview(self):
+		return self._overview
+
+	@classmethod
+	def load_single_run(cls, db: "Database", run_id: int):
+		run_overview = db.get_run_overview(run_id)
+		multirun_overview = db.get_multirun_overview(run_overview["multirun_id"])
+		run_result = RunResult(db, None, run_overview)
+		multirun = cls(db = db, multirun_id = multirun_overview["multirun_id"], preloaded_runs = [ run_result ])
+		run_result._multirun = multirun
+		return run_result
+
+
+	@property
+	def have_git_info(self):
+		source_metadata = self.overview["source_metadata"]
+		return ("meta" in source_metadata) and ("git" in source_metadata["meta"]) and ("commit" in source_metadata["meta"]["git"])
 
 	@property
 	def source(self):
@@ -104,40 +148,7 @@ class RunResult():
 		except KeyError:
 			return None
 
-	@property
-	def error_text(self):
-		if self.overview["error_details"] is not None:
-			return self.overview["error_details"]["text"]
-		else:
-			return ""
 
-class RunMultiResult():
-	def __init__(self, db: "Database", run_ids: list[int]):
-		self._db = db
-		self._run_ids = run_ids
-		self._run_results = [ RunResult(self._db, run_id) for run_id in self._run_ids ]
-
-	@property
-	def first(self):
-		return self._run_results[0]
-
-	@property
-	def solution_authors(self):
-		authors = set(run_result.solution_author for run_result in self)
-		authors.discard(None)
-		if len(authors) == 0:
-			return None
-		else:
-			return authors
-
-	@property
-	def solution_emails(self):
-		emails = set(run_result.solution_email for run_result in self)
-		emails.discard(None)
-		if len(emails) == 0:
-			return None
-		else:
-			return emails
 
 	@property
 	def runtime(self):
@@ -152,3 +163,5 @@ class RunMultiResult():
 
 	def __iter__(self):
 		return iter(self._run_results)
+
+

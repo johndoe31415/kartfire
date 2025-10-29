@@ -45,11 +45,11 @@ class ExecutionResult():
 
 @dataclasses.dataclass
 class BuildConstraints():
-	max_permissible_runtime_secs: float | None
+	runtime_allowance_secs: float | None
 
 @dataclasses.dataclass
 class RunConstraints():
-	max_permissible_runtime_secs: float | None
+	runtime_allowance_secs: float | None
 	max_permissible_ram_mib: int
 
 @dataclasses.dataclass
@@ -113,8 +113,8 @@ class TestRunner():
 			raise InternalError("Limitations on RAM/process count allow running of no process at all.")
 		return concurrent
 
-	def _evaluate_run_result(self, run_id: int, collection: "TestcaseCollection", submission_run_result: "SubmissionRunResult"):
-		for stdout_line in submission_run_result.stdout.decode("utf-8", errors = "ignore").split("\n"):
+	def _evaluate_run_result(self, run_id: int, collection: "TestcaseCollection", exec_result: "ExecutionResult"):
+		for stdout_line in exec_result.stdout.decode("utf-8", errors = "ignore").split("\n"):
 			try:
 				json_data = json.loads(stdout_line)
 				if not isinstance(json_data, dict):
@@ -123,10 +123,10 @@ class TestRunner():
 				if ("_" in json_data) and (json_data["_"] == "9d83e7a5-bb94-40a1-9f59-a6586d2c3c94"):
 					# Exception in subordinate process
 					if json_data.get("code", "N/A") in [ "exec_timeout", "exec_oom" ]:
-						submission_run_result.testrun_status = TestrunStatus.Terminated
+						exec_result.testrun_status = TestrunStatus.Terminated
 					else:
-						submission_run_result.testrun_status = TestrunStatus.Failed
-					submission_run_result.error_details = json_data.get("exception")
+						exec_result.testrun_status = TestrunStatus.Failed
+					exec_result.error_details = json_data.get("exception")
 
 				if "id" not in json_data:
 					continue
@@ -152,72 +152,20 @@ class TestRunner():
 				self._db.opportunistic_commit()
 			except json.decoder.JSONDecodeError:
 				pass
-		self._db.close_testrun(run_id, submission_run_result)
+		self._db.close_testrun(run_id, exec_result)
 		self._db.commit()
 
-	def _determine_max_permissible_runtime_secs(self, collection: "TestcaseCollection"):
+	def _determine_runtime_allowance_secs(self, collection: "TestcaseCollection"):
 		if (collection.reference_runtime_secs is None) or (self._config.reference_time_factor is None):
 			# Infinity, never timeout solutions (this should only be done for
 			# known good solutions to gauge the reference time)
 			return None
 		else:
-			return self._config.minimum_testbatch_time_secs + self._config.max_setup_time_secs + (collection.reference_runtime_secs * self._config.reference_time_factor)
+			return self._config.minimum_testbatch_time_secs + (collection.reference_runtime_secs * self._config.reference_time_factor)
+
 	@property
 	def docker(self):
 		return Docker(docker_executable = self._config.docker_executable)
-
-	async def _run_submission_collection(self, submission: "Submission", collection: "TestcaseCollection"):
-		container_testcases = {
-			"testcases": { str(testcase.tc_id): testcase.guest_dict() for testcase in collection },
-		}
-
-		original_container_command = [ "/container_testrunner" ]
-		container_command = original_container_command
-		if self._interactive:
-			print(f"Trigger test runner using: {' '.join(container_command)}")
-			container_command = [ "/bin/bash" ]
-
-		_log.debug(f"Creating docker container to run submission \"%s\", time allowance is {'infinite' if (container_meta['max_runtime_secs'] is None) else f'{container_meta['max_runtime_secs']:.1f} secs'}", str(submission))
-
-		async with self.docker as docker:
-			network = await docker.create_network()
-
-			# Start all dependent servers (e.g., a server container that the
-			# submission needs to connect to)
-			for (server_alias, server_config) in collection.dependencies.items():
-				_log.debug("Starting dependent server %s with config %s.", server_alias, str(server_config))
-				server_container = await docker.create_container(docker_image_name = server_config["image"], command = server_config["command"], network = network, network_alias = server_alias, run_name_prefix = f"kartfire_dep_{submission.shortname}_{server_alias}")
-				await server_container.start()
-
-			container = await docker.create_container(docker_image_name = self._config.docker_container, command = container_command, network = network, max_memory_mib = self._config.max_memory_mib, interactive = self._interactive, run_name_prefix = f"kartfire_run_{submission.shortname}")
-			await container.cp(self.container_testrunner_filename, "/container_testrunner")
-			with tempfile.NamedTemporaryFile(suffix = ".tar") as tmp:
-				await submission.create_submission_tarfile(tmp.name)
-				await container.cp(tmp.name, container_meta["container_submission_tar_file"])
-			await container.write_json(container_meta, "/meta.json", pretty_print = self._interactive)
-			await container.write_json(container_testcases, container_meta["container_testcase_file"], pretty_print = self._interactive)
-			if self._interactive:
-				await container.cpdata(f"{' '.join(original_container_command)}\n".encode("utf-8"), "/root/.bash_history")
-			await container.start()
-			if self._interactive:
-				await container.attach()
-
-			t0 = time.time()
-			finished = await container.wait_timeout(container_meta["max_runtime_secs"])
-			runtime_secs = time.time() - t0
-			if finished is None:
-				# Docker container time timed out
-				_log.debug("Docker container with submission \"%s\" timed out after %d seconds", str(submission), container_meta["max_runtime_secs"])
-				testrun_status = TestrunStatus.Terminated
-			elif finished == 0:
-				_log.debug("Docker container with submission \"%s\" exited normally.", str(submission))
-				testrun_status = TestrunStatus.Finished
-			else:
-				_log.debug("Docker container with submission \"%s\" exited with status code %d.", str(submission), finished)
-				testrun_status = TestrunStatus.Failed
-
-			(stdout, stderr) = await container.logs()
-		return SubmissionRunResult(submission = submission, stdout = stdout, stderr = stderr, testrun_status = testrun_status, runtime_secs = runtime_secs)
 
 	async def _initialize_docker_env(self, docker: Docker):
 		await docker.create_network()
@@ -226,7 +174,7 @@ class TestRunner():
 		(pre_run_result, post_run_result) = (None, None)
 		original_container_command = container_command
 		if self._interactive:
-			print(f"Running container {prefix} step: {' '.join(command)}")
+			print(f"Running container {prefix} step: {' '.join(container_command)}")
 			container_command = [ "/bin/bash" ]
 
 		container = await docker.create_container(docker_image_name = image_name, command = container_command, network = docker.networks[0], max_memory_mib = self._config.max_memory_mib, interactive = self._interactive, run_name_prefix = f"kartfire_{prefix}")
@@ -244,10 +192,9 @@ class TestRunner():
 		status_code = await container.wait_timeout(timeout_secs)
 		runtime_secs = time.time() - t0
 
-
 		if status_code is None:
 			# Docker container time timed out
-			_log.debug("Docker container \"%s\" timed out after %d seconds", prefix, container_meta["max_runtime_secs"])
+			_log.debug("Docker container \"%s\" timed out after %.1f seconds (allowance %.1f seconds)", prefix, runtime_secs, timeout_secs)
 			testrun_status = TestrunStatus.Terminated
 		elif status_code == 0:
 			_log.debug("Docker container \"%s\" exited normally.", prefix)
@@ -287,14 +234,20 @@ class TestRunner():
 		return exec_result
 
 	async def _execute_run_step(self, docker: Docker, submission: "Submission", collection: "TestcaseCollection", base_image_name: str):
-		timeout = self._determine_max_permissible_runtime_secs(collection)
-		return await self._execute_docker_container_run(docker = docker, image_name = base_image_name, container_command = [ "/container_testrunner", "--execute-run" ], prefix = f"run_{submission.shortname}", timeout_secs = timeout)
+		async def pre_run_hook(container: "RunningDockerContainer"):
+			container_testcases = {
+				"testcases": { str(testcase.tc_id): testcase.guest_dict() for testcase in collection },
+			}
+			await container.write_json(container_testcases, self._DEFS["container_testcase_file"], pretty_print = self._interactive)
+
+		timeout = self._determine_runtime_allowance_secs(collection)
+		return await self._execute_docker_container_run(docker = docker, image_name = base_image_name, container_command = [ "/container_testrunner", "--execute-run" ], prefix = f"run_{submission.shortname}", pre_run_hook = pre_run_hook, timeout_secs = timeout)
 
 	async def _run_submission(self, submission: "Submission"):
 		async with self._process_semaphore:
 			_log.info("Starting testing of submission \"%s\"", submission)
 
-			build_constraints = BuildConstraints(max_permissible_runtime_secs = self._config.max_build_time_secs)
+			build_constraints = BuildConstraints(runtime_allowance_secs = self._config.max_build_time_secs)
 			container_image_metadata = ContainerImageMetadata.collect(self._config.docker_container, self.docker)
 			multirun_id = self._db.create_multirun(submission, build_constraints = build_constraints, container_image_metadata = container_image_metadata)
 			self._db.commit()
@@ -305,25 +258,28 @@ class TestRunner():
 				build_result = await self._execute_build_step(docker, submission)
 				self._db.update_multirun_build_status(multirun_id, build_result)
 				self._db.commit()
-				commited_base_image_id = build_result.post_run_result
 
-				run_ids = [ ]
-				for collection in self._testcase_collections:
-					run_constraints = RunConstraints(max_permissible_runtime_secs = self._determine_max_permissible_runtime_secs(collection), max_permissible_ram_mib = self._config.max_memory_mib)
+				if build_result.testrun_status == TestrunStatus.Finished:
+					# Only continue running tests if build actually worked
+					commited_base_image_id = build_result.post_run_result
 
-					run_id = self._db.create_testrun(multirun_id, collection, run_constraints = run_constraints)
-					run_ids.append(run_id)
-					self._db.commit()
-					run_result = await self._execute_run_step(docker, submission, collection, base_image_name = commited_base_image_id)
+					run_ids = [ ]
+					for collection in self._testcase_collections:
+						run_constraints = RunConstraints(runtime_allowance_secs = self._determine_runtime_allowance_secs(collection), max_permissible_ram_mib = self._config.max_memory_mib)
 
-					print(run_result)
+						run_id = self._db.create_testrun(multirun_id, collection, run_constraints = run_constraints)
+						run_ids.append(run_id)
+						self._db.commit()
+						run_result = await self._execute_run_step(docker, submission, collection, base_image_name = commited_base_image_id)
+						self._evaluate_run_result(run_id, collection, run_result)
+						self._db.commit()
+						for callback in self._submission_run_finished_callbacks:
+							callback(submission, run_id)
+			for callback in self._submission_multirun_finished_callbacks:
+				callback(submission, multirun_id)
 
-#					self._evaluate_run_result(run_id, collection, submission, run_result)
-#					self._db.commit()
-#					for callback in self._submission_run_finished_callbacks:
-#						callback(submission, run_id)
-#			for callback in self._submission_multirun_finished_callbacks:
-#				callback(submission, multirun_id)
+			self._db.close_multirun(multirun_id)
+			self._db.commit()
 
 	async def _run(self, submissions: list["Submission"]):
 		self._process_semaphore = asyncio.Semaphore(self._concurrent_process_count)

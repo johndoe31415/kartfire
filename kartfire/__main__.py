@@ -91,6 +91,7 @@ def main():
 	mc.register("scram", "Perform a Docker SCRAM, effectively terminating every Docker-related things that were started by kartfire", genparser, action = ActionScram)
 
 	def genparser(parser):
+		parser.add_argument("-f", "--force", action = "store_true", help = "Remove also items that may appear to be used (e.g., images that Docker thinks are not dangling)")
 		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
 	mc.register("docker-prune", "Prune Docker remains (networks and dangling containers)", genparser, action = ActionDockerPrune)
 

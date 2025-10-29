@@ -147,6 +147,7 @@ class Docker():
 		return self
 
 	async def create_container(self, docker_image_name: str, command: list, network: DockerNetwork, network_alias: str | None = None, max_memory_mib: int | None = None, interactive: bool = False, auto_cleanup: bool = True, run_name_prefix: str | None = None):
+		assert(docker_image_name is not None)
 		# Create docker container, but do not start yet
 		cmd = [ self._docker_executable, "create" ]
 		cmd += [ "--label", "kartfire" ]
@@ -186,7 +187,7 @@ class Docker():
 		network_id = (await ExecTools.async_check_output(cmd)).decode("ascii").rstrip("\r\n")
 		network = DockerNetwork(self, network_id, allow_wan_access = allow_wan_access)
 		if auto_cleanup:
-			self._cleanup_tasks[1].append(network.rm())
+			self._cleanup_tasks[2].append(network.rm())
 		self._networks.append(network)
 		return network
 
@@ -226,8 +227,12 @@ class Docker():
 	def prune_all_kartfire_networks(self):
 		subprocess.check_call([ self.executable, "network", "prune", "--force", "--filter", "label=kartfire" ])
 
-	def prune_all_kartfire_images(self):
-		subprocess.check_call([ self.executable, "image", "prune", "--force", "--filter", "label=kartfire" ])
+	def prune_all_kartfire_images(self, all_images: bool = True):
+		cmd = [ self.executable, "image", "prune", ]
+		if all_images:
+			cmd.append("--all")
+		cmd += [ "--force", "--filter", "label=kartfire" ]
+		subprocess.check_call(cmd)
 
 if __name__ == "__main__":
 	async def main_run():

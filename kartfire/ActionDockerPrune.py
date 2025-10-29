@@ -28,4 +28,4 @@ class ActionDockerPrune(CmdlineAction):
 		docker = Docker()
 		docker.prune_all_kartfire_containers()
 		docker.prune_all_kartfire_networks()
-		docker.prune_all_kartfire_images()
+		docker.prune_all_kartfire_images(all_images = self._args.force)

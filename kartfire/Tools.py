@@ -107,25 +107,28 @@ class ExecTools():
 		return stdout
 
 	@classmethod
-	async def async_check_communicate(cls, cmd: list):
-#		print(cmd)
+	async def async_check_communicate(cls, cmd: list[str]):
+#		print(f"starting async_check_communicate: {CmdlineEscape().cmdline(cmd)}")
 		proc = await asyncio.create_subprocess_exec(*cmd, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
 		(stdout, stderr) = await proc.communicate()
-#		print(stdout)
+#		print(f"finished async_check_communicate: {CmdlineEscape().cmdline(cmd)}")
 #		print("="*120)
+#		print(stdout)
+#		print("-"*120)
 #		print(stderr)
+#		print("="*120)
 		if proc.returncode != 0:
 			raise SubprocessRunError(f"Command failed to execute, returncode {proc.returncode}: {CmdlineEscape().cmdline(cmd)}")
 		return (stdout, stderr)
 
 	@classmethod
-	async def async_check_call(cls, cmd: list, stdout = None, stderr = None):
+	async def async_check_call(cls, cmd: list[str], stdout = None, stderr = None):
 		result = await cls.async_call(cmd = cmd, stdout = stdout, stderr = stderr)
 		if result != 0:
 			raise SubprocessRunError(f"Command failed to execute, returncode {result}: {CmdlineEscape().cmdline(cmd)}")
 
 	@classmethod
-	async def async_call(cls, cmd: list, stdout = None, stderr = None):
+	async def async_call(cls, cmd: list[str], stdout = None, stderr = None):
 		proc = await asyncio.create_subprocess_exec(*cmd, stdout = stdout, stderr = stderr)
 		result = await proc.wait()
 		return result
