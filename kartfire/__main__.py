@@ -27,7 +27,7 @@ from .ActionCollection import ActionCollection
 from .ActionRun import ActionRun
 from .ActionResults import ActionResults
 from .ActionReference import ActionReference
-from .ActionHighscore import ActionHighscore
+from .ActionLeaderboard import ActionLeaderboard
 from .ActionScram import ActionScram
 from .ActionDockerPrune import ActionDockerPrune
 
@@ -83,7 +83,7 @@ def main():
 		parser.add_argument("-D", "--database-filename", metavar = "file", default = "kartfire.sqlite3", help = "Database filename to use. Defaults to %(default)s.")
 		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
 		parser.add_argument("collection_name", help = "Test collection name(s) to judge, possibly separated by commas.")
-	mc.register("highscore", "Get a highscore list that comares the runtimes of runs that achieved 100% correctness", genparser, action = ActionHighscore)
+	mc.register("leaderboard", "Get a leaderboard that comares the runtimes of runs that achieved all passes", genparser, action = ActionLeaderboard)
 
 	def genparser(parser):
 		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
