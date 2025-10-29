@@ -57,9 +57,13 @@ class RunResult():
 	def reference_runtime(self):
 		return TimeDelta(self.overview["reference_runtime_secs"])
 
+	@property
+	def collection_name(self):
+		return self.overview["collection"]
+
 	@functools.cached_property
 	def full_overview(self):
-		return self._db.get_run_overview(self._run_id, full_overview = True)
+		return self._db.get_run_overview(self.run_id, full_overview = True)
 
 	@functools.cached_property
 	def result_count(self):
@@ -71,7 +75,7 @@ class RunResult():
 
 	@functools.cached_property
 	def testresult_details(self):
-		return self._db.get_run_details(self._run_id)
+		return self._db.get_run_details(self.run_id)
 
 	@functools.cached_property
 	def total_testcase_count(self):

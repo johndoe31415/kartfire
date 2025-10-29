@@ -20,14 +20,18 @@
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
 from .CmdlineAction import CmdlineAction
-from .RunResult import RunResult
+from .RunResult import MultiRunResult
 from .Enums import TestresultStatus
 
 class ActionReference(CmdlineAction):
 	def run(self):
-		for collection_name in self._args.collection_name:
-			run_id = self._db.get_latest_run_id(collection_name = collection_name, submission_name = self._args.submission_name)
-			run_result = RunResult(self._db, run_id)
+		multirun_id = self._db.get_latest_multirun_id(submission_name = self._args.submission_name)
+		if multirun_id is None:
+			print(f"No solution for submission {self._args.submission_name} found.")
+			return 1
+
+		multirun_result = MultiRunResult(self._db, multirun_id)
+		for run_result in multirun_result:
 			if not run_result.have_results:
 				print(f"Cannot apply run id {run_id} as reference: no answers present in solution.")
 				return 1
@@ -37,7 +41,7 @@ class ActionReference(CmdlineAction):
 				for (status, count) in run_result.result_count:
 					print(f"{status:<30s} {count}")
 
-			self._db.set_reference_runtime(collection_name, run_result.runtime.duration_secs)
+			self._db.set_reference_runtime(run_result.collection_name, run_result.runtime.duration_secs)
 			for result in run_result.testresult_details:
 				if (result["status"] == TestresultStatus.Indeterminate) or ((result["status"] == TestresultStatus.Fail) and self._args.pick_failed_answers):
 					self._db.set_reference_answer(result["tc_id"], result["received_reply"])

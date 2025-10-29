@@ -309,11 +309,11 @@ class Database(SqliteORM):
 			testcase = self._get_testcase(row["tc_id"], contained_collections = contained_collections[row["tc_id"]])
 			yield testcase
 
-	def get_latest_run_id(self, collection_name: str, submission_name: str) -> int | None:
-		row = self._cursor.execute("SELECT run_id FROM testrun WHERE collection = ? AND source = ? ORDER BY run_id DESC LIMIT 1;", (collection_name, submission_name)).fetchone()
+	def get_latest_multirun_id(self, submission_name: str) -> int | None:
+		row = self._cursor.execute("SELECT multirun_id FROM multirun WHERE source = ? ORDER BY multirun_id DESC LIMIT 1;", (submission_name, )).fetchone()
 		if row is None:
 			return None
-		return row["run_id"]
+		return row["multirun_id"]
 
 	def get_latest_run_ids(self, max_list_length: int = 10) -> list[int]:
 		return [ row["run_id"] for row in self._cursor.execute("SELECT run_id FROM testrun ORDER BY run_start_utcts DESC LIMIT ?;", (max_list_length, )).fetchall() ]
