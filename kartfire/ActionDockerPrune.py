@@ -19,7 +19,6 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
-import asyncio
 from .CmdlineAction import CmdlineAction
 from .Docker import Docker
 

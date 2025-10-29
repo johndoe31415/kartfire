@@ -20,12 +20,8 @@
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
 import os
-import json
-import collections
-import datetime
 import tzlocal
 import mako.lookup
-from .Enums import TestrunStatus, TestresultStatus
 from .RunResult import MultiRunResult
 
 class ResultHTMLGenerator():

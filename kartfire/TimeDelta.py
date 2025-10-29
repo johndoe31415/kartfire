@@ -19,8 +19,6 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
-import datetime
-
 class TimeDelta():
 	def __init__(self, duration_secs: float | None = None):
 		self._duration_secs = duration_secs
