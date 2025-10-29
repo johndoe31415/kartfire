@@ -37,11 +37,11 @@ class ActionRun(CmdlineAction):
 		run_result = MultiRunResult.load_single_run(self._db, run_id)
 		self._rp.print_run_overview(run_result)
 
-	def _multirun_finished_callback(self, submission: Submission, run_ids: list[int]):
-		self._run_ids.append((submission, run_ids))
+	def _multirun_finished_callback(self, submission: Submission, multirun_id: int):
+		self._multiruns.append(MultiRunResult(self._db, multirun_id))
 
 	def run(self):
-		self._run_ids = [ ]
+		self._multiruns = [ ]
 		self._rp = ResultPrinter(self._db)
 		collection_names = self._args.collection_name.split(",")
 		tc_collections = [ self._db.get_testcase_collection(collection_name) for collection_name in collection_names ]
@@ -65,6 +65,5 @@ class ActionRun(CmdlineAction):
 		runner.run(submissions)
 
 		print("=" * 120)
-#		for (submission, run_ids) in sorted(self._run_ids, key = lambda entry: (entry[0].shortname, entry[1])):
-#			for run_id in run_ids:
-#				self._rp.print_overview(run_id)
+		for multirun_result in sorted(self._multiruns, key = lambda multirun: (multirun.shortname, multirun.multirun_id)):
+			self._rp.print_multirun_overview(multirun_result)

@@ -118,6 +118,10 @@ class MultiRunResult():
 		return self._overview
 
 	@property
+	def shortname(self):
+		return self.overview["source"]
+
+	@property
 	def build_failed(self):
 		return self.overview["build_status"] != TestrunStatus.Finished
 
