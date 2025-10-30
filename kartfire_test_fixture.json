@@ -10,5 +10,9 @@
 	"max_concurrent_processes": 24,
 	"minimum_testbatch_time_secs": 2.5,
 	"reference_time_factor": 3.1415,
-	"allow_network": false
+	"allow_network": false,
+	"email": {
+		"from": "Kartfire CI/CD <cicd@kartfire-pipeline.org>",
+		"via_uri": "file:///tmp/foobar.txt"
+	}
 }

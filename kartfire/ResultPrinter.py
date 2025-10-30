@@ -179,9 +179,9 @@ class ResultPrinter():
 						self._print_answer(result)
 			if run_result.overview["status"] == TestrunStatus.Failed:
 				print("~" * 120)
-				stderr = multirun_result.full_overview["stderr"]
+				stderr = run_result.full_overview["stderr"]
 				if len(stderr) > 0:
 					print()
-					print(f"{multirun_result.error_text}, showing stderr output:")
+					print(f"{run_result.error_text}, showing stderr output:")
 					print(stderr.decode("utf-8", errors = "ignore").strip("\r\n"))
 			print("=" * 120)

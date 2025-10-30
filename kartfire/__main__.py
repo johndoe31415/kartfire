@@ -65,8 +65,10 @@ def main():
 	mc.register("run", "Run solution(s) against a battery of testcases", genparser, action = ActionRun)
 
 	def genparser(parser):
+		parser.add_argument("-C", "--test-fixture-config", metavar = "filename", help = "Specify a specific test fixture configuration to use. If omitted, tries to look in the local directory for a file named 'kartfire_test_fixture.json' before falling back to default values.")
 		parser.add_argument("--summary-by-run", action = "store_true", help = "Show individual runs, not consolidated multiruns")
 		parser.add_argument("-H", "--html-template", metavar = "name", help = "Render a HTML output from the testruns")
+		parser.add_argument("-m", "--send-email", action = "store_true", help = "Send the multirun result via email")
 		parser.add_argument("-D", "--database-filename", metavar = "file", default = "kartfire.sqlite3", help = "Database filename to use. Defaults to %(default)s.")
 		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
 		parser.add_argument("run_multirun_id", type = ActionResults.id_type, nargs = "*", help = "Run or multirun ID(s) to show details of. Multirun IDs start with 'm'.")

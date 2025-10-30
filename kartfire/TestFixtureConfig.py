@@ -84,3 +84,15 @@ class TestFixtureConfig():
 	@property
 	def allow_network(self):
 		return self._config.get("allow_network", False)
+
+	@property
+	def email(self):
+		return self._config.get("email", { })
+
+	@property
+	def email_from(self):
+		return self.email.get("from", "Kartfire Testrun <kartfire@invalid>")
+
+	@property
+	def email_via_uri(self):
+		return self.email["via_uri"]

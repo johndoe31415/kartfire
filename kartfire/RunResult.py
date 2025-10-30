@@ -210,4 +210,5 @@ class MultiRunResult():
 	def __iter__(self):
 		return iter(self._run_results)
 
-
+	def __str__(self):
+		return f"MultiRun<{self.multirun_id}>"

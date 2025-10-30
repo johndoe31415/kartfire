@@ -19,6 +19,7 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
+import mailcoil
 from .CmdlineAction import CmdlineAction
 from .ResultPrinter import ResultPrinter
 from .ResultHTMLGenerator import ResultHTMLGenerator
@@ -71,3 +72,26 @@ class ActionResults(CmdlineAction):
 			for multirun in self._multiruns:
 				result = html_generator.create(multirun = multirun, template_name = self._args.html_template)
 				print(result)
+
+		if self._args.send_email:
+			dropoff = mailcoil.MailDropoff.parse_uri(self._test_fixture_config.email_via_uri)
+
+			html_generator = ResultHTMLGenerator(self._db)
+			for multirun in self._multiruns:
+				email_body = html_generator.create(multirun = multirun, template_name = "email.html")
+
+				if multirun.solution_email is None:
+					print(f"Unable to send email, email field not populated: {multirun}")
+					continue
+
+				if multirun.solution_author is None:
+					to_address = mailcoil.MailAddress(mail = multirun.solution_email)
+				else:
+					to_address = mailcoil.MailAddress(name = multirun.solution_author, mail = multirun.solution_email)
+
+				print(f"Sending results of {multirun} to {to_address}")
+				subject = f"Ergebnis der Kartfire CI/CD"
+				mail = mailcoil.Email(from_address = mailcoil.MailAddress.parse(self._test_fixture_config.email_from), subject = subject).to(to_address)
+				mail.html = email_body
+				dropoff.post(mail)
+#			print(email_body)
