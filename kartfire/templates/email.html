@@ -1,3 +1,64 @@
+<%def name="possibly_link(text)">
+%if text.startswith("http://") or text.startswith("https://"):
+<a href="${text}">${text}</a>\
+%else:
+${text}\
+%endif
+</%def>\
+<!doctype html>
+<head>
+	<style>
+		body {
+			font-family: sans-serif;
+		}
+
+		table {
+			border-collapse: collapse;
+			width: 100%;
+			background: #ffffff;
+		}
+
+		th, td {
+			border: 1px solid #dddddd;
+			padding: 8px 12px;
+			text-align: left;
+			vertical-align: top;
+		}
+
+		th {
+			background-color: #f0f0f0;
+			font-weight: bold;
+		}
+
+		tr:nth-child(even) {
+			background-color: #fafafa;
+		}
+
+		a {
+			color: #0066cc;
+			text-decoration: none;
+		}
+
+		p.hint {
+			font-size: 75%;
+			color: #444;
+		}
+
+		span.l {
+			float: left;
+		}
+
+		span.r {
+			float: right;
+		}
+
+		td.doubtful {
+			color: #777;
+		}
+	</style>
+</head>
+<html><body>
+
 <p>
 %if m.solution_author is None:
 Hallo,
@@ -14,6 +75,10 @@ anbei die Testergebnisse der Test-Pipeline, in der Ihre Lösung geprüft wurde.
 <table>
 	<tbody>
 		<tr>
+			<th>Multirun ID:</th>
+			<td>${m.multirun_id}</td>
+		</tr>
+		<tr>
 			<th>Getestete Abgabe:</th>
 			<td>${m.source}</td>
 		</tr>
@@ -22,8 +87,12 @@ anbei die Testergebnisse der Test-Pipeline, in der Ihre Lösung geprüft wurde.
 			<td>${m.env_meta["image"]["name"]}</td>
 		</tr>
 		<tr>
-			<th>Container-Revision:</th>
-			<td>${m.env_meta["image"]["source"]} / ${m.env_meta["image"]["revision"]}</td>
+			<th>Container Quelle:</th>
+			<td>${possibly_link(m.env_meta["image"]["source"])}</td>
+		</tr>
+		<tr>
+			<th>Container Revision:</th>
+			<td>${m.env_meta["image"]["revision"]}</td>
 		</tr>
 		<tr>
 			<th>kartfire:</th>
@@ -35,21 +104,23 @@ anbei die Testergebnisse der Test-Pipeline, in der Ihre Lösung geprüft wurde.
 
 %if m.overview["build_status"] == TestrunStatus.Finished:
 <p>
-Der Build-Step/Vorbereitungsschritt endete erfolgreich und war nach ${f"{m.build_runtime:d}"} beendet.
+Der Build-Step/Vorbereitungsschritt endete erfolgreich und war nach ${f"{m.build_runtime:d}"} beendet. Ergebnisse der durchgeführten Tests:
 </p>
 
 <p>
 <table>
 	<thead>
-		<tr><th>Run</th></tr>
-		<tr><th>Collection</th></tr>
-		<tr><th>LZ¹</th></tr>
-		<tr><th>Ref¹</th></tr>
-		<tr><th>Lim¹</th></tr>
-		<tr><th>Testfälle</th></tr>
-		<tr><th>Status</th></tr>
-		<tr><th>Wertung</th></tr>
-		<tr><th>Fehler</th></tr>
+		<tr>
+			<th>Run</th>
+			<th>Collection</th>
+			<th>LZ¹</th>
+			<th>Ref¹</th>
+			<th>Lim¹</th>
+			<th>Testfälle</th>
+			<th>Status</th>
+			<th>Rel. LZ²</th>
+			<th>Fehler</th>
+		</tr>
 	</thead>
 	<tbody>
 		%for run in m:
@@ -60,7 +131,6 @@ Der Build-Step/Vorbereitungsschritt endete erfolgreich und war nach ${f"{m.build
 			<td>${f"{run.reference_runtime:d}"}</td>
 			<td>${f"{run.runtime_allowance:d}"}</td>
 			<td>${run.total_testcase_count}</td>
-			<td>${run.status_text}</td>
 			<td>
 				%if run.unique_status_result is None:
 				😕
@@ -70,7 +140,11 @@ Der Build-Step/Vorbereitungsschritt endete erfolgreich und war nach ${f"{m.build
 				😭
 				%endif
 
+				${run.status_text}
+			</td>
+			<td class="ralign${"" if run.unique_status_result == TestresultStatus.Pass else " doubtful"}">
 				%if (run.relative_runtime is not None):
+				<span class="l">
 				%if run.relative_runtime < 0.25:
 				🚀
 				%elif run.relative_runtime < 1:
@@ -82,6 +156,8 @@ Der Build-Step/Vorbereitungsschritt endete erfolgreich und war nach ${f"{m.build
 				%else:
 				🐢
 				%endif
+				</span>
+				<span class="r">${f'{100 * run.relative_runtime:.1f}'}%</span>
 				%endif
 			</td>
 			<td>
@@ -97,8 +173,9 @@ Der Build-Step/Vorbereitungsschritt endete erfolgreich und war nach ${f"{m.build
 </table>
 </p>
 
-<p>
-¹: LZ = Laufzeit, Ref = Referenzlaufzeit, Lim = Erlaubte Maximalzeit Ihrer Lösung
+<p class="hint">
+¹: LZ = Laufzeit, Ref = Referenzlaufzeit, Lim = Erlaubte Maximalzeit Ihrer Lösung<br/>
+²: Rel. LZ = Relative Laufzeit, d.h. Laufzeit verglichen mit der Referenzzeit. Weniger ist besser. Wert nur aussagekräftig, wenn alle Testcases erfolgreich durchlaufen.
 </p>
 %else:
 <p>
@@ -110,3 +187,9 @@ Weiterführende Fehlermeldung: ${m.overview["build_error_details"]["text"]}
 </p>
 %endif
 %endif
+
+<p>
+Viel Erfolg weiterhin,<br/>
+Ihre Kartfire CI/CD Pipeline
+</p>
+</body></html>
