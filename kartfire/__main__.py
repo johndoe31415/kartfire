@@ -69,7 +69,7 @@ def main():
 		parser.add_argument("-H", "--html-template", metavar = "name", help = "Render a HTML output from the testruns")
 		parser.add_argument("-D", "--database-filename", metavar = "file", default = "kartfire.sqlite3", help = "Database filename to use. Defaults to %(default)s.")
 		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
-		parser.add_argument("run_id", type = int, nargs = "*", help = "Run ID(s) to show details of")
+		parser.add_argument("run_multirun_id", type = ActionResults.id_type, nargs = "*", help = "Run or multirun ID(s) to show details of. Multirun IDs start with 'm'.")
 	mc.register("results", "Print results of run testcases", genparser, action = ActionResults)
 
 	def genparser(parser):

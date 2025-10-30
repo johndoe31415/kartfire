@@ -25,6 +25,13 @@ from .ResultHTMLGenerator import ResultHTMLGenerator
 from .RunResult import MultiRunResult
 
 class ActionResults(CmdlineAction):
+	@classmethod
+	def id_type(cls, text: str):
+		if text.startswith("m"):
+			return ("multirun_id", int(text[1:]))
+		else:
+			return ("run_id", int(text))
+
 	def _print_summary_by_run(self):
 		for run_id in self._db.get_latest_run_ids(50):
 			run_result = MultiRunResult.load_single_run(self._db, run_id)
@@ -35,21 +42,31 @@ class ActionResults(CmdlineAction):
 			multirun = MultiRunResult(self._db, multirun_id)
 			self._result_printer.print_multirun_overview(multirun)
 
-	def _print_run(self, run_id: int):
-		self._result_printer.print_details(run_id)
+	def _load_multiruns(self):
+		for (runtype, int_value) in self._args.run_multirun_id:
+			match runtype:
+				case "run_id":
+					yield MultiRunResult.load_single_run(self._db, int_value)
+
+				case "multirun_id":
+					yield MultiRunResult(self._db, int_value)
+
+				case _:
+					raise NotImplementedError(runtype)
 
 	def run(self):
+		self._multiruns = list(self._load_multiruns())
 		self._result_printer = ResultPrinter(self._db)
 		if self._args.html_template is None:
-			if len(self._args.run_id) == 0:
+			if len(self._multiruns) == 0:
 				if self._args.summary_by_run:
 					self._print_summary_by_run()
 				else:
 					self._print_summary_by_multirun()
 			else:
-				for run_id in self._args.run_id:
-					self._print_run(run_id)
+				for multirun in self._multiruns:
+					self._result_printer.print_details(multirun)
 		else:
 			html_generator = ResultHTMLGenerator(self._db)
-			result = html_generator.create(run_ids = self._args.run_id, template_name = self._args.html_template)
+			result = html_generator.create(multirun_id = self._args.multirun_id, template_name = self._args.html_template)
 			print(result)

@@ -163,24 +163,25 @@ class ResultPrinter():
 		print()
 		print("~" * 120)
 
-	def print_details(self, run_id: int):
-		run_result = MultiRunResult.load_single_run(self._db, run_id)
+	def print_details(self, multirun_result: "MultiRunResult"):
 		max_failed_cases_per_action = 2
 #		row = self._db.get_run_details(run_id)
 
-		print(f"Showing failed cases of {run_result.multirun.source} of {run_result.multirun.solution_author or 'unknown author'} run ID {run_id} (run result {run_result.overview['status'].name}), max of {max_failed_cases_per_action} fails per action:")
+		print(f"Showing failed cases of {multirun_result.source} of {multirun_result.solution_author or 'unknown author'} (build {multirun_result.overview['build_status'].name}), max of {max_failed_cases_per_action} fails per action:")
 		action_count = collections.Counter()
-		for result in run_result.testresult_details:
-			status = TestresultStatus(result["status"])
-			if status == TestresultStatus.Fail:
-				action_count[result["action"]] += 1
-				if action_count[result["action"]] <= max_failed_cases_per_action:
-					self._print_answer(result)
-		if run_result.overview['status'] == TestrunStatus.Failed:
-			print("~" * 120)
-			stderr = run_result.full_overview["stderr"]
-			if len(stderr) > 0:
-				print()
-				print(f"{run_result.error_text}, showing stderr output:")
-				print(stderr.decode("utf-8", errors = "ignore").strip("\r\n"))
-		print("=" * 120)
+		for run_result in multirun_result:
+			print(f"Run {multirun_result.multirun_id}.{run_result.run_id}: {run_result.status_text}")
+			for result in run_result.testresult_details:
+				status = TestresultStatus(result["status"])
+				if status == TestresultStatus.Fail:
+					action_count[result["action"]] += 1
+					if action_count[result["action"]] <= max_failed_cases_per_action:
+						self._print_answer(result)
+			if run_result.overview["status"] == TestrunStatus.Failed:
+				print("~" * 120)
+				stderr = multirun_result.full_overview["stderr"]
+				if len(stderr) > 0:
+					print()
+					print(f"{multirun_result.error_text}, showing stderr output:")
+					print(stderr.decode("utf-8", errors = "ignore").strip("\r\n"))
+			print("=" * 120)
