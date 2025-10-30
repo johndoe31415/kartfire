@@ -44,8 +44,10 @@ class Submission():
 	@functools.cached_property
 	def meta_info(self):
 		meta = { }
-		if os.path.isdir(f"{self._submission_dir}/.git"):
-			meta["git"] = GitTools.gitinfo(self._submission_dir)
+		git_info = GitTools.gitinfo(self._submission_dir)
+		if git_info is not None:
+			meta["git"] = git_info
+
 		json_filename = f"{self._submission_dir}.json"
 		if os.path.isfile(json_filename):
 			with open(json_filename) as f:

@@ -68,5 +68,6 @@ class ActionResults(CmdlineAction):
 					self._result_printer.print_details(multirun)
 		else:
 			html_generator = ResultHTMLGenerator(self._db)
-			result = html_generator.create(multirun_id = self._args.multirun_id, template_name = self._args.html_template)
-			print(result)
+			for multirun in self._multiruns:
+				result = html_generator.create(multirun = multirun, template_name = self._args.html_template)
+				print(result)

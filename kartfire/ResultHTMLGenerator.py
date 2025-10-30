@@ -23,6 +23,7 @@ import os
 import tzlocal
 import mako.lookup
 from .RunResult import MultiRunResult
+from .Enums import TestrunStatus, TestresultStatus
 
 class ResultHTMLGenerator():
 	def __init__(self, db: "Database"):
@@ -31,10 +32,12 @@ class ResultHTMLGenerator():
 		template_dir = os.path.dirname(__file__) + "/templates"
 		self._lookup = mako.lookup.TemplateLookup([ template_dir ], strict_undefined = True)
 
-	def create(self, multirun_id: int, template_name: str):
+	def create(self, multirun: "MultiRunResult", template_name: str):
 		template = self._lookup.get_template(template_name)
 		template_vars = {
-			"r": MultiRunResult(db = self._db, multirun_id = multirun_id),
+			"m": multirun,
+			"TestresultStatus": TestresultStatus,
+			"TestrunStatus": TestrunStatus,
 		}
 		rendered = template.render(**template_vars)
 		return rendered

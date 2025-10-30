@@ -24,6 +24,10 @@ class TimeDelta():
 		self._duration_secs = duration_secs
 
 	@property
+	def undefined(self):
+		return self._duration_secs is None
+
+	@property
 	def duration_secs(self):
 		return self._duration_secs
 

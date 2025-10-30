@@ -48,8 +48,12 @@ class JSONTools():
 
 class GitTools():
 	@classmethod
-	def gitinfo(cls, dirname):
-		if not os.path.isdir(f"{dirname}/.git"):
+	def is_under_git_vcs(cls, dirname: str) -> bool:
+		return (subprocess.run([ "git", "-C", dirname, "rev-parse" ], stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL).returncode == 0)
+
+	@classmethod
+	def gitinfo(cls, dirname: str):
+		if not cls.is_under_git_vcs(dirname):
 			return None
 		result = {
 			"empty": cls._is_repo_empty(dirname),
@@ -66,23 +70,23 @@ class GitTools():
 		return result
 
 	@classmethod
-	def _is_repo_empty(cls, dirname):
+	def _is_repo_empty(cls, dirname: str):
 		return subprocess.check_output([ "git", "-C", dirname, "rev-list", "--all", "-n", "1" ]).decode().rstrip("\r\n") == ""
 
 	@classmethod
-	def _has_commit_date(cls, dirname):
+	def _has_commit_date(cls, dirname: str):
 		return subprocess.check_output([ "git", "-C", dirname, "show", "--no-patch", "--format=%ci", "HEAD" ]).decode().rstrip("\r\n")
 
 	@classmethod
-	def _get_branch_name(cls, dirname):
+	def _get_branch_name(cls, dirname: str):
 		return subprocess.check_output([ "git", "-C", dirname, "branch", "--show-current" ]).decode().rstrip("\r\n")
 
 	@classmethod
-	def _get_commit_id(cls, dirname):
+	def _get_commit_id(cls, dirname: str):
 		return subprocess.check_output([ "git", "-C", dirname, "rev-parse", "HEAD" ]).decode().rstrip("\r\n")
 
 	@classmethod
-	def _get_commit_date(cls, dirname):
+	def _get_commit_date(cls, dirname: str):
 		return subprocess.check_output([ "git", "-C", dirname, "show", "--no-patch", "--format=%ci", "HEAD" ]).decode().rstrip("\r\n")
 
 	@classmethod

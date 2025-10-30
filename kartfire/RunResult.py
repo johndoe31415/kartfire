@@ -58,6 +58,13 @@ class RunResult():
 		return TimeDelta(self.overview["reference_runtime_secs"])
 
 	@property
+	def relative_runtime(self):
+		if self.reference_runtime.undefined:
+			return None
+		else:
+			return self.runtime.duration_secs / self.reference_runtime.duration_secs
+
+	@property
 	def collection_name(self):
 		return self.overview["collection"]
 
@@ -73,13 +80,20 @@ class RunResult():
 	def result_count_dict(self):
 		return { status: count for (status, count) in self.result_count }
 
+	@property
+	def unique_status_result(self):
+		if len(self.result_count) == 1:
+			return self.result_count[0][0]
+		else:
+			return None
+
 	@functools.cached_property
 	def testresult_details(self):
 		return self._db.get_run_details(self.run_id)
 
-	@functools.cached_property
+	@property
 	def total_testcase_count(self):
-		return sum(count for (status, count) in self.result_count)
+		return self.overview["testcase_count"]
 
 	@property
 	def have_results(self):
@@ -122,6 +136,14 @@ class MultiRunResult():
 		return self.overview["source"]
 
 	@property
+	def source_meta(self):
+		return self.overview["source_metadata"]
+
+	@property
+	def env_meta(self):
+		return self.overview["environment_metadata"]
+
+	@property
 	def build_failed(self):
 		return self.overview["build_status"] != TestrunStatus.Finished
 
@@ -134,30 +156,28 @@ class MultiRunResult():
 		run_result._multirun = multirun
 		return run_result
 
-
 	@property
 	def have_git_info(self):
-		source_metadata = self.overview["source_metadata"]
-		return ("meta" in source_metadata) and ("git" in source_metadata["meta"]) and ("commit" in source_metadata["meta"]["git"])
+		return ("meta" in self.source_meta) and ("git" in self.source_meta["meta"]) and ("commit" in self.source_meta["meta"]["git"])
 
 	@property
 	def source(self):
 		if self.have_git_info:
-			return f"{self.overview['source']}:{self.overview['source_metadata']['meta']['git']['shortcommit']}"
+			return f"{self.overview['source']}:{self.source_meta['meta']['git']['shortcommit']}"
 		else:
 			return f"{self.overview['source']}"
 
 	@property
 	def solution_author(self):
 		try:
-			return self.overview["source_metadata"]["meta"]["json"]["kartfire"]["name"]
+			return self.source_meta["meta"]["json"]["kartfire"]["name"]
 		except KeyError:
 			return None
 
 	@property
 	def solution_email(self):
 		try:
-			return self.overview["source_metadata"]["meta"]["json"]["kartfire"]["email"]
+			return self.source_meta["meta"]["json"]["kartfire"]["email"]
 		except KeyError:
 			return None
 

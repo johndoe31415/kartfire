@@ -1,40 +1,112 @@
 <p>
-%if r.solution_authors is None:
+%if m.solution_author is None:
 Hallo,
 %else:
-Hallo ${", ".join(sorted(r.solution_authors))},
+Hallo ${", ".join(sorted(m.solution_author))},
 %endif
 </p>
 
 <p>
-anbei die Testergebnisse der Test-Pipeline, in der Ihre Lösung gegen ${len(r)} Testcollection${"s" if (len(r) != 1) else ""} geprüft wurde.
+anbei die Testergebnisse der Test-Pipeline, in der Ihre Lösung geprüft wurde.
 </p>
 
 <p>
-Es war kein Build-Step erforderlich.
+<table>
+	<tbody>
+		<tr>
+			<th>Getestete Abgabe:</th>
+			<td>${m.source}</td>
+		</tr>
+		<tr>
+			<th>Container:</th>
+			<td>${m.env_meta["image"]["name"]}</td>
+		</tr>
+		<tr>
+			<th>Container-Revision:</th>
+			<td>${m.env_meta["image"]["source"]} / ${m.env_meta["image"]["revision"]}</td>
+		</tr>
+		<tr>
+			<th>kartfire:</th>
+			<td>${m.env_meta["kartfire"]}</td>
+		</tr>
+	</tbody>
+</table>
+</p>
+
+%if m.overview["build_status"] == TestrunStatus.Finished:
+<p>
+Der Build-Step/Vorbereitungsschritt endete erfolgreich und war nach ${f"{m.build_runtime:d}"} beendet.
 </p>
 
 <p>
-Getestete Abgabe: <b>${r.first.source}</b>
-</p>
-
 <table>
 	<thead>
 		<tr><th>Run</th></tr>
 		<tr><th>Collection</th></tr>
-		<tr><th>LZ</th></tr>
-		<tr><th>Ref</th></tr>
-		<tr><th>Lim</th></tr>
+		<tr><th>LZ¹</th></tr>
+		<tr><th>Ref¹</th></tr>
+		<tr><th>Lim¹</th></tr>
+		<tr><th>Testfälle</th></tr>
+		<tr><th>Status</th></tr>
+		<tr><th>Wertung</th></tr>
+		<tr><th>Fehler</th></tr>
 	</thead>
 	<tbody>
-		%for run in r:
+		%for run in m:
 		<tr>
 			<td>${run.run_id}</td>
 			<td>${run.overview["collection"]}</td>
 			<td>${f"{run.runtime:d}"}</td>
 			<td>${f"{run.reference_runtime:d}"}</td>
-			<td>${f"{run.max_permissible_runtime:d}"}</td>
+			<td>${f"{run.runtime_allowance:d}"}</td>
+			<td>${run.total_testcase_count}</td>
+			<td>${run.status_text}</td>
+			<td>
+				%if run.unique_status_result is None:
+				😕
+				%elif run.unique_status_result == TestresultStatus.Pass:
+				🥳
+				%else:
+				😭
+				%endif
+
+				%if (run.relative_runtime is not None):
+				%if run.relative_runtime < 0.25:
+				🚀
+				%elif run.relative_runtime < 1:
+				🏎️
+				%elif run.relative_runtime < 2:
+				🚗
+				%elif run.relative_runtime < 3:
+				🚴
+				%else:
+				🐢
+				%endif
+				%endif
+			</td>
+			<td>
+				%if run.overview["error_details"] is None:
+				—
+				%else:
+				${run.overview["error_details"]["text"]}
+				%endif
+			</td>
 		</tr>
 		%endfor
 	</tbody>
 </table>
+</p>
+
+<p>
+¹: LZ = Laufzeit, Ref = Referenzlaufzeit, Lim = Erlaubte Maximalzeit Ihrer Lösung
+</p>
+%else:
+<p>
+Der Build-Schritt war nicht erfolgreich und war nach ${f"{m.build_runtime:d}"} beendet. Ihre Lösung konnte deshalb nicht getestet werden, alle Testcases werden als fehlgeschlagen gewertet: ${m.overview["build_status"].name}
+</p>
+%if m.overview["build_error_details"] is not None:
+<p>
+Weiterführende Fehlermeldung: ${m.overview["build_error_details"]["text"]}
+</p>
+%endif
+%endif
