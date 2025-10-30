@@ -20,6 +20,7 @@
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
 import functools
+import mailcoil
 from .TimeDelta import TimeDelta
 from .Enums import TestrunStatus
 
@@ -203,6 +204,25 @@ class MultiRunResult():
 	@property
 	def test_reference_runtime(self):
 		return TimeDelta(sum(run_result.overview["reference_runtime_secs"] for run_result in self))
+
+	def send_email(self, test_fixture_config: "TestFixtureConfig", html_generator: "ResultHTMLGenerator", dropoff: "mailcoil.MailDropoff"):
+		email_body = html_generator.create(multirun = self, template_name = "email.html")
+
+		if self.solution_email is None:
+			print(f"Unable to send email, email field not populated: {self}")
+			return False
+
+		if self.solution_author is None:
+			to_address = mailcoil.MailAddress(mail = self.solution_email)
+		else:
+			to_address = mailcoil.MailAddress(name = self.solution_author, mail = self.solution_email)
+
+		print(f"Sending results of {self} to {to_address}")
+		subject = f"Ergebnis der Kartfire CI/CD"
+		mail = mailcoil.Email(from_address = mailcoil.MailAddress.parse(test_fixture_config.email_from), subject = subject).to(to_address)
+		mail.html = email_body
+		dropoff.post(mail)
+		return True
 
 	def __len__(self):
 		return len(self._run_results)
