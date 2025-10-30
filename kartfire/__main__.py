@@ -55,6 +55,7 @@ def main():
 	mc.register("collection", "Manage collections of testcases", genparser, action = ActionCollection)
 
 	def genparser(parser):
+		parser.add_argument("-m", "--send-email", action = "store_true", help = "Send the multirun result via email immediately after the results are in.")
 		parser.add_argument("-i", "--interactive", action = "store_true", help = "Interactively debug the session by dropping into a shell.")
 		parser.add_argument("-t", "--time-scalar", metavar = "float", type = float, default = 1.0, help = "Multiply the allowed time by this scalar factor. When zero is specified, runtime is infinite.")
 		parser.add_argument("-C", "--test-fixture-config", metavar = "filename", help = "Specify a specific test fixture configuration to use. If omitted, tries to look in the local directory for a file named 'kartfire_test_fixture.json' before falling back to default values.")

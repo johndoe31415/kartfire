@@ -21,11 +21,13 @@
 
 import sys
 import os
+import mailcoil
 from .CmdlineAction import CmdlineAction
 from .TestRunner import TestRunner
 from .Submission import Submission
 from .ResultPrinter import ResultPrinter
 from .RunResult import MultiRunResult
+from .ResultHTMLGenerator import ResultHTMLGenerator
 
 class ActionRun(CmdlineAction):
 	def _build_finished_callback(self, multirun_id: int):
@@ -38,9 +40,18 @@ class ActionRun(CmdlineAction):
 		self._rp.print_run_overview(run_result)
 
 	def _multirun_finished_callback(self, submission: Submission, multirun_id: int):
-		self._multiruns.append(MultiRunResult(self._db, multirun_id))
+		multirun_result = MultiRunResult(self._db, multirun_id)
+		self._multiruns.append(multirun_result)
+		if self._dropoff is not None:
+			multirun_result.send_email(test_fixture_config = self._test_fixture_config, html_generator = self._html_generator, dropoff = self._dropoff)
 
 	def run(self):
+		if self._args.send_email:
+			self._dropoff = mailcoil.MailDropoff.parse_uri(self._test_fixture_config.email_via_uri)
+			self._html_generator = ResultHTMLGenerator(self._db)
+		else:
+			self._dropoff = None
+
 		self._multiruns = [ ]
 		self._rp = ResultPrinter(self._db)
 		collection_names = self._args.collection_name.split(",")
