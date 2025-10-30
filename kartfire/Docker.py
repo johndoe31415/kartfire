@@ -146,7 +146,7 @@ class Docker():
 		self._cleanup_tasks[priority].append(task)
 		return self
 
-	async def create_container(self, docker_image_name: str, command: list, network: DockerNetwork, network_alias: str | None = None, max_memory_mib: int | None = None, interactive: bool = False, auto_cleanup: bool = True, run_name_prefix: str | None = None):
+	async def create_container(self, docker_image_name: str, command: list, network: DockerNetwork, network_alias: str | None = None, max_memory_mib: int | None = None, interactive: bool = False, auto_cleanup: bool = True, run_name_prefix: str | None = None, cpu_count: float | None = None):
 		assert(docker_image_name is not None)
 		# Create docker container, but do not start yet
 		cmd = [ self._docker_executable, "create" ]
@@ -160,6 +160,8 @@ class Docker():
 			cmd += [ "--network-alias", network_alias ]
 		if max_memory_mib is not None:
 			cmd += [ f"--memory={max_memory_mib}m" ]
+		if cpu_count is not None:
+			cmd += [ f"--cpus={cpu_count:.1f}" ]
 		if run_name_prefix is not None:
 			run_name = f"{run_name_prefix}_{os.urandom(8).hex()}"
 			cmd += [ "--name", run_name ]

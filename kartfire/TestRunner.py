@@ -183,7 +183,7 @@ class TestRunner():
 			print(f"Running container {prefix} step: {' '.join(container_command)}")
 			container_command = [ "/bin/bash" ]
 
-		container = await docker.create_container(docker_image_name = image_name, command = container_command, network = docker.networks[0], max_memory_mib = self._config.max_memory_mib, interactive = self._interactive, run_name_prefix = f"kartfire_{prefix}")
+		container = await docker.create_container(docker_image_name = image_name, command = container_command, network = docker.networks[0], max_memory_mib = self._config.max_memory_mib, cpu_count = self._config.available_cpus_per_testrun, interactive = self._interactive, run_name_prefix = f"kartfire_{prefix}")
 		if pre_run_hook is not None:
 			pre_run_result = await pre_run_hook(container)
 

@@ -82,6 +82,10 @@ class TestFixtureConfig():
 		return self._config.get("reference_time_factor", 4)
 
 	@property
+	def available_cpus_per_testrun(self):
+		return self._config.get("available_cpus_per_testrun", 1)
+
+	@property
 	def allow_network(self):
 		return self._config.get("allow_network", False)
 
