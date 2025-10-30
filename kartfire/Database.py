@@ -349,6 +349,7 @@ class Database(SqliteORM):
 		return [ (TestresultStatus(row["status"]), row["count"]) for row in self._cursor.execute("""
 			SELECT status, COUNT(run_id) AS count FROM testresult
 			WHERE run_id = ?
+			GROUP BY status
 			ORDER BY count DESC;
 		""", (run_id, )).fetchall() ]
 
