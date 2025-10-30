@@ -47,7 +47,7 @@ class ActionResults(CmdlineAction):
 		for (runtype, int_value) in self._args.run_multirun_id:
 			match runtype:
 				case "run_id":
-					yield MultiRunResult.load_single_run(self._db, int_value)
+					yield MultiRunResult.load_single_run(self._db, int_value).multirun
 
 				case "multirun_id":
 					yield MultiRunResult(self._db, int_value)
