@@ -19,14 +19,31 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
+import time
 import json
 import datetime
 import sqlite3
+
+class DebuggingCursor():
+	def __init__(self, cursor):
+		self._cursor = cursor
+
+	def execute(self, sql_query: str, arguments: tuple | None = ()):
+		t0 = time.time()
+		result = self._cursor.execute(sql_query, arguments)
+		t = time.time() - t0
+		print(f"{1000 * t:.0f} {sql_query}")
+		return result
+
+	def __getattr__(self, attr_name: str):
+		return getattr(self._cursor, attr_name)
+
 
 class SqliteORM():
 	def __init__(self, filename: str):
 		self._conn = sqlite3.connect(filename)
 		self._conn.row_factory = sqlite3.Row
+#		self._cursor = DebuggingCursor(self._conn.cursor())
 		self._cursor = self._conn.cursor()
 		self._uncommitted_write_count = 0
 		self._max_uncommitted_writes = 100

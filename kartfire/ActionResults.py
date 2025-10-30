@@ -42,9 +42,10 @@ class ActionResults(CmdlineAction):
 		self._result_printer = ResultPrinter(self._db)
 		if self._args.html_template is None:
 			if len(self._args.run_id) == 0:
-				self._print_summary_by_run()
-				print("~"*120)
-				self._print_summary_by_multirun()
+				if self._args.summary_by_run:
+					self._print_summary_by_run()
+				else:
+					self._print_summary_by_multirun()
 			else:
 				for run_id in self._args.run_id:
 					self._print_run(run_id)

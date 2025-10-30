@@ -94,11 +94,11 @@ class Database(SqliteORM):
 				environment_metadata varchar(4096) NOT NULL,
 				build_start_utcts varchar(64) NOT NULL,
 				build_end_utcts varchar(64) NULL,
-				total_time_secs float NULL,								-- total time for the whole run, including running of all testruns, i.e., from build_start_utcts to the last testrun.run_end_utcts
+				total_time_secs float NULL,									-- total time for the whole run, including running of all testruns, i.e., from build_start_utcts to the last testrun.run_end_utcts
 				build_status varchar(32) NOT NULL DEFAULT 'running',
 				build_stdout blob NULL,
 				build_stderr blob NULL,
-				build_runtime_secs float NULL,							-- pure runtime of the build script; for output relative to the user
+				build_runtime_secs float NULL,								-- pure runtime of the build script; for output relative to the user
 				build_runtime_allowance_secs float NULL,
 				build_error_details varchar(4096) NULL,
 				CHECK((build_status = 'running') OR (build_status = 'finished') OR (build_status = 'failed') OR (build_status = 'aborted') OR (build_status = 'terminated'))
@@ -347,10 +347,8 @@ class Database(SqliteORM):
 
 	def get_run_result_count(self, run_id: int):
 		return [ (TestresultStatus(row["status"]), row["count"]) for row in self._cursor.execute("""
-			SELECT testresult.status, COUNT(testrun.run_id) AS count FROM testrun
-			JOIN testresult ON testrun.run_id = testresult.run_id
-			WHERE testrun.run_id = ?
-			GROUP BY testrun.run_id, testresult.status
+			SELECT status, COUNT(run_id) AS count FROM testresult
+			WHERE run_id = ?
 			ORDER BY count DESC;
 		""", (run_id, )).fetchall() ]
 
