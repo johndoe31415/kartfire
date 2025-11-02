@@ -194,9 +194,9 @@ class TestRunner():
 		if self._interactive:
 			await container.attach()
 
-		t0 = time.time()
+		t0 = time.monotonic()
 		status_code = await container.wait_timeout(timeout_secs)
-		runtime_secs = time.time() - t0
+		runtime_secs = time.monotonic() - t0
 
 		if post_run_hook is not None:
 			post_run_result = await post_run_hook(container, status_code)
