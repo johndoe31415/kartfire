@@ -93,8 +93,8 @@ class RunningDockerContainer():
 		cmd = [ self._docker.executable, "logs", self._container_id ]
 		return await ExecTools.async_check_communicate(cmd)
 
-	async def stop(self):
-		cmd = [ self._docker.executable, "stop", self._container_id ]
+	async def stop(self, gracetime: int = 0):
+		cmd = [ self._docker.executable, "stop", "--timeout", str(gracetime), self._container_id ]
 		await ExecTools.async_check_call(cmd, stdout = subprocess.DEVNULL)
 
 	async def rm(self):

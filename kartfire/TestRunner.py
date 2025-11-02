@@ -198,6 +198,10 @@ class TestRunner():
 		status_code = await container.wait_timeout(timeout_secs)
 		runtime_secs = time.time() - t0
 
+		# Send SIGKILL to container immediately and wait for it to actually finish
+		await container.stop(gracetime = 0)
+		await container.wait()
+
 		if post_run_hook is not None:
 			post_run_result = await post_run_hook(container, status_code)
 
