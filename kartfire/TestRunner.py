@@ -186,9 +186,9 @@ class TestRunner():
 		if self._interactive:
 			await container.attach()
 
-		t0 = time.time()
+		t0 = time.monotonic()
 		status_code = await container.wait_timeout(timeout_secs)
-		runtime_secs_container = time.time() - t0
+		runtime_secs_container = time.monotonic() - t0
 
 		# Send SIGKILL to container immediately and wait for it to actually finish
 		await container.stop(gracetime = 0)

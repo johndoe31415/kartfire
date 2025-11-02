@@ -116,12 +116,12 @@ class RunningDockerContainer():
 			# Infinity
 			return await self.wait()
 
-		end_time = time.time() + timeout
+		end_time = time.monotonic() + timeout
 		while True:
 			inspection_result = await self.inspect()
 			if inspection_result["State"]["Status"] != "running":
 				return await self.wait()
-			now = time.time()
+			now = time.monotonic()
 			if now >= end_time:
 				return None
 			remaining_time = end_time - now

@@ -29,9 +29,9 @@ class DebuggingCursor():
 		self._cursor = cursor
 
 	def execute(self, sql_query: str, arguments: tuple | None = ()):
-		t0 = time.time()
+		t0 = time.monotonic()
 		result = self._cursor.execute(sql_query, arguments)
-		t = time.time() - t0
+		t = time.monotonic() - t0
 		print(f"{1000 * t:.0f} {sql_query}")
 		return result
 
