@@ -20,6 +20,8 @@
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
 import dataclasses
+import collections
+from .Enums import TestresultStatus
 
 @dataclasses.dataclass(slots = True, order = True, frozen = True)
 class Testcase():
@@ -43,6 +45,83 @@ class Testcase():
 			contained = f"[ {', '.join(sorted(self.contained_collections))} ]"
 		return f"{self.tc_id:5d} {self.action:<15s} {contained:<15s} {str(self.arguments)[:70]:70}  =>  {'?' if self.correct_reply is None else str(self.correct_reply)[:30]}"
 
+class TestcaseCollectionEvaluation():
+	def __init__(self, tc_collection: "TestcaseCollection", record_max_failed_reply_count = 5):
+		self._tc_collection = tc_collection
+		self._record_max_failed_reply_count = record_max_failed_reply_count
+		self._status_by_tc_id = { }
+		self._recorded_replies = collections.defaultdict(dict)
+		self._allow_further_replies = True
+
+	def received_trusted_msg(self, msg: dict):
+		if msg["type"] == "time":
+			# This indicates that the main test process has finished. In
+			# theory, the DUT could trick us by double forking (so we would
+			# record the end of the process) and then, as a background task,
+			# still produce output. To prevent this, we disallow any further
+			# replies after timing had stopped.
+			self._allow_further_replies = False
+
+	def received_reply(self, json_data: dict):
+		if not self._allow_further_replies:
+			return
+		if "id" not in json_data:
+			return
+		if "reply" not in json_data:
+			return
+		if not json_data["id"].isdigit():
+			return
+
+		tc_id = int(json_data["id"])
+		if tc_id not in self._tc_collection:
+			# Testcase has an reply that was never asked
+			return
+
+		if tc_id in self._status_by_tc_id:
+			# Given the same reply twice, ignore.
+			return
+
+		# Determine status
+		testcase = self._tc_collection[tc_id]
+		if testcase.correct_reply is None:
+			# No response available
+			test_result_status = TestresultStatus.Indeterminate
+		elif testcase.correct_reply == json_data["reply"]:
+			test_result_status = TestresultStatus.Pass
+		else:
+			test_result_status = TestresultStatus.Fail
+		self._status_by_tc_id[tc_id] = test_result_status
+
+		# Do we need to save the reply?
+		if ((test_result_status == TestresultStatus.Indeterminate) or
+			((test_result_status == TestresultStatus.Fail) and (len(self._recorded_replies[TestresultStatus.Fail]) < self._record_max_failed_reply_count))):
+			# Either it's indeterminate (then we always save the reply so that
+			# we can build a reference) or it's Fail (then we only collect the
+			# first 5 or so)
+			self._recorded_replies[test_result_status][tc_id] = json_data["reply"]
+
+	@property
+	def test_failures(self):
+		for (test_result_status, cases) in self._recorded_replies.items():
+			for (tc_id, reply) in cases.items():
+				yield (tc_id, test_result_status, reply)
+
+		# Determine TCIDs of NoAnswer replies so we can save those as well
+		noanswer_tc_ids = set(self._tc_collection.tc_ids) - set(self._status_by_tc_id.keys())
+		for (no, tc_id) in enumerate(noanswer_tc_ids):
+			if no >= self._record_max_failed_reply_count:
+				break
+			yield (tc_id, TestresultStatus.NoAnswer, None)
+
+	@property
+	def test_summary(self):
+		counter = collections.Counter(self._status_by_tc_id.values())
+		missing_replies = len(self._tc_collection) - counter.total()
+		if missing_replies > 0:
+			counter[TestresultStatus.NoAnswer] = missing_replies
+		return counter
+
+
 class TestcaseCollection():
 	def __init__(self, name: str, testcases: list[Testcase], reference_runtime_secs: float | None = None):
 		self._name = name
@@ -61,8 +140,15 @@ class TestcaseCollection():
 		return self._dependencies
 
 	@property
+	def tc_ids(self):
+		return self._testcases_by_tc_id.keys()
+
+	@property
 	def reference_runtime_secs(self):
 		return self._reference_runtime_secs
+
+	def prepare_evaluation(self):
+		return TestcaseCollectionEvaluation(self)
 
 	def _compute_dependencies(self):
 		dependencies = { }

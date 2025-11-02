@@ -119,7 +119,7 @@ class TestRunner():
 			raise InternalError("Limitations on RAM/process count allow running of no process at all.")
 		return concurrent
 
-	def _evaluate_docker_stdout(self, exec_result: "ExecutionResult", run_id: int = None, collection: "TestcaseCollection | None" = None):
+	def _evaluate_docker_stdout(self, exec_result: "ExecutionResult", json_line_callback: "callable | None" = None, trusted_msg_callback: "callable | None" = None):
 		for stdout_line in exec_result.stdout.decode("utf-8", errors = "ignore").split("\n"):
 			try:
 				json_data = json.loads(stdout_line)
@@ -127,6 +127,8 @@ class TestRunner():
 					continue
 
 				if ("kartfire" in json_data) and (json_data["kartfire"] == self._testrunner_key):
+					if trusted_msg_callback is not None:
+						trusted_msg_callback(json_data)
 					# This is a trusted message.
 					msg_type = json_data["type"]
 					if msg_type == "exception":
@@ -139,35 +141,12 @@ class TestRunner():
 						exec_result.error_details = exception
 					elif msg_type == "time":
 						exec_result.runtime_secs = json_data["msg"]["time"]
-
-				if run_id is not None:
-					if "id" not in json_data:
-						continue
-					if "reply" not in json_data:
-						continue
-					if not json_data["id"].isdigit():
-						continue
-					tc_id = int(json_data["id"])
-					if tc_id not in collection:
-						print(f"Submission returned TCID {tc_id} which is not not in testcase battery")
-						continue
-					testcase = collection[tc_id]
-
-					if testcase.correct_reply is None:
-						# No response available
-						test_result_status = TestresultStatus.Indeterminate
-					elif testcase.correct_reply == json_data["reply"]:
-						test_result_status = TestresultStatus.Pass
-					else:
-						test_result_status = TestresultStatus.Fail
-
-					self._db.update_testresult(run_id, tc_id, json_data["reply"], test_result_status)
-					self._db.opportunistic_commit()
+				else:
+					# Regular parsable JSON message
+					if json_line_callback is not None:
+						json_line_callback(json_data)
 			except json.decoder.JSONDecodeError:
 				pass
-		if run_id is not None:
-			self._db.close_testrun(run_id, exec_result)
-			self._db.commit()
 
 	def _determine_runtime_allowance_secs(self, collection: "TestcaseCollection"):
 		if (collection.reference_runtime_secs is None) or (self._config.reference_time_factor is None):
@@ -319,7 +298,13 @@ class TestRunner():
 						run_ids.append(run_id)
 						self._db.commit()
 						run_result = await self._execute_run_step(docker, submission, collection, base_image_name = commited_base_image_id)
-						self._evaluate_docker_stdout(run_result, run_id, collection)
+						evaluation = collection.prepare_evaluation()
+						self._evaluate_docker_stdout(run_result, evaluation.received_reply, evaluation.received_trusted_msg)
+						for (tc_id, test_result_status, reply) in evaluation.test_failures:
+							self._db.insert_testfailure(run_id, tc_id, test_result_status, reply)
+						for (test_result_status, count) in evaluation.test_summary.items():
+							self._db.insert_testsummary(run_id, test_result_status, count)
+						self._db.close_testrun(run_id, run_result)
 						self._db.commit()
 						for callback in self._submission_run_finished_callbacks:
 							callback(submission, run_id)

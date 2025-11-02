@@ -71,6 +71,14 @@ class SqliteORM():
 				assert(value.tzinfo == datetime.timezone.utc)
 				return value.isoformat()[:-6] + "Z"
 
+			case ("limit-blobsize", max_size_bytes):
+				assert(isinstance(value, bytes))
+				if len(value) > max_size_bytes:
+					half_size = max_size_bytes // 2
+					missing_bytes = len(value) - (2 * half_size)
+					value = value[:half_size] + (f"\n[...kartfire limited size {len(value)} to {max_size_bytes} bytes...]\n").encode("ascii") + value[-half_size:]
+				return value
+
 			case _:
 				raise ValueError(f"Unknown type descriptor: {self._types[type_name]}")
 
@@ -88,6 +96,9 @@ class SqliteORM():
 
 			case ("utcts", ):
 				return datetime.datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo = datetime.UTC)
+
+			case ("limit_blobsize", max_size_bytes):
+				return value
 
 			case _:
 				raise ValueError(f"Unknown type descriptor: {self._types[type_name]}")

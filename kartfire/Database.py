@@ -47,6 +47,8 @@ class Database(SqliteORM):
 		self._map_type("multirun:build_start_utcts", "utcts")
 		self._map_type("multirun:build_end_utcts", "utcts")
 		self._map_type("multirun:build_status", "enum", TestrunStatus)
+		self._map_type("multirun:build_stdout", "limit-blobsize", 128 * 1024)
+		self._map_type("multirun:build_stderr", "limit-blobsize", 128 * 1024)
 		self._map_type("multirun:build_error_details", "json")
 
 		self._map_type("testrun:run_start_utcts", "utcts")
@@ -54,9 +56,12 @@ class Database(SqliteORM):
 		self._map_type("testrun:dependencies", "json")
 		self._map_type("testrun:status", "enum", TestrunStatus)
 		self._map_type("testrun:error_details", "json")
+		self._map_type("testrun:stderr", "limit-blobsize", 128 * 1024)
 
-		self._map_type("testresult:received_reply", "json")
-		self._map_type("testresult:status", "enum", TestresultStatus)
+		self._map_type("testfailure:status", "enum", TestresultStatus)
+		self._map_type("testfailure:received_reply", "json")
+
+		self._map_type("testsummary:status", "enum", TestresultStatus)
 
 		# Five minutes of blocking time before giving up
 		self._cursor.execute(f"PRAGMA busy_timeout = {5 * 60 * 1000}")
@@ -138,18 +143,26 @@ class Database(SqliteORM):
 
 		with contextlib.suppress(sqlite3.OperationalError):
 			self._cursor.execute("""\
-			CREATE TABLE testresult (
-				tc_id integer NOT NULL REFERENCES testcases(tc_id),
+			CREATE TABLE testfailure (
 				run_id integer NOT NULL REFERENCES testrun(run_id),
-				received_reply varchar(4096) NULL,
+				tc_id integer NOT NULL REFERENCES testcases(tc_id),
 				status varchar(32) NOT NULL DEFAULT 'no_answer',
-				UNIQUE(tc_id, run_id),
-				CHECK((status = 'no_answer') OR (status = 'pass') OR (status = 'fail') OR (status = 'indeterminate'))
+				received_reply varchar(4096) NULL,
+				UNIQUE(run_id, tc_id),
+				CHECK((status = 'no_answer') OR (status = 'fail') OR (status = 'indeterminate'))
 			);
 			""")
 
 		with contextlib.suppress(sqlite3.OperationalError):
-			self._cursor.execute("CREATE index testresult_run_id_idx ON testresult(run_id);")
+			self._cursor.execute("""\
+			CREATE TABLE testsummary (
+				run_id integer NOT NULL REFERENCES testrun(run_id),
+				status varchar(32) NOT NULL DEFAULT 'no_answer',
+				count integer NOT NULL,
+				UNIQUE(run_id, status),
+				CHECK((status = 'no_answer') OR (status = 'pass') OR (status = 'fail') OR (status = 'indeterminate'))
+			);
+			""")
 
 		with contextlib.suppress(sqlite3.OperationalError):
 			self._cursor.execute("""CREATE VIEW successful_runs_runtimes AS
@@ -191,11 +204,11 @@ class Database(SqliteORM):
 		self._mapped_execute("UPDATE multirun SET build_end_utcts = ?, build_status = ?, build_stdout = ?, build_stderr = ?, build_runtime_secs = ?, build_runtime_secs_container = ?, build_error_details = ? WHERE (multirun_id = ?);",
 								(datetime.datetime.now(datetime.UTC), "multirun:build_end_utcts"),
 								(exec_result.testrun_status, "multirun:build_status"),
-								exec_result.stdout,
-								exec_result.stderr,
+								(exec_result.stdout, "multirun:build_stdout"),
+								(exec_result.stderr, "multirun:build_stderr"),
 								exec_result.runtime_secs,
 								exec_result.runtime_secs_container,
-							   (exec_result.error_details, "multirun:build_error_details"),
+								(exec_result.error_details, "multirun:build_error_details"),
 								multirun_id)
 		self._increase_uncommitted_write_count()
 
@@ -210,19 +223,22 @@ class Database(SqliteORM):
 			"status": TestrunStatus.Running,
 			"collection": testcase_collection.name,
 		})
-		for testcase in testcase_collection:
-			self._insert("testresult", {
-				"tc_id":	testcase.tc_id,
-				"run_id":	run_id,
-			})
 		return run_id
 
-	def update_testresult(self, run_id: int, tc_id: int, received_reply: dict, test_result_status: TestresultStatus):
-		self._mapped_execute("UPDATE testresult SET received_reply = ?, status = ? WHERE (tc_id = ?) AND (run_id = ?);",
-							(received_reply, "testresult:received_reply"),
-							(test_result_status, "testresult:status"),
-							tc_id, run_id)
-		self._increase_uncommitted_write_count()
+	def insert_testfailure(self, run_id: int, tc_id: int, test_result_status: TestresultStatus, received_reply: dict):
+		self._insert("testfailure", {
+			"run_id": run_id,
+			"tc_id": tc_id,
+			"status": test_result_status,
+			"received_reply": received_reply,
+		})
+
+	def insert_testsummary(self, run_id: int, test_result_status: TestresultStatus, count: int):
+		self._insert("testsummary", {
+			"run_id": run_id,
+			"status": test_result_status,
+			"count": count,
+		})
 
 	def close_testrun(self, run_id: int, exec_result: "ExecutionResult"):
 		now = datetime.datetime.now(datetime.UTC)
@@ -232,7 +248,7 @@ class Database(SqliteORM):
 							(now, "testrun:run_end_utcts"),
 							exec_result.runtime_secs,
 							exec_result.runtime_secs_container,
-							exec_result.stderr,
+							(exec_result.stderr, "testrun:stderr"),
 							run_id)
 		self._increase_uncommitted_write_count()
 
@@ -351,13 +367,13 @@ class Database(SqliteORM):
 
 	def get_run_result_count(self, run_id: int):
 		return [ (TestresultStatus(row["status"]), row["count"]) for row in self._cursor.execute("""
-			SELECT status, COUNT(run_id) AS count FROM testresult
+			SELECT status, count FROM testsummary
 			WHERE run_id = ?
-			GROUP BY status
 			ORDER BY count DESC;
 		""", (run_id, )).fetchall() ]
 
-	def get_run_details(self, run_id: int):
+	def get_run_failures(self, run_id: int):
+		TODO_FIXME
 		return self._mapped_execute("""
 			SELECT testcases.tc_id, testcases.action, testcases.arguments, testcases.correct_reply, received_reply, status FROM testresult
 				JOIN testcases ON testcases.tc_id = testresult.tc_id
