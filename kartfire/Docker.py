@@ -121,9 +121,11 @@ class RunningDockerContainer():
 			inspection_result = await self.inspect()
 			if inspection_result["State"]["Status"] != "running":
 				return await self.wait()
-			if time.time() > end_time:
+			now = time.time()
+			if now >= end_time:
 				return None
-			await asyncio.sleep(check_interval)
+			remaining_time = end_time - now
+			await asyncio.sleep(min(check_interval, remaining_time))
 
 	def __repr__(self):
 		return f"Container<ID {self.container_id[:8]}>"
