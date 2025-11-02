@@ -82,6 +82,7 @@ class TestRunner():
 		self._config = test_fixture_config
 		self._db = database
 		self._interactive = interactive
+		self._testrunner_key = os.urandom(16).hex()
 		_log.debug("Successfully started testcase runner with %d collections and %s total testcases", len(self._testcase_collections), sum(len(collection) for collection in self._testcase_collections))
 		self._concurrent_process_count = self._determine_concurrent_process_count()
 		self._process_semaphore = None
@@ -124,13 +125,20 @@ class TestRunner():
 				if not isinstance(json_data, dict):
 					continue
 
-				if ("_" in json_data) and (json_data["_"] == "9d83e7a5-bb94-40a1-9f59-a6586d2c3c94"):
-					# Exception in subordinate process
-					if json_data.get("code", "N/A") in [ "exec_timeout", "exec_oom" ]:
-						exec_result.testrun_status = TestrunStatus.Terminated
-					else:
-						exec_result.testrun_status = TestrunStatus.Failed
-					exec_result.error_details = json_data.get("exception")
+				if ("kartfire" in json_data) and (json_data["kartfire"] == self._testrunner_key):
+					# This is a trusted message.
+					msg_type = json_data["type"]
+					if msg_type == "exception":
+						# Exception in subordinate process
+						exception = json_data["msg"]["exception"]
+						if exception["code"] in [ "exec_timeout", "exec_oom" ]:
+							exec_result.testrun_status = TestrunStatus.Terminated
+						else:
+							exec_result.testrun_status = TestrunStatus.Failed
+						exec_result.error_details = exception
+					elif msg_type == "time":
+						pass
+						#print("TRUSTED TIME", json_data["msg"]["time"])
 
 				if run_id is not None:
 					if "id" not in json_data:
@@ -231,6 +239,8 @@ class TestRunner():
 				"container_testcase_file":			"/testcases.json",
 				"build_name":						self._config.build_name,
 				"solution_name":					self._config.solution_name,
+				"testrunner_key":					self._testrunner_key,
+				"unprivileged_user":				"kartfire",
 				"verbose":							2 if self._interactive else 0,
 			}
 			await container.write_json(container_meta, self._DEFS["container_meta_file"], pretty_print = self._interactive)

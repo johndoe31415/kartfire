@@ -23,9 +23,10 @@
 import os
 import json
 import sys
+import pwd
+import time
 import subprocess
 import argparse
-import contextlib
 
 class ContainerRunFailedException(Exception):
 	def __init__(self, msg: str, code: str, cmd: list[str], execution_hint: str):
@@ -61,9 +62,27 @@ class ContainerTestRunner():
 	def verbose(self):
 		return max(self._config["verbose"], self._args.verbose)
 
+	@property
+	def unprivileged_user(self):
+		user_info = pwd.getpwnam(self._config["unprivileged_user"])
+		(uid, gid) = (user_info.pw_uid, user_info.pw_gid)
+		return (uid, gid)
+
+	def _drop_privileges(self):
+		(uid, gid) = self.unprivileged_user
+		os.setgroups([ ])
+		os.setresgid(gid, gid, gid)
+		os.setresuid(uid, uid, uid)
+
 	def _execute(self, cmd: list[str], execution_hint: str, timeout: float | None = None):
 		try:
-			exec_result = subprocess.run(cmd, timeout = timeout)
+			t0 = time.monotonic()
+			exec_result = subprocess.run(cmd, timeout = timeout, preexec_fn = self._drop_privileges)
+			t1 = time.monotonic()
+			self._emit_privileged_msg("time", {
+				"time": t1 - t0,
+				"target": execution_hint,
+			})
 		except subprocess.TimeoutExpired as e:
 			raise ContainerRunFailedException(f"{execution_hint} terminated with timeout ({timeout:.0f} seconds)", code = "exec_timeout", cmd = cmd, execution_hint = execution_hint) from e
 		except PermissionError as e:
@@ -77,8 +96,6 @@ class ContainerTestRunner():
 			raise ContainerRunFailedException(f"{execution_hint} terminated with return code {exec_result.returncode}", code = "exec_failed", cmd = cmd, execution_hint = execution_hint)
 
 	def _unpack(self):
-		with contextlib.suppress(FileExistsError):
-			os.makedirs(self._config["container_dut_dir"])
 		self._execute([ "tar", "-x", "-C", self._config["container_dut_dir"], "-f", self._config["container_submission_tar_file"] ], execution_hint = "untar")
 
 	def _build(self):
@@ -87,8 +104,34 @@ class ContainerTestRunner():
 			self._execute([ build_executable ], execution_hint = "build")
 
 	def _run(self):
+		# Execute newline so that in interactive run, first testcase does not
+		# get mangled with prompt and becomes unparsable/no_answer
+		print()
 		solution_executable = f"{self._config['container_dut_dir']}/{self._config['solution_name']}"
 		self._execute([ solution_executable, self._config["container_testcase_file"] ], execution_hint = "test")
+
+	def _emit_privileged_msg(self, msg_type: str, msg: dict):
+		sys.stdout.flush()
+		print()
+		print(json.dumps({
+			"kartfire": self._config["testrunner_key"],
+			"type": msg_type,
+			"msg": msg,
+		}))
+		sys.stdout.flush()
+
+	def _fix_privileges(self):
+		os.chown(self._args.configuration, 0, 0)
+		os.chmod(self._args.configuration, 0o600)
+		if self._args.execute_build:
+			(uid, gid) = self.unprivileged_user
+			os.makedirs(self._config["container_dut_dir"], exist_ok = True)
+			os.chown(self._config["container_dut_dir"], uid, gid)
+			os.chown(self._config["container_submission_tar_file"], 0, 0)
+			os.chmod(self._config["container_submission_tar_file"], 0o644)
+		if self._args.execute_run:
+			os.chown(self._config["container_testcase_file"], 0, 0)
+			os.chmod(self._config["container_testcase_file"], 0o644)
 
 	def run(self):
 		if (not self._args.execute_build) and (not self._args.execute_run):
@@ -96,17 +139,16 @@ class ContainerTestRunner():
 			sys.exit(1)
 
 		try:
+			self._fix_privileges()
 			if self._args.execute_build:
 				self._unpack()
 				self._build()
 			if self._args.execute_run:
 				self._run()
 		except ContainerRunFailedException as e:
-			print()
-			print(json.dumps({
-				"_": "9d83e7a5-bb94-40a1-9f59-a6586d2c3c94",
+			self._emit_privileged_msg("exception", {
 				"exception": e.to_dict(),
-			}))
+			})
 			sys.exit(1)
 
 parser = argparse.ArgumentParser(description = "Run build step or testcases inside a kartfire container.")
