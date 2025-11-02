@@ -99,6 +99,7 @@ class Database(SqliteORM):
 				build_stdout blob NULL,
 				build_stderr blob NULL,
 				build_runtime_secs float NULL,								-- pure runtime of the build script; for output relative to the user
+				build_runtime_secs_container float NULL,					-- runtime of the build script as measured by the Docker process (including Docker overhead)
 				build_runtime_allowance_secs float NULL,
 				build_error_details varchar(4096) NULL,
 				CHECK((build_status = 'running') OR (build_status = 'finished') OR (build_status = 'failed') OR (build_status = 'aborted') OR (build_status = 'terminated'))
@@ -114,6 +115,7 @@ class Database(SqliteORM):
 				run_start_utcts varchar(64) NOT NULL,
 				run_end_utcts varchar(64) NULL,
 				runtime_secs float NULL,						-- pure runtime of the run testcase script; for output relative to the user
+				runtime_secs_container float NULL,				-- pure runtime of the run testcase script as measured by Docker (including Docker overhead)
 				testcase_count integer NOT NULL,				-- total amount of associated testcases with this run
 				runtime_allowance_secs float NULL,
 				max_permissible_ram_mib integer NOT NULL,
@@ -186,12 +188,13 @@ class Database(SqliteORM):
 		return multirun_id
 
 	def update_multirun_build_status(self, multirun_id: int, exec_result: "ExecutionResult"):
-		self._mapped_execute("UPDATE multirun SET build_end_utcts = ?, build_status = ?, build_stdout = ?, build_stderr = ?, build_runtime_secs = ?, build_error_details = ? WHERE (multirun_id = ?);",
+		self._mapped_execute("UPDATE multirun SET build_end_utcts = ?, build_status = ?, build_stdout = ?, build_stderr = ?, build_runtime_secs = ?, build_runtime_secs_container = ?, build_error_details = ? WHERE (multirun_id = ?);",
 								(datetime.datetime.now(datetime.UTC), "multirun:build_end_utcts"),
 								(exec_result.testrun_status, "multirun:build_status"),
 								exec_result.stdout,
 								exec_result.stderr,
 								exec_result.runtime_secs,
+								exec_result.runtime_secs_container,
 							   (exec_result.error_details, "multirun:build_error_details"),
 								multirun_id)
 		self._increase_uncommitted_write_count()
@@ -223,11 +226,12 @@ class Database(SqliteORM):
 
 	def close_testrun(self, run_id: int, exec_result: "ExecutionResult"):
 		now = datetime.datetime.now(datetime.UTC)
-		self._mapped_execute("UPDATE testrun SET status = ?, error_details = ?, run_end_utcts = ?, runtime_secs = ?, stderr = ? WHERE run_id = ?;",
+		self._mapped_execute("UPDATE testrun SET status = ?, error_details = ?, run_end_utcts = ?, runtime_secs = ?, runtime_secs_container = ?, stderr = ? WHERE run_id = ?;",
 							(exec_result.testrun_status, "testrun:status"),
 							(exec_result.error_details, "testrun:error_details"),
 							(now, "testrun:run_end_utcts"),
 							exec_result.runtime_secs,
+							exec_result.runtime_secs_container,
 							exec_result.stderr,
 							run_id)
 		self._increase_uncommitted_write_count()

@@ -40,6 +40,7 @@ class ExecutionResult():
 	testrun_status: TestrunStatus
 	error_details: dict | None = None
 	runtime_secs: float | None = None
+	runtime_secs_container: float | None = None
 	pre_run_result: "any | None" = None
 	post_run_result: "any | None" = None
 
@@ -137,8 +138,7 @@ class TestRunner():
 							exec_result.testrun_status = TestrunStatus.Failed
 						exec_result.error_details = exception
 					elif msg_type == "time":
-						pass
-						#print("TRUSTED TIME", json_data["msg"]["time"])
+						exec_result.runtime_secs = json_data["msg"]["time"]
 
 				if run_id is not None:
 					if "id" not in json_data:
@@ -204,7 +204,7 @@ class TestRunner():
 
 		t0 = time.time()
 		status_code = await container.wait_timeout(timeout_secs)
-		runtime_secs = time.time() - t0
+		runtime_secs_container = time.time() - t0
 
 		# Send SIGKILL to container immediately and wait for it to actually finish
 		await container.stop(gracetime = 0)
@@ -215,7 +215,7 @@ class TestRunner():
 
 		if status_code is None:
 			# Docker container time timed out
-			_log.debug("Docker container \"%s\" timed out after %.1f seconds (allowance %.1f seconds)", prefix, runtime_secs, timeout_secs)
+			_log.debug("Docker container \"%s\" timed out after %.1f seconds (allowance %.1f seconds)", prefix, runtime_secs_container, timeout_secs)
 			testrun_status = TestrunStatus.Terminated
 		elif status_code == 0:
 			_log.debug("Docker container \"%s\" exited normally.", prefix)
@@ -225,7 +225,7 @@ class TestRunner():
 			testrun_status = TestrunStatus.Failed
 
 		(stdout, stderr) = await container.logs()
-		return ExecutionResult(stdout = stdout, stderr = stderr, testrun_status = testrun_status, runtime_secs = runtime_secs, pre_run_result = pre_run_result, post_run_result = post_run_result)
+		return ExecutionResult(stdout = stdout, stderr = stderr, testrun_status = testrun_status, runtime_secs_container = runtime_secs_container, pre_run_result = pre_run_result, post_run_result = post_run_result)
 
 	async def _execute_build_step(self, docker: Docker, submission: "Submission"):
 		async def pre_run_hook(container: "RunningDockerContainer"):
@@ -277,7 +277,7 @@ class TestRunner():
 		async def post_run_hook(container: "RunningDockerContainer", status_code: int):
 			# Cleanup dependent services regardless if the test succeeded
 			async def _stoprm(depedency_container: "RunningDockerContainer"):
-				await dependency_container.stop()
+				await dependency_container.stop(gracetime = 0)
 				await dependency_container.wait()
 				await dependency_container.rm()
 
