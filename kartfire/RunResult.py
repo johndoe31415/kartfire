@@ -89,8 +89,12 @@ class RunResult():
 			return None
 
 	@functools.cached_property
-	def testresult_details(self):
-		return self._db.get_run_details(self.run_id)
+	def test_failures(self):
+		return self._db.get_run_failures(self.run_id)
+
+	@functools.cached_property
+	def test_indeterminates(self):
+		return self._db.get_run_failures(self.run_id, only_indeterminate = True)
 
 	@property
 	def total_testcase_count(self):

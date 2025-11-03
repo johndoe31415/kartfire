@@ -42,9 +42,9 @@ class ActionReference(CmdlineAction):
 					print(f"{status:<30s} {count}")
 
 			self._db.set_reference_runtime(run_result.collection_name, run_result.runtime.duration_secs)
-			for result in run_result.testresult_details:
-				if (result["status"] == TestresultStatus.Indeterminate) or ((result["status"] == TestresultStatus.Fail) and self._args.pick_failed_answers):
-					self._db.set_reference_answer(result["tc_id"], result["received_reply"])
-					self._db.opportunistic_commit()
+			cases = run_result.test_failures if self._args.pick_failed_answers else run_result.test_indeterminates
+			for reference_testcase in cases:
+				self._db.set_reference_answer(reference_testcase["tc_id"], reference_testcase["received_reply"])
+				self._db.opportunistic_commit()
 		self._db.commit()
 		return 0

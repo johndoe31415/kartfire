@@ -372,13 +372,11 @@ class Database(SqliteORM):
 			ORDER BY count DESC;
 		""", (run_id, )).fetchall() ]
 
-	def get_run_failures(self, run_id: int):
-		TODO_FIXME
-		return self._mapped_execute("""
-			SELECT testcases.tc_id, testcases.action, testcases.arguments, testcases.correct_reply, received_reply, status FROM testresult
-				JOIN testcases ON testcases.tc_id = testresult.tc_id
-				WHERE run_id = ?;
-			""", run_id)._mapped_fetchall("testcases", "testresult")
+	def get_run_failures(self, run_id: int, only_indeterminate: bool = False):
+		return self._mapped_execute(f"""
+			SELECT tc_id, status, received_reply FROM testfailure
+				WHERE (run_id = ?){" AND (status = 'indeterminate')" if only_indeterminate else ""};
+			""", run_id)._mapped_fetchall("testfailure")
 
 	def set_reference_runtime(self, collection_name: str, runtime_secs: float):
 		self._cursor.execute("UPDATE testcollection SET reference_runtime_secs = ? WHERE name = ?;", (runtime_secs, collection_name))
