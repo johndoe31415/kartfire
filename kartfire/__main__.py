@@ -25,6 +25,7 @@ from .ActionImport import ActionImport
 from .ActionList import ActionList
 from .ActionCollection import ActionCollection
 from .ActionRun import ActionRun
+from .ActionWatch import ActionWatch
 from .ActionResults import ActionResults
 from .ActionReference import ActionReference
 from .ActionLeaderboard import ActionLeaderboard
@@ -57,13 +58,22 @@ def main():
 	def genparser(parser):
 		parser.add_argument("-m", "--send-email", action = "store_true", help = "Send the multirun result via email immediately after the results are in.")
 		parser.add_argument("-i", "--interactive", action = "store_true", help = "Interactively debug the session by dropping into a shell.")
-		parser.add_argument("-t", "--time-scalar", metavar = "float", type = float, default = 1.0, help = "Multiply the allowed time by this scalar factor. When zero is specified, runtime is infinite.")
 		parser.add_argument("-C", "--test-fixture-config", metavar = "filename", help = "Specify a specific test fixture configuration to use. If omitted, tries to look in the local directory for a file named 'kartfire_test_fixture.json' before falling back to default values.")
 		parser.add_argument("-D", "--database-filename", metavar = "file", default = "kartfire.sqlite3", help = "Database filename to use. Defaults to %(default)s.")
 		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
 		parser.add_argument("collection_name", help = "Test collection name(s) to execute, possibly separated by commas.")
 		parser.add_argument("submission_dir", nargs = "+", help = "Directory/directories that should be run as a testcase inside containers.")
 	mc.register("run", "Run solution(s) against a battery of testcases", genparser, action = ActionRun)
+
+	def genparser(parser):
+		parser.add_argument("-d", "--loop-duration", metavar = "secs", type = float, default = 60, help = "Wait this amount of time in seconds before re-validation of all solutions happens. Defaults to %(default).0f seconds.")
+		parser.add_argument("-m", "--send-email", action = "store_true", help = "Send the multirun result via email immediately after the results are in.")
+		parser.add_argument("-C", "--test-fixture-config", metavar = "filename", help = "Specify a specific test fixture configuration to use. If omitted, tries to look in the local directory for a file named 'kartfire_test_fixture.json' before falling back to default values.")
+		parser.add_argument("-D", "--database-filename", metavar = "file", default = "kartfire.sqlite3", help = "Database filename to use. Defaults to %(default)s.")
+		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
+		parser.add_argument("collection_name", help = "Test collection name(s) to execute, possibly separated by commas.")
+		parser.add_argument("submission_dir", nargs = "+", help = "Directory/directories that should be run as a testcase inside containers.")
+	mc.register("watch", "Watch multiple solution directories and execute testruns as soon as changes happen", genparser, action = ActionWatch)
 
 	def genparser(parser):
 		parser.add_argument("-C", "--test-fixture-config", metavar = "filename", help = "Specify a specific test fixture configuration to use. If omitted, tries to look in the local directory for a file named 'kartfire_test_fixture.json' before falling back to default values.")

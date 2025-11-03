@@ -46,53 +46,6 @@ class JSONTools():
 		canonical_representation = cls.canonicalize(serializable_object)
 		return base64.b64encode(canonical_representation.encode("ascii")).decode("ascii")
 
-class GitTools():
-	@classmethod
-	def is_under_git_vcs(cls, dirname: str) -> bool:
-		return (subprocess.run([ "git", "-C", dirname, "rev-parse" ], stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL).returncode == 0)
-
-	@classmethod
-	def gitinfo(cls, dirname: str):
-		if not cls.is_under_git_vcs(dirname):
-			return None
-		result = {
-			"empty": cls._is_repo_empty(dirname),
-			"branch": cls._get_branch_name(dirname),
-		}
-		result["has_branch"] = cls._has_branch(dirname, result["branch"])
-
-		if (not result["empty"]) and result["has_branch"]:
-			result.update({
-				"commit": cls._get_commit_id(dirname),
-				"date": cls._get_commit_date(dirname),
-			})
-			result["shortcommit"] = result["commit"][:8]
-		return result
-
-	@classmethod
-	def _is_repo_empty(cls, dirname: str):
-		return subprocess.check_output([ "git", "-C", dirname, "rev-list", "--all", "-n", "1" ]).decode().rstrip("\r\n") == ""
-
-	@classmethod
-	def _has_commit_date(cls, dirname: str):
-		return subprocess.check_output([ "git", "-C", dirname, "show", "--no-patch", "--format=%ci", "HEAD" ]).decode().rstrip("\r\n")
-
-	@classmethod
-	def _get_branch_name(cls, dirname: str):
-		return subprocess.check_output([ "git", "-C", dirname, "branch", "--show-current" ]).decode().rstrip("\r\n")
-
-	@classmethod
-	def _get_commit_id(cls, dirname: str):
-		return subprocess.check_output([ "git", "-C", dirname, "rev-parse", "HEAD" ]).decode().rstrip("\r\n")
-
-	@classmethod
-	def _get_commit_date(cls, dirname: str):
-		return subprocess.check_output([ "git", "-C", dirname, "show", "--no-patch", "--format=%ci", "HEAD" ]).decode().rstrip("\r\n")
-
-	@classmethod
-	def _has_branch(cls, dirname: str, branch_name: str):
-		return subprocess.run([ "git", "-C", dirname, "show-ref", "--verify", "--quiet", f"refs/heads/{branch_name}" ], stdout = subprocess.DEVNULL, check = False).returncode == 0
-
 class SystemTools():
 	_TOTAL_MEM_RE = re.compile(r"MemTotal:\s*(?P<mem_kib>\d+)\s*kB")
 
@@ -164,3 +117,54 @@ class MiscTools():
 				if cnt > 0:
 					line_count[extension] += cnt
 		return line_count
+
+class GitTools():
+	@classmethod
+	def is_under_git_vcs(cls, dirname: str) -> bool:
+		return (subprocess.run([ "git", "-C", dirname, "rev-parse" ], stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL).returncode == 0)
+
+	@classmethod
+	def gitinfo(cls, dirname: str):
+		if not cls.is_under_git_vcs(dirname):
+			return None
+		result = {
+			"empty": cls._is_repo_empty(dirname),
+			"branch": cls._get_branch_name(dirname),
+		}
+		result["has_branch"] = cls._has_branch(dirname, result["branch"])
+
+		if (not result["empty"]) and result["has_branch"]:
+			result.update({
+				"commit": cls._get_commit_id(dirname),
+				"date": cls._get_commit_date(dirname),
+			})
+			result["shortcommit"] = result["commit"][:8]
+		return result
+
+	@classmethod
+	def _is_repo_empty(cls, dirname: str):
+		return subprocess.check_output([ "git", "-C", dirname, "rev-list", "--all", "-n", "1" ]).decode().rstrip("\r\n") == ""
+
+	@classmethod
+	def _has_commit_date(cls, dirname: str):
+		return subprocess.check_output([ "git", "-C", dirname, "show", "--no-patch", "--format=%ci", "HEAD" ]).decode().rstrip("\r\n")
+
+	@classmethod
+	def _get_branch_name(cls, dirname: str):
+		return subprocess.check_output([ "git", "-C", dirname, "branch", "--show-current" ]).decode().rstrip("\r\n")
+
+	@classmethod
+	def _get_commit_id(cls, dirname: str):
+		return subprocess.check_output([ "git", "-C", dirname, "rev-parse", "HEAD" ]).decode().rstrip("\r\n")
+
+	@classmethod
+	def _get_commit_date(cls, dirname: str):
+		return subprocess.check_output([ "git", "-C", dirname, "show", "--no-patch", "--format=%ci", "HEAD" ]).decode().rstrip("\r\n")
+
+	@classmethod
+	def _has_branch(cls, dirname: str, branch_name: str):
+		return subprocess.run([ "git", "-C", dirname, "show-ref", "--verify", "--quiet", f"refs/heads/{branch_name}" ], stdout = subprocess.DEVNULL, check = False).returncode == 0
+
+	@classmethod
+	async def pull(cls, dirname: str):
+		await ExecTools.async_check_call([ "git", "-C", dirname, "pull" ])

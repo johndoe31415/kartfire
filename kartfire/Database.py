@@ -112,6 +112,27 @@ class Database(SqliteORM):
 			""")
 
 		with contextlib.suppress(sqlite3.OperationalError):
+			self._cursor.execute("CREATE INDEX multirun_build_start_utcts ON multirun(build_start_utcts);")
+
+		with contextlib.suppress(sqlite3.OperationalError):
+			self._cursor.execute("CREATE INDEX multirun_source ON multirun(source);")
+
+		with contextlib.suppress(sqlite3.OperationalError):
+			self._cursor.execute("""CREATE VIEW latest_multirun_metadata AS
+				SELECT source, source_metadata FROM (
+					SELECT source, build_start_utcts, source_metadata, ROW_NUMBER() OVER (PARTITION BY source ORDER BY build_start_utcts DESC) AS rowno, MAX(build_start_utcts) OVER (PARTITION BY source) AS latest_build_start FROM multirun
+				) AS subqry WHERE (subqry.latest_build_start = subqry.build_start_utcts) AND (subqry.rowno = 1)
+			;""")
+
+		with contextlib.suppress(sqlite3.OperationalError):
+			self._cursor.execute("""CREATE VIEW time_spent_in_pipeline AS
+				SELECT source, SUM(COALESCE(total_time_secs, 0)) as pipeline_time_secs FROM multirun
+				GROUP BY source
+				ORDER BY pipeline_time_secs ASC
+			;""")
+
+
+		with contextlib.suppress(sqlite3.OperationalError):
 			self._cursor.execute("""\
 			CREATE TABLE testrun (
 				run_id integer PRIMARY KEY,
@@ -387,6 +408,12 @@ class Database(SqliteORM):
 					(correct_reply, "testcases:correct_reply"),
 					tc_id)
 		self._increase_uncommitted_write_count()
+
+	def get_latest_multirun_metadata(self) -> dict:
+		return { row["source"]: row["source_metadata"] for row in self._mapped_execute("SELECT * FROM latest_multirun_metadata;")._mapped_fetchall("multirun") }
+
+	def get_time_spent_in_pipeline(self) -> dict:
+		return { row["source"]: row["pipeline_time_secs"] for row in self._cursor.execute("SELECT * FROM time_spent_in_pipeline;").fetchall() }
 
 	def get_leaderboard(self, collection_name: str):
 		return self._mapped_execute("""

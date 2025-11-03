@@ -91,6 +91,18 @@ class TestRunner():
 		self._submission_run_finished_callbacks = [ ]
 		self._submission_multirun_finished_callbacks = [ ]
 
+	@property
+	def config(self):
+		return self._config
+
+	@property
+	def container_testrunner_filename(self):
+		return os.path.realpath(os.path.dirname(__file__)) + "/container/container_testrunner"
+
+	@property
+	def concurrent_process_count(self):
+		return self._concurrent_process_count
+
 	def register_build_finished_callback(self, callback: callable):
 		self._submission_build_finished_callbacks.append(callback)
 
@@ -100,13 +112,6 @@ class TestRunner():
 	def register_multirun_finished_callback(self, callback: callable):
 		self._submission_multirun_finished_callbacks.append(callback)
 
-	@property
-	def config(self):
-		return self._config
-
-	@property
-	def container_testrunner_filename(self):
-		return os.path.realpath(os.path.dirname(__file__)) + "/container/container_testrunner"
 
 	def _determine_concurrent_process_count(self):
 		host_memory_mib = SystemTools.get_host_memory_mib()
@@ -267,59 +272,62 @@ class TestRunner():
 		timeout = self._determine_runtime_allowance_secs(collection)
 		return await self._execute_docker_container_run(docker = docker, image_name = base_image_name, container_command = [ "/container_testrunner", "--execute-run" ], prefix = f"run_{submission.shortname}", pre_run_hook = pre_run_hook, post_run_hook = post_run_hook, timeout_secs = timeout)
 
-	async def _run_submission(self, submission: "Submission"):
+	async def run_submission(self, submission: "Submission"):
+		_log.info("Starting testing of submission \"%s\"", submission)
+
+		build_constraints = BuildConstraints(runtime_allowance_secs = self._config.max_build_time_secs)
+		container_image_metadata = ContainerImageMetadata.collect(self._config.docker_container, self.docker)
+		multirun_id = self._db.create_multirun(submission, build_constraints = build_constraints, container_image_metadata = container_image_metadata)
+		self._db.commit()
+
+		async with self.docker as docker:
+			await self._initialize_docker_env(docker)
+
+			build_result = await self._execute_build_step(docker, submission)
+			self._db.update_multirun_build_status(multirun_id, build_result)
+			self._db.commit()
+
+			for callback in self._submission_build_finished_callbacks:
+				callback(multirun_id)
+
+			if build_result.testrun_status == TestrunStatus.Finished:
+				# Only continue running tests if build actually worked
+				commited_base_image_id = build_result.post_run_result
+
+				run_ids = [ ]
+				for collection in self._testcase_collections:
+					run_constraints = RunConstraints(runtime_allowance_secs = self._determine_runtime_allowance_secs(collection), max_permissible_ram_mib = self._config.max_memory_mib)
+
+					run_id = self._db.create_testrun(multirun_id, collection, run_constraints = run_constraints)
+					run_ids.append(run_id)
+					self._db.commit()
+					run_result = await self._execute_run_step(docker, submission, collection, base_image_name = commited_base_image_id)
+					evaluation = collection.prepare_evaluation()
+					self._evaluate_docker_stdout(run_result, evaluation.received_reply, evaluation.received_trusted_msg)
+					for (tc_id, test_result_status, reply) in evaluation.test_failures:
+						self._db.insert_testfailure(run_id, tc_id, test_result_status, reply)
+					for (test_result_status, count) in evaluation.test_summary.items():
+						self._db.insert_testsummary(run_id, test_result_status, count)
+					self._db.close_testrun(run_id, run_result)
+					self._db.commit()
+					for callback in self._submission_run_finished_callbacks:
+						callback(submission, run_id)
+		self._db.close_multirun(multirun_id)
+		self._db.commit()
+
+		for callback in self._submission_multirun_finished_callbacks:
+			callback(submission, multirun_id)
+
+	async def _run_submission_limit_count(self, submission: "Submission"):
 		async with self._process_semaphore:
-			_log.info("Starting testing of submission \"%s\"", submission)
-
-			build_constraints = BuildConstraints(runtime_allowance_secs = self._config.max_build_time_secs)
-			container_image_metadata = ContainerImageMetadata.collect(self._config.docker_container, self.docker)
-			multirun_id = self._db.create_multirun(submission, build_constraints = build_constraints, container_image_metadata = container_image_metadata)
-			self._db.commit()
-
-			async with self.docker as docker:
-				await self._initialize_docker_env(docker)
-
-				build_result = await self._execute_build_step(docker, submission)
-				self._db.update_multirun_build_status(multirun_id, build_result)
-				self._db.commit()
-
-				for callback in self._submission_build_finished_callbacks:
-					callback(multirun_id)
-
-				if build_result.testrun_status == TestrunStatus.Finished:
-					# Only continue running tests if build actually worked
-					commited_base_image_id = build_result.post_run_result
-
-					run_ids = [ ]
-					for collection in self._testcase_collections:
-						run_constraints = RunConstraints(runtime_allowance_secs = self._determine_runtime_allowance_secs(collection), max_permissible_ram_mib = self._config.max_memory_mib)
-
-						run_id = self._db.create_testrun(multirun_id, collection, run_constraints = run_constraints)
-						run_ids.append(run_id)
-						self._db.commit()
-						run_result = await self._execute_run_step(docker, submission, collection, base_image_name = commited_base_image_id)
-						evaluation = collection.prepare_evaluation()
-						self._evaluate_docker_stdout(run_result, evaluation.received_reply, evaluation.received_trusted_msg)
-						for (tc_id, test_result_status, reply) in evaluation.test_failures:
-							self._db.insert_testfailure(run_id, tc_id, test_result_status, reply)
-						for (test_result_status, count) in evaluation.test_summary.items():
-							self._db.insert_testsummary(run_id, test_result_status, count)
-						self._db.close_testrun(run_id, run_result)
-						self._db.commit()
-						for callback in self._submission_run_finished_callbacks:
-							callback(submission, run_id)
-			for callback in self._submission_multirun_finished_callbacks:
-				callback(submission, multirun_id)
-
-			self._db.close_multirun(multirun_id)
-			self._db.commit()
+			await self.run_submission(submission)
 
 	async def _run(self, submissions: list["Submission"]):
 		self._process_semaphore = asyncio.Semaphore(self._concurrent_process_count)
-		_log.debug("Now testing %d submission(s) against %d collections", len(submissions), len(self._testcase_collections))
+		_log.debug("Now testing %d submission(s) against %d collections limiting to %d concurrent runs", len(submissions), len(self._testcase_collections), self._concurrent_process_count)
 		async with asyncio.TaskGroup() as task_group:
 			for submission in submissions:
-				task_group.create_task(self._run_submission(submission))
+				task_group.create_task(self._run_submission_limit_count(submission))
 
 	def run(self, submissions: list["Submission"]):
 		return asyncio.run(self._run(submissions))

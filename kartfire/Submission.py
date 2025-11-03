@@ -21,6 +21,7 @@
 
 import os
 import json
+import contextlib
 import functools
 from .Exceptions import InvalidSubmissionException
 from .Tools import ExecTools, GitTools, MiscTools
@@ -54,6 +55,15 @@ class Submission():
 				meta["json"] = json.load(f)
 		meta["filetypes"] = MiscTools.determine_lines_by_file_extension(self._submission_dir)
 		return meta
+
+	@property
+	def git_commit(self):
+		return self.meta_info.get("git", { }).get("commit")
+
+	async def update_git(self):
+		await GitTools.pull(self._submission_dir)
+		with contextlib.suppress(AttributeError):
+			del self.meta_info
 
 	async def create_submission_tarfile(self, tarfile_name: str):
 		await ExecTools.async_check_call([ "tar", "-C", self._submission_dir, "-c", "-f", tarfile_name, "." ])
