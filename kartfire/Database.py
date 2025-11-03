@@ -187,15 +187,12 @@ class Database(SqliteORM):
 
 		with contextlib.suppress(sqlite3.OperationalError):
 			self._cursor.execute("""CREATE VIEW successful_runs_runtimes AS
-				SELECT run_id, source, collection, runtime_secs FROM
-					(SELECT testrun.run_id, multirun.source, collection, COUNT(testresult.status) AS passed_count, testcase_count, runtime_secs FROM testrun
-						JOIN multirun ON multirun.multirun_id = testrun.multirun_id
-						JOIN testresult ON testresult.run_id = testrun.run_id
-						WHERE (testrun.status = 'finished') AND (testresult.status = 'pass')
-						GROUP BY testrun.run_id)
-				WHERE passed_count = testcase_count;
-			""")
-
+				SELECT testrun.run_id, source, collection, runtime_secs from testrun
+					JOIN multirun ON multirun.multirun_id = testrun.multirun_id
+					JOIN testsummary ON testsummary.run_id = testrun.run_id
+					WHERE (testrun.status = 'finished') AND (testsummary.status = 'pass') AND (testsummary.count = testcase_count)
+					GROUP BY source, collection
+			;""")
 
 	def create_testcase(self, action: str, arguments: dict, created_utcts: datetime.datetime, correct_reply: dict | None = None, dependencies: dict | None = None):
 		self._insert("testcases", {
@@ -417,10 +414,10 @@ class Database(SqliteORM):
 
 	def get_leaderboard(self, collection_name: str):
 		return self._mapped_execute("""
-			SELECT MIN(run_id) AS run_id, source, min_runtime_secs FROM
-				(SELECT run_id, source, collection, runtime_secs, MIN(runtime_secs) OVER (PARTITION BY source, collection) AS min_runtime_secs FROM successful_runs_runtimes) AS subqry
-				WHERE (runtime_secs = min_runtime_secs) AND (collection = ?)
-				GROUP BY source, collection, min_runtime_secs
-				ORDER BY min_runtime_secs ASC
-			;
-		""", collection_name)._mapped_fetchall()
+					SELECT MIN(run_id) AS run_id, source, min_runtime_secs FROM
+							(SELECT run_id, source, collection, runtime_secs, MIN(runtime_secs) OVER (PARTITION BY source, collection) AS min_runtime_secs FROM successful_runs_runtimes) AS subqry
+							WHERE (runtime_secs = min_runtime_secs) AND (collection = ?)
+							GROUP BY source, collection, min_runtime_secs
+							ORDER BY min_runtime_secs ASC
+					;
+			""", collection_name)._mapped_fetchall()
