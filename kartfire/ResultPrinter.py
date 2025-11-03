@@ -46,6 +46,18 @@ class ResultColorizer():
 	def yellow(self):
 		return "\x1b[33m" if self._ansi else ""
 
+	@property
+	def blue(self):
+		return "\x1b[34m" if self._ansi else ""
+
+	@property
+	def purple(self):
+		return "\x1b[35m" if self._ansi else ""
+
+	@property
+	def cyan(self):
+		return "\x1b[36m" if self._ansi else ""
+
 	def ratio(self, ratio: float):
 		if ratio < 0:
 			ratio = 0
@@ -149,20 +161,26 @@ class ResultPrinter():
 			print(" ".join(columns))
 
 	def _print_answer(self, testcase_result: dict):
+		def print_dict(dict_data: dict, prefix = "\t", color = ""):
+			print(color, end = "")
+			for line in json.dumps(dict_data, indent = "\t", sort_keys = True).split("\n"):
+				print(f"{prefix}{line}")
+			print(self._color.clr, end = "")
+
 		status = testcase_result["status"]
 		arguments = testcase_result["arguments"]
 		correct_reply = testcase_result["correct_reply"]
 		received_reply_json = testcase_result["received_reply"]
-		print(f"Testcase {testcase_result['tc_id']} marked as {status.name}. Action \"{testcase_result['action']}\", arguments:")
-		print(json.dumps(arguments, indent = "\t", sort_keys = True))
+
+		print_dict(arguments, color = self._color.cyan)
 		print()
-		print("Correct reply:")
-		print(json.dumps(correct_reply, indent = "\t", sort_keys = True))
+		print("    Expected correct reply:")
+		print_dict(correct_reply, color = self._color.green)
 		print()
-		print("Received reply:")
-		print(json.dumps(received_reply_json, indent = "\t", sort_keys = True))
-		print()
-		print("~" * 120)
+		if status != TestresultStatus.NoAnswer:
+			print("    Received reply:")
+			print_dict(received_reply_json, color = self._color.red)
+			print()
 
 	def print_details(self, multirun_result: "MultiRunResult"):
 		if multirun_result.build_failed:
@@ -177,19 +195,20 @@ class ResultPrinter():
 			print(f"Showing testrun summary of {multirun_result.source} of {multirun_result.solution_author or 'unknown author'}. {self._color.green}Build status {multirun_result.overview['build_status'].name}{self._color.clr} after {multirun_result.overview['build_runtime_secs']:.1f} secs:")
 
 			for run_result in multirun_result:
+				tr = f"Testrun {multirun_result.multirun_id}.{run_result.run_id}"
 				tm = f"{run_result.runtime:r}/{run_result.runtime_allowance:r}"
-				print(f"Testrun {multirun_result.multirun_id}.{run_result.run_id}: {self._color.green if run_result.run_completed else self._color.red}{run_result.collection_name:<25s} {run_result.overview['status'].name:<10s} {tm:<18s}{self._color.clr} {self._color.green if run_result.all_pass else self._color.red}{run_result.status_text}{self._color.clr}")
+				print(f"{tr:<17s} {self._color.green if run_result.run_completed else self._color.red}{run_result.collection_name:<25s} {run_result.overview['status'].name:<10s} {tm:<18s}{self._color.clr} {self._color.green if run_result.all_pass else self._color.red}{run_result.status_text}{self._color.clr}")
 				if run_result.all_pass:
 					continue
 
-				print(f"     {len(run_result.test_failures)} failed testcases recorded, showing the first {self._max_failed_cases_per_action} of each kind:")
+				print(f"    {len(run_result.test_failures)} failed testcases recorded, showing the first {self._max_failed_cases_per_action} of each kind:")
 				action_count = collections.Counter()
 				for failure in run_result.test_failures:
 					action_count[failure["status"]] += 1
 					if action_count[failure["status"]] > self._max_failed_cases_per_action:
 						continue
 
-					print(f"   {self._color.red}{failure['status'].name}{self._color.clr} on TC {failure['tc_id']} action {self._color.yellow}{failure['action']}{self._color.clr}:")
+					print(f"    {'═' * 5} {self._color.red}{failure['status'].name}{self._color.clr} on TC {failure['tc_id']} action {self._color.yellow}{failure['action']}{self._color.clr} {'═' * 5}")
 					self._print_answer(failure)
 #				if run_result.overview["status"] == TestrunStatus.Failed:
 #					print("~" * 120)
