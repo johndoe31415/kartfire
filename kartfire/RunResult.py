@@ -60,7 +60,7 @@ class RunResult():
 
 	@property
 	def relative_runtime(self):
-		if self.reference_runtime.undefined:
+		if self.runtime.undefined or self.reference_runtime.undefined:
 			return None
 		else:
 			return self.runtime.duration_secs / self.reference_runtime.duration_secs
