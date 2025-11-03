@@ -171,12 +171,11 @@ class ResultPrinter():
 		action_count = collections.Counter()
 		for run_result in multirun_result:
 			print(f"Run {multirun_result.multirun_id}.{run_result.run_id}: {run_result.status_text}")
-			for result in run_result.testresult_details:
-				status = TestresultStatus(result["status"])
-				if status == TestresultStatus.Fail:
-					action_count[result["action"]] += 1
-					if action_count[result["action"]] <= max_failed_cases_per_action:
-						self._print_answer(result)
+			for failure in run_result.test_failures:
+				if failure["status"] == TestresultStatus.Fail:
+					action_count[failure["action"]] += 1
+					if action_count[failure["action"]] <= max_failed_cases_per_action:
+						self._print_answer(failure)
 			if run_result.overview["status"] == TestrunStatus.Failed:
 				print("~" * 120)
 				stderr = run_result.full_overview["stderr"]

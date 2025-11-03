@@ -22,6 +22,10 @@
 import os
 import asyncio
 import time
+import mailcoil
+from .ResultPrinter import ResultPrinter
+from .RunResult import MultiRunResult
+from .ResultHTMLGenerator import ResultHTMLGenerator
 from .CmdlineAction import CmdlineAction
 from .Submission import Submission
 from .TestRunner import TestRunner
@@ -79,9 +83,19 @@ class ActionWatch(CmdlineAction):
 
 	def _multirun_finished_callback(self, submission: Submission, multirun_id: int):
 		print(f"Finished testing submission: {submission}")
+		multirun_result = MultiRunResult(self._db, multirun_id)
+#		self._rp.multirun.print_details(multirun_result)
+		if self._dropoff is not None:
+			multirun_result.send_email(test_fixture_config = self._test_fixture_config, html_generator = self._html_generator, dropoff = self._dropoff)
 
 	def run(self):
-		self._running_tasks = set()
+		if self._args.send_email:
+			self._dropoff = mailcoil.MailDropoff.parse_uri(self._test_fixture_config.email_via_uri)
+			self._html_generator = ResultHTMLGenerator(self._db)
+		else:
+			self._dropoff = None
+
+		self._rp = ResultPrinter(self._db)
 
 		collection_names = self._args.collection_name.split(",")
 		tc_collections = [ self._db.get_testcase_collection(collection_name) for collection_name in collection_names ]
