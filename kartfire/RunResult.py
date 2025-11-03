@@ -237,7 +237,7 @@ class MultiRunResult():
 			to_address = mailcoil.MailAddress(name = self.solution_author, mail = self.solution_email)
 
 		print(f"Sending results of {self} to {to_address}")
-		subject = f"Ergebnis der Kartfire CI/CD"
+		subject = "Ergebnis der Kartfire CI/CD"
 		mail = mailcoil.Email(from_address = mailcoil.MailAddress.parse(test_fixture_config.email_from), subject = subject).to(to_address)
 		mail.html = email_body
 		dropoff.post(mail)

@@ -210,13 +210,6 @@ class ResultPrinter():
 
 					print(f"    {'═' * 5} {self._color.red}{failure['status'].name}{self._color.clr} on TC {failure['tc_id']} action {self._color.yellow}{failure['action']}{self._color.clr} {'═' * 5}")
 					self._print_answer(failure)
-#				if run_result.overview["status"] == TestrunStatus.Failed:
-#					print("~" * 120)
-#					stderr = run_result.full_overview["stderr"]
-#					if len(stderr) > 0:
-#						print()
-#						print(f"{run_result.error_text}, showing stderr output:")
-#						print(stderr.decode("utf-8", errors = "ignore").strip("\r\n"))
 		print()
 		print("━" * 88)
 		print()

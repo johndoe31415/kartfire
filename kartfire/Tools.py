@@ -121,7 +121,7 @@ class MiscTools():
 class GitTools():
 	@classmethod
 	def is_under_git_vcs(cls, dirname: str) -> bool:
-		return (subprocess.run([ "git", "-C", dirname, "rev-parse" ], stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL).returncode == 0)
+		return (subprocess.run([ "git", "-C", dirname, "rev-parse" ], stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL, check = False).returncode == 0)
 
 	@classmethod
 	def gitinfo(cls, dirname: str):

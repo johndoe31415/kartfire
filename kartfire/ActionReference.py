@@ -21,7 +21,6 @@
 
 from .CmdlineAction import CmdlineAction
 from .RunResult import MultiRunResult
-from .Enums import TestresultStatus
 
 class ActionReference(CmdlineAction):
 	def run(self):

@@ -27,7 +27,7 @@ import json
 import time
 import dataclasses
 from .Tools import SystemTools
-from .Enums import TestrunStatus, TestresultStatus
+from .Enums import TestrunStatus
 from .Exceptions import InternalError
 from .Docker import Docker
 
