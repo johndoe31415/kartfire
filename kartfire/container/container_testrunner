@@ -64,12 +64,11 @@ class ContainerTestRunner():
 
 	@property
 	def unprivileged_user(self):
-		user_info = pwd.getpwnam(self._config["unprivileged_user"])
-		(uid, gid) = (user_info.pw_uid, user_info.pw_gid)
-		return (uid, gid)
+		return pwd.getpwnam(self._config["unprivileged_user"])
 
 	def _drop_privileges(self):
-		(uid, gid) = self.unprivileged_user
+		user_info = self.unprivileged_user
+		(uid, gid) = (user_info.pw_uid, user_info.pw_gid)
 		os.setgroups([ ])
 		os.setresgid(gid, gid, gid)
 		os.setresuid(uid, uid, uid)
@@ -77,7 +76,10 @@ class ContainerTestRunner():
 	def _execute(self, cmd: list[str], execution_hint: str, timeout: float | None = None):
 		try:
 			t0 = time.monotonic()
-			exec_result = subprocess.run(cmd, timeout = timeout, preexec_fn = self._drop_privileges)
+			user_info = self.unprivileged_user
+			env = dict(os.environ)
+			env["HOME"] = user_info.pw_dir
+			exec_result = subprocess.run(cmd, timeout = timeout, preexec_fn = self._drop_privileges, env = env)
 			t1 = time.monotonic()
 			self._emit_privileged_msg("time", {
 				"time": t1 - t0,
@@ -124,7 +126,8 @@ class ContainerTestRunner():
 		os.chown(self._args.configuration, 0, 0)
 		os.chmod(self._args.configuration, 0o600)
 		if self._args.execute_build:
-			(uid, gid) = self.unprivileged_user
+			user_info = self.unprivileged_user
+			(uid, gid) = (user_info.pw_uid, user_info.pw_gid)
 			os.makedirs(self._config["container_dut_dir"], exist_ok = True)
 			os.chown(self._config["container_dut_dir"], uid, gid)
 			os.chown(self._config["container_submission_tar_file"], 0, 0)
