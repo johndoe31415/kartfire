@@ -98,6 +98,7 @@ class ResultPrinter():
 		self._db = db
 		self._output_tz = tzlocal.get_localzone()
 		self._color = ResultColorizer()
+		self._max_failed_cases_per_action = 2
 
 	def _fmtts(self, utc_ts: datetime.datetime, format_str: str = "full"):
 		local_ts = utc_ts.astimezone(self._output_tz)
@@ -164,23 +165,39 @@ class ResultPrinter():
 		print("~" * 120)
 
 	def print_details(self, multirun_result: "MultiRunResult"):
-		max_failed_cases_per_action = 2
-#		row = self._db.get_run_details(run_id)
+		if multirun_result.build_failed:
+			# Build failed.
+			print(f"Showing build output of {multirun_result.source} of {multirun_result.solution_author or 'unknown author'}. {self._color.red}Build status {multirun_result.overview['build_status'].name}{self._color.clr} after {multirun_result.overview['build_runtime_secs']:.1f} secs:")
+			print(("⎯" * 40) + " stderr " + ("⎯" * 40))
+			print(multirun_result.full_overview["build_stderr"].decode("utf-8", errors = "ignore").strip("\r\n"))
+			print(("⎯" * 88))
+			if multirun_result.overview["build_error_details"] is not None:
+				print(multirun_result.overview["build_error_details"]["text"])
+		else:
+			print(f"Showing testrun summary of {multirun_result.source} of {multirun_result.solution_author or 'unknown author'}. {self._color.green}Build status {multirun_result.overview['build_status'].name}{self._color.clr} after {multirun_result.overview['build_runtime_secs']:.1f} secs:")
 
-		print(f"Showing failed cases of {multirun_result.source} of {multirun_result.solution_author or 'unknown author'} (build {multirun_result.overview['build_status'].name}), max of {max_failed_cases_per_action} fails per action:")
-		action_count = collections.Counter()
-		for run_result in multirun_result:
-			print(f"Run {multirun_result.multirun_id}.{run_result.run_id}: {run_result.status_text}")
-			for failure in run_result.test_failures:
-				if failure["status"] == TestresultStatus.Fail:
-					action_count[failure["action"]] += 1
-					if action_count[failure["action"]] <= max_failed_cases_per_action:
-						self._print_answer(failure)
-			if run_result.overview["status"] == TestrunStatus.Failed:
-				print("~" * 120)
-				stderr = run_result.full_overview["stderr"]
-				if len(stderr) > 0:
-					print()
-					print(f"{run_result.error_text}, showing stderr output:")
-					print(stderr.decode("utf-8", errors = "ignore").strip("\r\n"))
-			print("=" * 120)
+			for run_result in multirun_result:
+				tm = f"{run_result.runtime:r}/{run_result.runtime_allowance:r}"
+				print(f"Testrun {multirun_result.multirun_id}.{run_result.run_id}: {self._color.green if run_result.run_completed else self._color.red}{run_result.collection_name:<25s} {run_result.overview['status'].name:<10s} {tm:<18s}{self._color.clr} {self._color.green if run_result.all_pass else self._color.red}{run_result.status_text}{self._color.clr}")
+				if run_result.all_pass:
+					continue
+
+				print(f"     {len(run_result.test_failures)} failed testcases recorded, showing the first {self._max_failed_cases_per_action} of each kind:")
+				action_count = collections.Counter()
+				for failure in run_result.test_failures:
+					action_count[failure["status"]] += 1
+					if action_count[failure["status"]] > self._max_failed_cases_per_action:
+						continue
+
+					print(f"   {self._color.red}{failure['status'].name}{self._color.clr} on TC {failure['tc_id']} action {self._color.yellow}{failure['action']}{self._color.clr}:")
+					self._print_answer(failure)
+#				if run_result.overview["status"] == TestrunStatus.Failed:
+#					print("~" * 120)
+#					stderr = run_result.full_overview["stderr"]
+#					if len(stderr) > 0:
+#						print()
+#						print(f"{run_result.error_text}, showing stderr output:")
+#						print(stderr.decode("utf-8", errors = "ignore").strip("\r\n"))
+		print()
+		print("━" * 88)
+		print()

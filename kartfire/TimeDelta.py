@@ -70,7 +70,12 @@ class TimeDelta():
 		if self.duration_secs is None:
 			return "N/A"
 
-		if fmtstr == "d":
+		if fmtstr == "r":
+			if abs(self.duration_secs) < 10:
+				return f"{self.duration_secs:.1f} sec"
+			else:
+				return f"{self.duration_secs:.0f} sec"
+		elif fmtstr == "d":
 			return self._duration_text(self.duration_secs)
 		else:
 			if self.duration_secs < 0:

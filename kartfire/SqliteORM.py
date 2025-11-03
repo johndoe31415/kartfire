@@ -97,7 +97,7 @@ class SqliteORM():
 			case ("utcts", ):
 				return datetime.datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo = datetime.UTC)
 
-			case ("limit_blobsize", max_size_bytes):
+			case ("limit-blobsize", max_size_bytes):
 				return value
 
 			case _:

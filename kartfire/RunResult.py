@@ -22,7 +22,7 @@
 import functools
 import mailcoil
 from .TimeDelta import TimeDelta
-from .Enums import TestrunStatus
+from .Enums import TestrunStatus, TestresultStatus
 
 class RunResult():
 	def __init__(self, db: "Database", multirun: "MultiRunResult", overview: dict):
@@ -48,7 +48,10 @@ class RunResult():
 
 	@property
 	def runtime(self):
-		return TimeDelta(self.overview["runtime_secs"])
+		if self.overview["runtime_secs"] is not None:
+			return TimeDelta(self.overview["runtime_secs"])
+		else:
+			return TimeDelta(self.overview["runtime_secs_container"])
 
 	@property
 	def runtime_allowance(self):
@@ -64,6 +67,10 @@ class RunResult():
 			return None
 		else:
 			return self.runtime.duration_secs / self.reference_runtime.duration_secs
+
+	@property
+	def run_completed(self):
+		return self.overview["status"] == TestrunStatus.Finished
 
 	@property
 	def collection_name(self):
@@ -87,6 +94,10 @@ class RunResult():
 			return self.result_count[0][0]
 		else:
 			return None
+
+	@property
+	def all_pass(self):
+		return self.unique_status_result == TestresultStatus.Pass
 
 	@functools.cached_property
 	def test_failures(self):
@@ -135,6 +146,10 @@ class MultiRunResult():
 	@property
 	def overview(self):
 		return self._overview
+
+	@functools.cached_property
+	def full_overview(self):
+		return self._db.get_multirun_overview(self._multirun_id, full_overview = True)
 
 	@property
 	def shortname(self):
