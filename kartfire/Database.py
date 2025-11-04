@@ -186,6 +186,9 @@ class Database(SqliteORM):
 			""")
 
 		with contextlib.suppress(sqlite3.OperationalError):
+			self._cursor.execute("CREATE INDEX testsummary_status ON testsummary(status);")
+
+		with contextlib.suppress(sqlite3.OperationalError):
 			self._cursor.execute("""CREATE VIEW successful_runs_runtimes AS
 				SELECT testrun.run_id, source, collection, runtime_secs from testrun
 					JOIN multirun ON multirun.multirun_id = testrun.multirun_id
