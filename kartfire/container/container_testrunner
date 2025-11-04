@@ -27,6 +27,7 @@ import pwd
 import time
 import subprocess
 import argparse
+import signal
 
 class ContainerRunFailedException(Exception):
 	def __init__(self, msg: str, code: str, cmd: list[str], execution_hint: str):
@@ -92,8 +93,10 @@ class ContainerTestRunner():
 		except Exception as e:
 			raise ContainerRunFailedException(f"{execution_hint} terminated with {e.__class__.__name__}", code = "exec_other", cmd = cmd, execution_hint = execution_hint) from e
 
-		if exec_result.returncode == -9:
-			raise ContainerRunFailedException(f"{execution_hint} terminated with out-of-memory error", code = "exec_oom", cmd = cmd, execution_hint = execution_hint)
+		if exec_result.returncode == -signal.SIGKILL:
+			raise ContainerRunFailedException(f"{execution_hint} terminated with SIGKILL (possibly out-of-memory)", code = "exec_oom", cmd = cmd, execution_hint = execution_hint)
+		elif exec_result.returncode < 0:
+			raise ContainerRunFailedException(f"{execution_hint} terminated with signal {signal.Signals(-exec_result.returncode).name}", code = "exec_signal", cmd = cmd, execution_hint = execution_hint)
 		elif exec_result.returncode != 0:
 			raise ContainerRunFailedException(f"{execution_hint} terminated with return code {exec_result.returncode}", code = "exec_failed", cmd = cmd, execution_hint = execution_hint)
 

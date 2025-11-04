@@ -369,7 +369,7 @@ class Database(SqliteORM):
 
 	def get_run_overview(self, run_id: int, full_overview: bool = False):
 		row = self._mapped_execute(f"""
-			SELECT {'testrun.*' if full_overview else 'run_id, multirun_id, collection, run_start_utcts, run_end_utcts, runtime_secs, testcase_count, runtime_allowance_secs, max_permissible_ram_mib, status, error_details'}, testcollection.reference_runtime_secs FROM testrun
+			SELECT {'testrun.*' if full_overview else 'run_id, multirun_id, collection, run_start_utcts, run_end_utcts, runtime_secs, runtime_secs_container, testcase_count, runtime_allowance_secs, max_permissible_ram_mib, status, error_details'}, testcollection.reference_runtime_secs FROM testrun
 				LEFT JOIN testcollection ON testcollection.name = testrun.collection
 				WHERE run_id = ?;
 		""", run_id)._mapped_fetchone("testrun")
