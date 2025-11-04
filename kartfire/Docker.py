@@ -164,6 +164,7 @@ class Docker():
 			cmd += [ f"--memory={max_memory_mib}m" ]
 		if cpu_count is not None:
 			cmd += [ f"--cpus={cpu_count:.1f}" ]
+		cmd += [ "--pids-limit", "200" ]
 		if run_name_prefix is not None:
 			run_name = f"{run_name_prefix}_{os.urandom(8).hex()}"
 			cmd += [ "--name", run_name ]
