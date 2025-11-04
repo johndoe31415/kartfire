@@ -23,6 +23,7 @@ import functools
 import mailcoil
 from .TimeDelta import TimeDelta
 from .Enums import TestrunStatus, TestresultStatus
+from .Exceptions import NoSuchMultirunException
 
 class RunResult():
 	def __init__(self, db: "Database", multirun: "MultiRunResult", overview: dict):
@@ -134,6 +135,8 @@ class MultiRunResult():
 		self._db = db
 		self._multirun_id = multirun_id
 		self._overview = db.get_multirun_overview(multirun_id)
+		if self._overview is None:
+			raise NoSuchMultirunException(f"Multirun {multirun_id} not found.")
 		if preloaded_runs is not None:
 			self._run_results = preloaded_runs
 		else:

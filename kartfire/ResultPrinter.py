@@ -185,14 +185,14 @@ class ResultPrinter():
 	def print_details(self, multirun_result: "MultiRunResult"):
 		if multirun_result.build_failed:
 			# Build failed.
-			print(f"Showing build output of {multirun_result.source} of {multirun_result.solution_author or 'unknown author'}. {self._color.red}Build status {multirun_result.overview['build_status'].name}{self._color.clr} after {multirun_result.overview['build_runtime_secs']:.1f} secs:")
+			print(f"Showing build output of {multirun_result.source} of {multirun_result.solution_author or 'unknown author'}. {self._color.red}Build status {multirun_result.overview['build_status'].name}{self._color.clr} after {multirun_result.build_runtime:r} secs:")
 			print(("⎯" * 40) + " stderr " + ("⎯" * 40))
 			print(multirun_result.full_overview["build_stderr"].decode("utf-8", errors = "ignore").strip("\r\n"))
 			print(("⎯" * 88))
 			if multirun_result.overview["build_error_details"] is not None:
 				print(multirun_result.overview["build_error_details"]["text"])
 		else:
-			print(f"Showing testrun summary of {multirun_result.source} of {multirun_result.solution_author or 'unknown author'}. {self._color.green}Build status {multirun_result.overview['build_status'].name}{self._color.clr} after {multirun_result.overview['build_runtime_secs']:.1f} secs:")
+			print(f"Showing testrun summary of {multirun_result.source} of {multirun_result.solution_author or 'unknown author'}. {self._color.green}Build status {multirun_result.overview['build_status'].name}{self._color.clr} after {multirun_result.build_runtime:r} secs:")
 
 			for run_result in multirun_result:
 				tr = f"Testrun {multirun_result.multirun_id}.{run_result.run_id}"

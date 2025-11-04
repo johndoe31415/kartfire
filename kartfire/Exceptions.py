@@ -26,3 +26,4 @@ class SubprocessRunError(InternalError): pass
 class NoSuchCollectionException(KartfireException): pass
 class NoDatabaseFoundException(KartfireException): pass
 class ContainerImageNotAvailableException(KartfireException): pass
+class NoSuchMultirunException(KartfireException): pass

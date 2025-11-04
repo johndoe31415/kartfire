@@ -114,6 +114,9 @@ class SqliteORM():
 		return tuple(_map(parameter) for parameter in parameters)
 
 	def _map_db_to_py(self, row: sqlite3.Row, *table_names: tuple[str]):
+		if row is None:
+			return None
+
 		result = { }
 		for (key, value) in dict(row).items():
 			for table_name in table_names:

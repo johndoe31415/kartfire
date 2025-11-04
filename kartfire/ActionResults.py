@@ -19,7 +19,9 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
+import sys
 import mailcoil
+from .Exceptions import NoSuchMultirunException
 from .CmdlineAction import CmdlineAction
 from .ResultPrinter import ResultPrinter
 from .ResultHTMLGenerator import ResultHTMLGenerator
@@ -50,7 +52,10 @@ class ActionResults(CmdlineAction):
 					yield MultiRunResult.load_single_run(self._db, int_value).multirun
 
 				case "multirun_id":
-					yield MultiRunResult(self._db, int_value)
+					try:
+						yield MultiRunResult(self._db, int_value)
+					except NoSuchMultirunException:
+						print(f"Ignoring non-existent multirun {int_value}", file = sys.stderr)
 
 				case _:
 					raise NotImplementedError(runtype)
@@ -59,7 +64,7 @@ class ActionResults(CmdlineAction):
 		self._multiruns = list(self._load_multiruns())
 		self._result_printer = ResultPrinter(self._db)
 		if self._args.html_template is None:
-			if len(self._multiruns) == 0:
+			if len(self._args.run_multirun_id) == 0:
 				if self._args.summary_by_run:
 					self._print_summary_by_run()
 				else:
