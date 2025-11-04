@@ -22,24 +22,24 @@
 import json
 import sqlite3
 import datetime
+import time
 from .CmdlineAction import CmdlineAction
 
 class ActionImport(CmdlineAction):
 	def _import(self, filename: str):
-		duplicate_skipped_count = 0
-		imported_count = 0
 		now = datetime.datetime.now(datetime.UTC)
 		with open(filename) as f:
 			testcases = json.load(f)
-		for testcase in testcases:
-			try:
-				self._db.create_testcase(action = testcase["action"], arguments = testcase["arguments"], created_utcts = now, correct_reply = testcase.get("correct_reply"), dependencies = testcase.get("dependencies"))
-				imported_count += 1
-			except sqlite3.IntegrityError:
-				duplicate_skipped_count += 1
-			self._db.opportunistic_commit()
+		print(f"{filename}: importing {len(testcases)} testcases")
+		testcase_data = [ {
+				"action": testcase["action"],
+				"arguments": testcase["arguments"],
+				"created_utcts": now,
+				"correct_reply": testcase.get("correct_reply"),
+				"dependencies": testcase.get("dependencies")
+			} for testcase in testcases ]
+		self._db._insert_many("testcases", testcase_data, ignore_duplicate = True)
 		self._db.commit()
-		print(f"{filename}: imported {imported_count}, skipped {duplicate_skipped_count} duplicate testcases")
 
 	def run(self):
 		for filename in self._args.testcase_filename:

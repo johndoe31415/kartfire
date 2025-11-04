@@ -124,11 +124,21 @@ class SqliteORM():
 			result[key] = value
 		return result
 
-	def _insert(self, table_name: str, values: dict):
+	def _insert_many(self, table_name: str, all_values: list[dict], ignore_duplicate: bool = False):
+		fields = list(all_values[0])
+		value_field = f"({','.join([ '?' ] * len(fields))})"
+		query = f"INSERT {'OR IGNORE ' if ignore_duplicate else ''}INTO {table_name} ({','.join(field for field in fields)}) VALUES {','.join([ value_field ] * len(all_values))};"
+		params = [ ]
+		for values in all_values:
+			params += [ self._map_py_to_db_value(values[key], type_name = f"{table_name}:{key}") for key in fields ]
+		self._cursor.execute(query, params)
+		self._uncommitted_write_count += len(all_values)
+
+	def _insert(self, table_name: str, values: dict, ignore_duplicate: bool = False):
 		mapped_values = { key: self._map_py_to_db_value(value, type_name = f"{table_name}:{key}") for (key, value) in values.items() }
 		fields = list(mapped_values)
 		values = [ mapped_values[field] for field in fields ]
-		query = f"INSERT INTO {table_name} ({','.join(field for field in fields)}) VALUES ({','.join([ '?' ] * len(fields))});"
+		query = f"INSERT {'OR IGNORE ' if ignore_duplicate else ''}INTO {table_name} ({','.join(field for field in fields)}) VALUES ({','.join([ '?' ] * len(fields))});"
 		result = self._cursor.execute(query, values)
 		self._uncommitted_write_count += 1
 		return result.lastrowid
