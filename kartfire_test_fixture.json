@@ -1,9 +1,9 @@
 {
 	"testbatch_maxsize": 100,
 	"docker_executable": "docker",
-	"docker_container": "labwork",
+	"docker_container": "ghcr.io/johndoe31415/labwork-docker:master",
 	"build_name": "build",
-	"max_build_time_secs": 5,
+	"max_build_time_secs": 10,
 	"solution_name": "solution",
 	"max_memory_mib": 1024,
 	"host_memory_usage_percent": 125,

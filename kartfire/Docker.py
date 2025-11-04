@@ -201,6 +201,12 @@ class Docker():
 		output = subprocess.check_output(cmd)
 		return json.loads(output)[0]
 
+	def pull(self, image_name: str):
+		return subprocess.run([ self.executable, "pull", image_name ], check = False).returncode == 0
+
+	def have_image(self, image_name: str):
+		return subprocess.run([ self.executable, "image", "inspect", image_name ], check = False, stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL).returncode == 0
+
 	async def remove_image(self, image_name: str):
 		await ExecTools.async_check_call([ self._docker_executable, "image", "rm", image_name ], stdout = subprocess.DEVNULL)
 

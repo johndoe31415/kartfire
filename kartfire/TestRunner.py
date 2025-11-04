@@ -28,7 +28,7 @@ import time
 import dataclasses
 from .Tools import SystemTools
 from .Enums import TestrunStatus
-from .Exceptions import InternalError
+from .Exceptions import InternalError, ContainerImageNotAvailableException
 from .Docker import Docker
 
 _log = logging.getLogger(__spec__.name)
@@ -90,6 +90,7 @@ class TestRunner():
 		self._submission_build_finished_callbacks = [ ]
 		self._submission_run_finished_callbacks = [ ]
 		self._submission_multirun_finished_callbacks = [ ]
+		self._download_docker_image()
 
 	@property
 	def config(self):
@@ -164,6 +165,19 @@ class TestRunner():
 	@property
 	def docker(self):
 		return Docker(docker_executable = self._config.docker_executable)
+
+	def _download_docker_image(self):
+		docker = self.docker
+
+		# This is an ugly hack to determine if our image is locally built or
+		# downloaded from a remote hub
+		is_remote_image = "/" in self._config.docker_container
+
+		if is_remote_image:
+			docker.pull(self._config.docker_container)
+
+		if not docker.have_image(self._config.docker_container):
+			raise ContainerImageNotAvailableException(f"The {'remote' if is_remote_image else 'local'} docker image \"{self._config.docker_container}\" is unavailable.")
 
 	async def _initialize_docker_env(self, docker: Docker):
 		await docker.create_network()
