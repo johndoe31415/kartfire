@@ -1,0 +1,26 @@
+#!/usr/bin/python3
+import json
+import sys
+
+testcase_file = sys.argv[1]
+with open(testcase_file) as f:
+	testcases = json.load(f)
+
+for (tcid, testcase) in testcases["testcases"].items():
+	args = testcase["arguments"]
+	match testcase["action"]:
+		case "add":
+			result = { "sum": args["a"] + args["b"] }
+
+		case "sub":
+			result = { "difference": args["a"] - args["b"] }
+
+		case "mul":
+			result = { "product": args["a"] * args["b"] }
+
+		case _:
+			raise Exception(f"Unsupported testcase action: {testcase['action']}")
+
+	print(json.dumps({ "id": tcid, "reply": result }))
+
+print("This comment should be ignored.", file = sys.stderr)

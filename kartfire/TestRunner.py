@@ -145,7 +145,7 @@ class TestRunner():
 						else:
 							exec_result.testrun_status = TestrunStatus.Failed
 						exec_result.error_details = exception
-					elif msg_type == "time":
+					elif (msg_type == "time") and (json_data["msg"]["target"] in [ "build", "run" ]):
 						exec_result.runtime_secs = json_data["msg"]["time"]
 				else:
 					# Regular parsable JSON message

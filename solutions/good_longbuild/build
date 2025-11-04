@@ -1,0 +1,6 @@
+#!/bin/bash
+echo "I am Rust beep boop"
+sleep 4
+echo "Compilation takes forever crab crab"
+sleep 4
+echo "Oh wow I'm finally finished"
