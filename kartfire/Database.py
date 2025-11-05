@@ -118,9 +118,9 @@ class Database(SqliteORM):
 			self._cursor.execute("CREATE INDEX multirun_source ON multirun(source);")
 
 		with contextlib.suppress(sqlite3.OperationalError):
-			self._cursor.execute("""CREATE VIEW latest_multirun_metadata AS
-				SELECT source, source_metadata FROM (
-					SELECT source, build_start_utcts, source_metadata, ROW_NUMBER() OVER (PARTITION BY source ORDER BY build_start_utcts DESC) AS rowno, MAX(build_start_utcts) OVER (PARTITION BY source) AS latest_build_start FROM multirun
+			self._cursor.execute("""CREATE VIEW most_recent_multirun_by_source AS
+				SELECT multirun_id, source, source_metadata FROM (
+					SELECT multirun_id, source, build_start_utcts, source_metadata, ROW_NUMBER() OVER (PARTITION BY source ORDER BY build_start_utcts DESC) AS rowno, MAX(build_start_utcts) OVER (PARTITION BY source) AS latest_build_start FROM multirun
 				) AS subqry WHERE (subqry.latest_build_start = subqry.build_start_utcts) AND (subqry.rowno = 1)
 			;""")
 
@@ -410,8 +410,15 @@ class Database(SqliteORM):
 					tc_id)
 		self._increase_uncommitted_write_count()
 
-	def get_latest_multirun_metadata(self) -> dict:
-		return { row["source"]: row["source_metadata"] for row in self._mapped_execute("SELECT * FROM latest_multirun_metadata;")._mapped_fetchall("multirun") }
+	def get_most_recent_multirun_by_source(self, filter_source: str | None = None, filter_submitter_name: str | None = None, limit: int | None = None) -> dict:
+		return self._mapped_execute(f"""
+				SELECT * FROM most_recent_multirun_by_source
+					WHERE (1 = 1)
+					{"" if filter_source is None else f"AND (source = '{filter_source}')"}
+					{"" if filter_submitter_name is None else f"AND (json_extract(source_metadata, '$.meta.json.kartfire.name') LIKE '%{filter_submitter_name}%')"}
+					ORDER BY source ASC
+					{"" if limit is None else f"LIMIT {limit}"}
+		;""")._mapped_fetchall("multirun")
 
 	def get_time_spent_in_pipeline(self) -> dict:
 		return { row["source"]: row["pipeline_time_secs"] for row in self._cursor.execute("SELECT * FROM time_spent_in_pipeline;").fetchall() }

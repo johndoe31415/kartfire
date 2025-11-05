@@ -60,26 +60,53 @@ class ActionResults(CmdlineAction):
 				case _:
 					raise NotImplementedError(runtype)
 
-	def run(self):
-		self._multiruns = list(self._load_multiruns())
-		self._result_printer = ResultPrinter(self._db)
-		if self._args.html_template is None:
-			if len(self._args.run_multirun_id) == 0:
-				if self._args.summary_by_run:
-					self._print_summary_by_run()
-				else:
-					self._print_summary_by_multirun()
+	def _print_multiruns(self, multirun_list: list[MultiRunResult]):
+		for multirun_result in multirun_list:
+			if self._args.detail_level == 0:
+				self._result_printer.print_multirun_overview(multirun_result)
 			else:
-				for multirun in self._multiruns:
-					self._result_printer.print_details(multirun)
-		else:
-			html_generator = ResultHTMLGenerator(self._db)
-			for multirun in self._multiruns:
-				result = html_generator.create(multirun = multirun, template_name = self._args.html_template)
-				print(result)
+				self._result_printer.print_details(multirun_result)
 
-		if self._args.send_email:
-			html_generator = ResultHTMLGenerator(self._db)
-			dropoff = mailcoil.MailDropoff.parse_uri(self._test_fixture_config.email_via_uri)
-			for multirun in self._multiruns:
-				multirun.send_email(test_fixture_config = self._test_fixture_config, html_generator = html_generator, dropoff = dropoff)
+	def _show_runs(self):
+		raise NotImplementedError()
+
+	def _show_multiruns(self):
+		raise NotImplementedError()
+
+	def _show_solutions(self):
+		results = self._db.get_most_recent_multirun_by_source(filter_source = self._args.filter_source, filter_submitter_name = self._args.filter_submitter_name, limit = self._args.limit)
+		multiruns = [ ]
+		for result in results:
+			multiruns.append(MultiRunResult(self._db, result["multirun_id"]))
+		self._print_multiruns(multiruns)
+
+	def run(self):
+		self._result_printer = ResultPrinter(self._db)
+		handler = getattr(self, f"_show_{self._args.show.replace('-', '_')}")
+		return handler()
+#		self._multiruns = list(self._load_multiruns())
+
+
+
+
+
+#		if self._args.html_template is None:
+#			if len(self._args.run_multirun_id) == 0:
+#				if self._args.summary_by_run:
+#					self._print_summary_by_run()
+#				else:
+#					self._print_summary_by_multirun()
+#			else:
+#				for multirun in self._multiruns:
+#					self._result_printer.print_details(multirun)
+#		else:
+#			html_generator = ResultHTMLGenerator(self._db)
+#			for multirun in self._multiruns:
+#				result = html_generator.create(multirun = multirun, template_name = self._args.html_template)
+#				print(result)
+#
+#		if self._args.send_email:
+#			html_generator = ResultHTMLGenerator(self._db)
+#			dropoff = mailcoil.MailDropoff.parse_uri(self._test_fixture_config.email_via_uri)
+#			for multirun in self._multiruns:
+#				multirun.send_email(test_fixture_config = self._test_fixture_config, html_generator = html_generator, dropoff = dropoff)

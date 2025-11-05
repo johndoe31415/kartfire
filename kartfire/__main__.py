@@ -82,7 +82,12 @@ def main():
 		parser.add_argument("-m", "--send-email", action = "store_true", help = "Send the multirun result via email")
 		parser.add_argument("-D", "--database-filename", metavar = "file", default = "kartfire.sqlite3", help = "Database filename to use. Defaults to %(default)s.")
 		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
-		parser.add_argument("run_multirun_id", type = ActionResults.id_type, nargs = "*", help = "Run or multirun ID(s) to show details of. Multirun IDs start with 'm'.")
+		parser.add_argument("-s", "--show", choices = [ "solutions", "runs", "multiruns" ], default = "solutions", help = "Action to perform. Can be one of %(choices)s, defaults to %(default)s.")
+		parser.add_argument("-l", "--limit", metavar = "count", type = int, default = 50, help = "When limiting the amount of shown results, limit to this value. Defaults to %(default)d.")
+		parser.add_argument("-n", "--filter-submitter-name", metavar = "pattern", help = "Filter by the metadata name (i.e., the person submitting the test), show only results by this person.")
+		parser.add_argument("-S", "--filter-source", metavar = "pattern", help = "Filter by the solution name, show only results named this way.")
+		parser.add_argument("-d", "--detail-level", action = "count", default = 0, help = "Increase level of detail. Can be given multiple times.")
+#		parser.add_argument("run_multirun_id", type = ActionResults.id_type, nargs = "*", help = "Run or multirun ID(s) to show details of. Multirun IDs start with 'm'.")
 	mc.register("results", "Print results of run testcases", genparser, action = ActionResults)
 
 	def genparser(parser):
