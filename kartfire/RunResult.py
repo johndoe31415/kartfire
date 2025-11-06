@@ -96,6 +96,20 @@ class RunResult():
 		else:
 			return None
 
+	def result_count_of(self, status: TestresultStatus):
+		return self.result_count_dict.get(status, 0)
+
+	def have_any_of_result(self, status: TestresultStatus):
+		return self.result_count_of(status) > 0
+
+	@property
+	def pass_count(self):
+		return self.result_count_of(TestresultStatus.Pass)
+
+	@property
+	def nonpass_count(self):
+		return self.total_testcase_count - self.pass_count
+
 	@property
 	def all_pass(self):
 		return self.unique_status_result == TestresultStatus.Pass
@@ -141,6 +155,7 @@ class MultiRunResult():
 			self._run_results = preloaded_runs
 		else:
 			self._run_results = [ RunResult(db, self, run_result) for run_result in self._db.get_run_overviews_of_multirun(self._multirun_id) ]
+		self._run_result_by_collection = { run_result.collection_name: run_result for run_result in self._run_results }
 
 	@property
 	def multirun_id(self):
@@ -227,6 +242,26 @@ class MultiRunResult():
 	def test_reference_runtime(self):
 		return TimeDelta(sum(run_result.overview["reference_runtime_secs"] for run_result in self))
 
+	@property
+	def pass_count(self):
+		return sum(testrun.pass_count for testrun in self)
+
+	@property
+	def nonpass_count(self):
+		return sum(testrun.nonpass_count for testrun in self)
+
+	@property
+	def total_testcase_count(self):
+		return sum(testrun.total_testcase_count for testrun in self)
+
+	@property
+	def pass_percentage(self):
+		return 0 if (self.total_testcase_count == 0) else (100 * self.pass_count / self.total_testcase_count)
+
+	@property
+	def all_pass(self):
+		return all(run_result.all_pass for run_result in self)
+
 	def send_email(self, test_fixture_config: "TestFixtureConfig", html_generator: "ResultHTMLGenerator", dropoff: "mailcoil.MailDropoff"):
 		email_body = html_generator.create(multirun = self, template_name = "email.html")
 
@@ -245,6 +280,9 @@ class MultiRunResult():
 		mail.html = email_body
 		dropoff.post(mail)
 		return True
+
+	def __getitem__(self, collection_name: str):
+		return self._run_result_by_collection.get(collection_name)
 
 	def __len__(self):
 		return len(self._run_results)

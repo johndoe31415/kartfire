@@ -25,6 +25,7 @@ import datetime
 import tzlocal
 from .Enums import TestrunStatus, TestresultStatus
 from .RunResult import MultiRunResult
+from .TableFormatter import Table, CellFormatter
 
 class ResultColorizer():
 	def __init__(self, ansi: bool = True):
@@ -213,3 +214,75 @@ class ResultPrinter():
 		print()
 		print("━" * 88)
 		print()
+
+	def _find_all_collections(self, multirun_list: list["MultiRunResult"]):
+		collection_list = [ ]
+		collection_set = set()
+		for multirun_result in multirun_list:
+			for run_result in multirun_result:
+				collection = run_result.collection_name
+				if collection not in collection_set:
+					collection_list.append(collection)
+					collection_set.add(collection)
+		return collection_list
+
+	def print_overview_table(self, multirun_list: list["MultiRunResult"]):
+		table = Table()
+		table.format_columns({
+			"source":		CellFormatter(max_length = 18),
+			"name":			CellFormatter(max_length = 30),
+			"pass_count":	CellFormatter.basic_ralign(),
+			"fail_count":	CellFormatter.basic_ralign(),
+			"percentage":	CellFormatter(align = CellFormatter.Alignment.Right, content_to_str_fnc = lambda content: f"{content:.1f}"),
+		})
+		table.add_row({
+			"source":	"Source",
+			"name":		"Author",
+			"result_indicator":	"Result",
+			"pass_count": "Pass",
+			"fail_count": "Fail",
+			"percentage": "%",
+		}, cell_formatters = {
+			"percentage": table["percentage"].override(content_to_str_fnc = str),
+		})
+		table.add_separator_row()
+
+		collection_list = self._find_all_collections(multirun_list)
+
+		for multirun_result in multirun_list:
+			result_indicator = [ ]
+			for collection_name in collection_list:
+				result = multirun_result[collection_name]
+				if result is None:
+					result_indicator.append(" ")
+				else:
+					unique = result.unique_status_result
+					if unique is not None:
+						result_indicator.append({
+							TestresultStatus.Pass:		"✓",
+							TestresultStatus.Fail:		"✗",
+							TestresultStatus.NoAnswer:	" ",
+						}.get(unique, "?"))
+					else:
+						if result.have_any_of_result(TestresultStatus.Pass):
+							# At least one passes:
+							result_indicator.append("~")
+						else:
+							result_indicator.append("✗")
+			cell_formatters = { }
+			if multirun_result.all_pass:
+				cell_formatters["name"] = table["name"].override(color = CellFormatter.Color.Green)
+			elif multirun_result.pass_percentage < 50:
+				cell_formatters["name"] = table["name"].override(color = CellFormatter.Color.Red)
+			elif multirun_result.pass_percentage < 90:
+				cell_formatters["name"] = table["name"].override(color = CellFormatter.Color.Yellow)
+			table.add_row({
+				"source": multirun_result.source,
+				"name": multirun_result.solution_author,
+				"result_indicator": "".join(result_indicator),
+				"pass_count": multirun_result.pass_count,
+				"fail_count": multirun_result.nonpass_count,
+				"percentage": multirun_result.pass_percentage,
+			}, cell_formatters = cell_formatters)
+
+		table.print("source", "name", "result_indicator", "pass_count", "fail_count", "percentage")
