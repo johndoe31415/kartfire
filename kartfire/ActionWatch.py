@@ -22,6 +22,7 @@
 import os
 import asyncio
 import time
+import traceback
 import mailcoil
 from .ResultPrinter import ResultPrinter
 from .RunResult import MultiRunResult
@@ -37,6 +38,10 @@ class ActionWatch(CmdlineAction):
 			if os.path.isdir(submission_dir):
 				yield Submission(submission_dir, self._test_fixture_config)
 
+	def _print_exception(self, exception):
+		print("Git update failed with exception for worker thread:")
+		traceback.print_exception(type(exception), exception, exception.__traceback__)
+
 	async def _main_loop(self):
 		worker_pool = AsyncWorkerPool(self._test_runner.concurrent_process_count)
 		while True:
@@ -46,12 +51,17 @@ class ActionWatch(CmdlineAction):
 			submissions = [ submission for submission in submissions if submission.git_commit is not None ]
 
 			# Trigger parallel git update for all repositories
-			async with AsyncWorkerPool(8) as pool:
+			async with AsyncWorkerPool(8, exception_callback = self._print_exception) as pool:
 				for submission in submissions:
 					pool.submit(submission.update_git())
 
+			if pool.exception_count > 0:
+				print(f"Update of submission repositories failed in {pool.exception_count} case(es), delaying and retrying.")
+				await asyncio.sleep(10)
+				continue
+
 			# Retrieve latest run metadata
-			latest_metadata = self._db.get_latest_multirun_metadata()
+			latest_metadata = { row["source"]: row["source_metadata"] for row in self._db.get_most_recent_multirun_by_source() }
 
 			# Filter out all submissions for which we have tested this exact git commit already
 			submissions = [ submission for submission in submissions if submission.git_commit != latest_metadata.get(submission.shortname, { }).get("meta", { }).get("git", { }).get("commit") ]

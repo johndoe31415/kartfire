@@ -22,12 +22,18 @@
 import asyncio
 
 class AsyncWorkerPool():
-	def __init__(self, pool_max_size: int):
+	def __init__(self, pool_max_size: int, exception_callback: "callable | None" = None):
 		self._pool_max_size = pool_max_size
+		self._exception_callback = exception_callback
 		self._active_tasks = set()
 		self._semaphore = asyncio.Semaphore(self._pool_max_size)
 		self._event = asyncio.Event()
 		self._pending = 0
+		self._exception_count = 0
+
+	@property
+	def exception_count(self):
+		return self._exception_count
 
 	@property
 	def slots_free(self):
@@ -39,9 +45,15 @@ class AsyncWorkerPool():
 
 	async def _run_callable(self, task: "callable"):
 		async with self._semaphore:
-			await task
-			self._pending -= 1
-			self._event.set()
+			try:
+				await task
+			except Exception as e:
+				if self._exception_callback is not None:
+					self._exception_callback(e)
+				self._exception_count += 1
+			finally:
+				self._pending -= 1
+				self._event.set()
 
 	def submit(self, coroutine: "callable"):
 		self._pending += 1
