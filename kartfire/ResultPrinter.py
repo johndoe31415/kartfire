@@ -19,6 +19,7 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
+import enum
 import json
 import collections
 import datetime
@@ -107,6 +108,10 @@ class ResultBar():
 
 
 class ResultPrinter():
+	class OverviewType(enum.IntEnum):
+		BasicOverview = enum.auto()
+		RunOverview = enum.auto()
+
 	def __init__(self, db: "Database"):
 		self._db = db
 		self._output_tz = tzlocal.get_localzone()
@@ -144,22 +149,6 @@ class ResultPrinter():
 		columns.append(f"{run_result.runtime:d}")
 		columns.append(f"{run_result.error_text}")
 		print(" ".join(columns))
-
-	def print_multirun_overview(self, multirun_result: "MultiRunResult"):
-		if multirun_result.overview["build_status"] == TestrunStatus.Finished:
-			# Omit build information
-			for run_result in multirun_result:
-				self.print_run_overview(run_result)
-		else:
-			columns = [ ]
-			columns.append(f"{str(multirun_result.multirun_id):<9s}")
-			columns.append(f"{multirun_result.source:<30s}")
-			cell = f"build {multirun_result.overview['build_status'].name}: {multirun_result.build_error_text}"
-			columns.append(f"{cell:<64s}")
-			cell = f"[lim {multirun_result.build_allowance:d} act {multirun_result.build_runtime:d}]"
-			columns.append(f"{cell}")
-
-			print(" ".join(columns))
 
 	def _print_answer(self, testcase_result: dict):
 		def print_dict(dict_data: dict, prefix = "\t", color = ""):
@@ -226,23 +215,26 @@ class ResultPrinter():
 					collection_set.add(collection)
 		return collection_list
 
-	def print_overview_table(self, multirun_list: list["MultiRunResult"]):
+	def print_table(self, multirun_list: list["MultiRunResult"], overview_type: OverviewType = OverviewType.BasicOverview):
 		table = Table()
 		table.format_columns({
 			"source":		CellFormatter(max_length = 18),
+			"run_ts":		CellFormatter(content_to_str_fnc = lambda utc_ts: self._fmtts(utc_ts, "full")),
 			"name":			CellFormatter(max_length = 30),
 			"pass_count":	CellFormatter.basic_ralign(),
 			"fail_count":	CellFormatter.basic_ralign(),
 			"percentage":	CellFormatter(align = CellFormatter.Alignment.Right, content_to_str_fnc = lambda content: f"{content:.1f}"),
 		})
 		table.add_row({
-			"source":	"Source",
-			"name":		"Author",
+			"source":			"Source",
+			"run_ts":			"Timestamp",
+			"name":				"Author",
 			"result_indicator":	"Result",
-			"pass_count": "Pass",
-			"fail_count": "Fail",
-			"percentage": "%",
+			"pass_count":		"Pass",
+			"fail_count":		"Fail",
+			"percentage":		"%",
 		}, cell_formatters = {
+			"run_ts": table["run_ts"].override(content_to_str_fnc = str),
 			"percentage": table["percentage"].override(content_to_str_fnc = str),
 		})
 		table.add_separator_row()
@@ -283,6 +275,37 @@ class ResultPrinter():
 				"pass_count": multirun_result.pass_count,
 				"fail_count": multirun_result.nonpass_count,
 				"percentage": multirun_result.pass_percentage,
+				"run_ts": multirun_result.build_start_utcts,
 			}, cell_formatters = cell_formatters)
 
-		table.print("source", "name", "result_indicator", "pass_count", "fail_count", "percentage")
+			if overview_type == self.OverviewType.RunOverview:
+				# Print results for each run
+				for run_result in multirun_result:
+					cell_formatters = { }
+					if run_result.all_pass:
+						cell_formatters["name"] = table["name"].override(color = CellFormatter.Color.Green)
+					elif run_result.pass_percentage < 50:
+						cell_formatters["name"] = table["name"].override(color = CellFormatter.Color.Red)
+					elif run_result.pass_percentage < 90:
+						cell_formatters["name"] = table["name"].override(color = CellFormatter.Color.Yellow)
+
+					if run_result.overview["status"] != TestrunStatus.Finished:
+						cell_formatters["result_indicator"] = CellFormatter(color = CellFormatter.Color.Red)
+
+					table.add_row({
+						"name": run_result.collection_name,
+						"result_indicator": run_result.overview["status"].name,
+						"pass_count": run_result.pass_count,
+						"fail_count": run_result.nonpass_count,
+						"percentage": run_result.pass_percentage,
+					}, cell_formatters = cell_formatters)
+
+		match overview_type:
+			case self.OverviewType.BasicOverview:
+				table.print("source", "run_ts", "name", "result_indicator", "pass_count", "fail_count", "percentage")
+
+			case self.OverviewType.RunOverview:
+				table.print("source", "name", "result_indicator", "pass_count", "fail_count", "percentage")
+
+			case _:
+				raise NotImplementedError(overview_type)

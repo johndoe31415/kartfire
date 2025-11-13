@@ -111,6 +111,10 @@ class RunResult():
 		return self.total_testcase_count - self.pass_count
 
 	@property
+	def pass_percentage(self):
+		return 0 if (self.total_testcase_count == 0) else (100 * self.pass_count / self.total_testcase_count)
+
+	@property
 	def all_pass(self):
 		return self.unique_status_result == TestresultStatus.Pass
 
@@ -168,6 +172,10 @@ class MultiRunResult():
 	@functools.cached_property
 	def full_overview(self):
 		return self._db.get_multirun_overview(self._multirun_id, full_overview = True)
+
+	@property
+	def build_start_utcts(self):
+		return self.overview["build_start_utcts"]
 
 	@property
 	def shortname(self):

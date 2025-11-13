@@ -61,13 +61,12 @@ class ActionResults(CmdlineAction):
 					raise NotImplementedError(runtype)
 
 	def _print_multiruns(self, multirun_list: list[MultiRunResult]):
-#		for multirun_result in multirun_list:
 		if self._args.detail_level == 0:
-			self._result_printer.print_overview_table(multirun_list)
+			self._result_printer.print_table(multirun_list)
 		elif self._args.detail_level == 1:
-			self._result_printer.print_multirun_overview(multirun_result)
+			self._result_printer.print_table(multirun_list, overview_type = ResultPrinter.OverviewType.RunOverview)
 		else:
-			self._result_printer.print_details(multirun_result)
+			self._result_printer.print_details(multirun_list)
 
 	def _show_runs(self):
 		raise NotImplementedError()
