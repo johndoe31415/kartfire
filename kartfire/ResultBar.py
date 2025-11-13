@@ -27,6 +27,7 @@ class ResultBar():
 	class Element():
 		element_type: str
 		character: str
+		alias: str | None = None
 		prefix: str | None = None
 		suffix: str | None = None
 		force_nonzero_show: bool = False
@@ -55,6 +56,8 @@ class ResultBar():
 		other_count = 0
 		for (key, count) in distribution_dict.items():
 			if key in self._elements:
+				if self._elements[key].alias is not None:
+					key = self._elements[key].alias
 				relevant_items[key] = relevant_items.get(key, 0) + count
 			elif self.count_other:
 				relevant_items[None] = relevant_items.get(None, 0) + count
@@ -136,10 +139,11 @@ class ResultBar():
 if __name__ == "__main__":
 	rb = ResultBar(30, sort_by_most_common = True)
 	rb.add(ResultBar.Element(element_type = "pass", character = "+"))
+	rb.add(ResultBar.Element(element_type = "weird_pass", character = None, alias = "pass"))
 	rb.add(ResultBar.Element(element_type = "fail", character = "-", force_nonzero_show = True))
 	rb.set_other(ResultBar.Element(element_type = None, character = "?"))
 
-	results = { "pass": 50 }
+	results = { "pass": 49, "weird_pass": 1 }
 	for i in range(150):
 		results["fail"] = i
 		print(rb(results))
