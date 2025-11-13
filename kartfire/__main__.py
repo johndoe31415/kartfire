@@ -28,6 +28,7 @@ from .ActionRun import ActionRun
 from .ActionWatch import ActionWatch
 from .ActionResults import ActionResults
 from .ActionReference import ActionReference
+from .ActionAlias import ActionAlias
 from .ActionLeaderboard import ActionLeaderboard
 from .ActionScram import ActionScram
 from .ActionDockerPrune import ActionDockerPrune
@@ -94,6 +95,13 @@ def main():
 		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
 		parser.add_argument("submission_name", help = "Name of the submission that was run and should be used as a reference.")
 	mc.register("reference", "Mark a solution's results as the reference answers", genparser, action = ActionReference)
+
+	def genparser(parser):
+		parser.add_argument("-r", "--remove-all-aliases", action = "store_true", help = "Remove all aliases before importing new ones.")
+		parser.add_argument("-D", "--database-filename", metavar = "file", default = "kartfire.sqlite3", help = "Database filename to use. Defaults to %(default)s.")
+		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
+		parser.add_argument("metadata_filename", nargs = "*", help = "JSON filename(s) to be imported.")
+	mc.register("alias", "Import aliases for sources into database for leaderboard display", genparser, action = ActionAlias)
 
 	def genparser(parser):
 		parser.add_argument("-D", "--database-filename", metavar = "file", default = "kartfire.sqlite3", help = "Database filename to use. Defaults to %(default)s.")

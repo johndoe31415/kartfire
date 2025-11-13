@@ -20,6 +20,7 @@
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
 from .CmdlineAction import CmdlineAction
+from .TableFormatter import Table, CellFormatter
 
 class ActionLeaderboard(CmdlineAction):
 	def run(self):
@@ -27,5 +28,35 @@ class ActionLeaderboard(CmdlineAction):
 
 		leaderboard = self._db.get_leaderboard(self._args.collection_name)
 		print(f"Best runs for collection {self._args.collection_name} with all pass results, reftime {collection.reference_runtime_secs:.2f} sec")
+
+		table = Table()
+		table.format_columns({
+			"time":		CellFormatter(align = CellFormatter.Alignment.Right, content_to_str_fnc = lambda content: f"{content:.1f}"),
+			"reltime":	CellFormatter(align = CellFormatter.Alignment.Right, content_to_str_fnc = lambda content: f"{content:6.1f}%"),
+			"relfactor":	CellFormatter(align = CellFormatter.Alignment.Right, content_to_str_fnc = lambda content: f"{content:.1f}x"),
+		})
+		table.add_row({
+			"source":		"Source",
+			"run_id":		"Run ID",
+			"time":			"Time/secs",
+			"reltime":		"Relative time",
+			"relfactor":	"Factor",
+		}, cell_formatters = {
+			"time": table["time"].override(content_to_str_fnc = str),
+			"reltime": table["reltime"].override(content_to_str_fnc = str),
+			"relfactor": table["relfactor"].override(content_to_str_fnc = str),
+		})
+		table.add_separator_row()
+
 		for entry in leaderboard:
-			print(f"{entry['source']:<15s}   {entry['run_id']:5d}   {entry['min_runtime_secs']:>8.2f} sec    {entry['min_runtime_secs'] / collection.reference_runtime_secs * 100:>6.1f}% of ref" )
+			kartfire_meta = entry["source_metadata"]["meta"].get("json", { }).get("kartfire", { })
+			source = entry["alias"] or entry["source"]
+			table.add_row({
+				"source":		source,
+				"run_id":		entry["run_id"],
+				"time":			entry["min_runtime_secs"],
+				"reltime":		entry['min_runtime_secs'] / collection.reference_runtime_secs * 100,
+				"relfactor":	collection.reference_runtime_secs / entry['min_runtime_secs'],
+			})
+
+		table.print("source", "run_id", "time", "reltime", "relfactor")

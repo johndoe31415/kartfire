@@ -186,11 +186,19 @@ class Database(SqliteORM):
 			""")
 
 		with contextlib.suppress(sqlite3.OperationalError):
+			self._cursor.execute("""\
+			CREATE TABLE leaderboard_aliases (
+				source varchar(256) NOT NULL PRIMARY KEY,
+				alias varchar(256) NOT NULL
+			);
+			""")
+
+		with contextlib.suppress(sqlite3.OperationalError):
 			self._cursor.execute("CREATE INDEX testsummary_status ON testsummary(status);")
 
 		with contextlib.suppress(sqlite3.OperationalError):
 			self._cursor.execute("""CREATE VIEW successful_runs_runtimes AS
-				SELECT testrun.run_id, source, collection, runtime_secs from testrun
+				SELECT testrun.run_id, source, source_metadata, collection, runtime_secs from testrun
 					JOIN multirun ON multirun.multirun_id = testrun.multirun_id
 					JOIN testsummary ON testsummary.run_id = testrun.run_id
 					WHERE (testrun.status = 'finished') AND (testsummary.status = 'pass') AND (testsummary.count = testcase_count) AND (runtime_secs IS NOT NULL)
@@ -422,12 +430,22 @@ class Database(SqliteORM):
 	def get_time_spent_in_pipeline(self) -> dict:
 		return { row["source"]: row["pipeline_time_secs"] for row in self._cursor.execute("SELECT * FROM time_spent_in_pipeline;").fetchall() }
 
+	def leaderboard_alias_add(self, source_name: str, alias_name: str):
+		try:
+			self._insert("leaderboard_aliases", {
+				"source": source_name,
+				"alias": alias_name,
+			})
+		except sqlite3.IntegrityError:
+			self._cursor.execute("UPDATE leaderboard_aliases SET alias = ? WHERE source = ?;", (alias_name, source_name))
+
 	def get_leaderboard(self, collection_name: str):
 		return self._mapped_execute("""
-					SELECT MIN(run_id) AS run_id, source, min_runtime_secs FROM
-							(SELECT run_id, source, collection, runtime_secs, MIN(runtime_secs) OVER (PARTITION BY source, collection) AS min_runtime_secs FROM successful_runs_runtimes) AS subqry
+					SELECT MIN(run_id) AS run_id, subqry.source, source_metadata, alias, min_runtime_secs FROM
+							(SELECT run_id, source, source_metadata, collection, runtime_secs, MIN(runtime_secs) OVER (PARTITION BY source, collection) AS min_runtime_secs FROM successful_runs_runtimes) AS subqry
+							LEFT JOIN leaderboard_aliases ON subqry.source = leaderboard_aliases.source
 							WHERE (runtime_secs = min_runtime_secs) AND (collection = ?)
-							GROUP BY source, collection, min_runtime_secs
+							GROUP BY subqry.source, collection, min_runtime_secs
 							ORDER BY min_runtime_secs ASC
 					;
-			""", collection_name)._mapped_fetchall()
+			""", collection_name)._mapped_fetchall("multirun")
