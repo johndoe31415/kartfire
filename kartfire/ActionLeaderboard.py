@@ -19,6 +19,7 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
+import collections
 from .CmdlineAction import CmdlineAction
 from .TableFormatter import Table, CellFormatter
 from .ResultBar import ResultBar
@@ -37,6 +38,30 @@ class ActionLeaderboard(CmdlineAction):
 		rb.add(ResultBar.Element(element_type = ".rs", character = "🦀"))
 		rb.add(ResultBar.Element(element_type = ".go", character = "🐿️"))
 		return rb
+
+	def _pgm_language_breakdown(self, filetypes: dict):
+		known_filetypes = {
+			".java":	"Java",
+			".c":		"C",
+			".h":		"C",
+			".cpp":		"C++",
+			".c++":		"C++",
+			".hpp":		"C++",
+			".h++":		"C++",
+			".py":		"Python",
+			".go":		"Go",
+			".rs":		"Rust",
+		}
+		counter = collections.Counter()
+		for (filetype, linecount) in filetypes.items():
+			if filetype in known_filetypes:
+				counter[known_filetypes[filetype]] += linecount
+		total_lines = sum(counter.values())
+		if total_lines == 0:
+			return (total_lines, "-")
+
+		breakdown = ", ".join(f"{linecount / total_lines * 100:.0f}% {language}" for (language, linecount) in counter.most_common(3))
+		return (total_lines, breakdown)
 
 	def run(self):
 		collection = self._db.get_testcase_collection(self._args.collection_name)
@@ -64,22 +89,21 @@ class ActionLeaderboard(CmdlineAction):
 		})
 		table.add_separator_row()
 
-
-		pgm_language_bar = self._pgm_language_bar()
 		for entry in leaderboard:
 			kartfire_meta = entry["source_metadata"]["meta"].get("json", { }).get("kartfire", { })
 			if self._args.show_real_name:
 				source = kartfire_meta.get("name") or entry["alias"] or entry["source"]
 			else:
 				source = entry["alias"] or entry["source"]
-			language = pgm_language_bar(entry["source_metadata"]["meta"]["filetypes"])
+			(loc, language) = self._pgm_language_breakdown(entry["source_metadata"]["meta"]["filetypes"])
 			table.add_row({
 				"source":		source,
 				"run_id":		entry["run_id"],
 				"time":			entry["min_runtime_secs"],
 				"reltime":		entry['min_runtime_secs'] / collection.reference_runtime_secs * 100,
 				"relfactor":	collection.reference_runtime_secs / entry['min_runtime_secs'],
+				"loc":			loc,
 				"language":		language,
 			})
 
-		table.print("source", "run_id", "time", "reltime", "relfactor", "language")
+		table.print("source", "run_id", "time", "reltime", "relfactor", "loc", "language")
