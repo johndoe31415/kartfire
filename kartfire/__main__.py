@@ -86,6 +86,7 @@ def main():
 		parser.add_argument("-l", "--limit", metavar = "count", type = int, default = 50, help = "When limiting the amount of shown results, limit to this value. Defaults to %(default)d.")
 		parser.add_argument("-n", "--filter-submitter-name", metavar = "pattern", help = "Filter by the metadata name (i.e., the person submitting the test), show only results by this person.")
 		parser.add_argument("-S", "--filter-source", metavar = "pattern", help = "Filter by the solution name, show only results named this way.")
+		parser.add_argument("-F", "--filter-failures", action = "store_true", help = "Only show multiruns in which at least one failure is present.")
 		parser.add_argument("-d", "--detail-level", action = "count", default = 0, help = "Increase level of detail. Can be given multiple times.")
 #		parser.add_argument("run_multirun_id", type = ActionResults.id_type, nargs = "*", help = "Run or multirun ID(s) to show details of. Multirun IDs start with 'm'.")
 	mc.register("results", "Print results of run testcases", genparser, action = ActionResults)

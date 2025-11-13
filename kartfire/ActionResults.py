@@ -79,6 +79,8 @@ class ActionResults(CmdlineAction):
 		multiruns = [ ]
 		for result in results:
 			multiruns.append(MultiRunResult(self._db, result["multirun_id"]))
+		if self._args.filter_failures:
+			multiruns = [ multirun for multirun in multiruns if not multirun.all_pass ]
 		self._print_multiruns(multiruns)
 
 	def run(self):
