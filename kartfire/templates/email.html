@@ -104,7 +104,11 @@ anbei die Testergebnisse der Test-Pipeline, in der Ihre Lösung geprüft wurde.
 
 %if m.overview["build_status"] == TestrunStatus.Finished:
 <p>
-Der Build-Step/Vorbereitungsschritt endete erfolgreich und war nach ${f"{m.build_runtime:d}"} beendet. Ergebnisse der durchgeführten Tests:
+Der Build-Step/Vorbereitungsschritt endete erfolgreich. \
+%if not m.build_runtime.undefined:
+Das Build-Skript lief ${f"{m.build_runtime:d}"}. \
+%endif
+Ergebnisse der durchgeführten Tests:
 </p>
 
 <p>
