@@ -50,7 +50,10 @@ class ActionLeaderboard(CmdlineAction):
 
 		for entry in leaderboard:
 			kartfire_meta = entry["source_metadata"]["meta"].get("json", { }).get("kartfire", { })
-			source = entry["alias"] or entry["source"]
+			if self._args.show_real_name:
+				source = kartfire_meta.get("name") or entry["alias"] or entry["source"]
+			else:
+				source = entry["alias"] or entry["source"]
 			table.add_row({
 				"source":		source,
 				"run_id":		entry["run_id"],
