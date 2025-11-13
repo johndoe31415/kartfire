@@ -77,9 +77,6 @@ def main():
 
 	def genparser(parser):
 		parser.add_argument("-C", "--test-fixture-config", metavar = "filename", help = "Specify a specific test fixture configuration to use. If omitted, tries to look in the local directory for a file named 'kartfire_test_fixture.json' before falling back to default values.")
-		parser.add_argument("--summary-by-run", action = "store_true", help = "Show individual runs, not consolidated multiruns")
-		parser.add_argument("-H", "--html-template", metavar = "name", help = "Render a HTML output from the testruns")
-		parser.add_argument("-m", "--send-email", action = "store_true", help = "Send the multirun result via email")
 		parser.add_argument("-D", "--database-filename", metavar = "file", default = "kartfire.sqlite3", help = "Database filename to use. Defaults to %(default)s.")
 		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
 		parser.add_argument("-s", "--show", choices = [ "solutions", "runs", "multiruns" ], default = "solutions", help = "Action to perform. Can be one of %(choices)s, defaults to %(default)s.")
@@ -88,7 +85,6 @@ def main():
 		parser.add_argument("-S", "--filter-source", metavar = "pattern", help = "Filter by the solution name, show only results named this way.")
 		parser.add_argument("-F", "--filter-failures", action = "store_true", help = "Only show multiruns in which at least one failure is present.")
 		parser.add_argument("-d", "--detail-level", action = "count", default = 0, help = "Increase level of detail. Can be given multiple times.")
-#		parser.add_argument("run_multirun_id", type = ActionResults.id_type, nargs = "*", help = "Run or multirun ID(s) to show details of. Multirun IDs start with 'm'.")
 	mc.register("results", "Print results of run testcases", genparser, action = ActionResults)
 
 	def genparser(parser):

@@ -173,13 +173,19 @@ class ResultPrinter():
 			print_dict(received_reply_json, color = self._color.red)
 			print()
 
+	def _print_multiline_text(self, heading: str, text: str):
+		table = Table()
+		table.add_row({ "line": heading })
+		table.add_separator_row()
+		for line in text.split("\n"):
+			table.add_row({ "line": line })
+		table.print("line")
+
 	def _print_failure_details(self, multirun_result: "MultiRunResult"):
 		if multirun_result.build_failed:
 			# Build failed.
 			print(f"Showing build output of {multirun_result.source} of {multirun_result.solution_author or 'unknown author'}. {self._color.red}Build status {multirun_result.overview['build_status'].name}{self._color.clr} after {multirun_result.build_runtime:r} secs:")
-			print(("⎯" * 40) + " stderr " + ("⎯" * 40))
-			print(multirun_result.full_overview["build_stderr"].decode("utf-8", errors = "ignore").strip("\r\n"))
-			print(("⎯" * 88))
+			self._print_multiline_text("build stderr", multirun_result.build_stderr_text)
 			if multirun_result.overview["build_error_details"] is not None:
 				print(multirun_result.overview["build_error_details"]["text"])
 		else:
@@ -191,9 +197,12 @@ class ResultPrinter():
 				tr = f"Testrun {multirun_result.multirun_id}.{run_result.run_id}"
 				tm = f"{run_result.runtime:r}/{run_result.runtime_allowance:r}"
 				print(f"{tr:<17s} {self._color.green if run_result.run_completed else self._color.red}{run_result.collection_name:<25s} {run_result.overview['status'].name:<10s} {tm:<18s}{self._color.clr} {self._color.green if run_result.all_pass else self._color.red}{run_result.status_text}{self._color.clr}")
-				if run_result.all_pass:
-					continue
 
+				if run_result.overview["status"] != TestrunStatus.Finished:
+					if run_result.overview["error_details"] is not None:
+						print(f"{' '.join(run_result.overview['error_details']['cmd'])}: {run_result.overview['error_details']['text']}")
+					if run_result.stderr_text != "":
+						self._print_multiline_text("run stderr", run_result.stderr_text)
 				print(f"    {len(run_result.test_failures)} failed testcases recorded, showing the first {self._max_failed_cases_per_action} of each kind:")
 				action_count = collections.Counter()
 				for failure in run_result.test_failures:

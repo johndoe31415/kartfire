@@ -31,6 +31,19 @@ class RunResult():
 		self._multirun = multirun
 		self._overview = overview
 
+	def _get_field(self, field_name: str):
+		if field_name not in self._overview:
+			self._overview = self._db.get_run_overview(run_id = self.run_id, full_overview = True)
+		return self._overview[field_name]
+
+	@property
+	def stderr(self):
+		return self._get_field("stderr")
+
+	@property
+	def stderr_text(self):
+		return self.stderr.decode("ascii", errors = "ignore").strip("\r\n\t ")
+
 	@property
 	def full_id(self):
 		return f"{self.multirun.multirun_id}.{self.run_id}"
