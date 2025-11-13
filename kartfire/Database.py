@@ -193,8 +193,7 @@ class Database(SqliteORM):
 				SELECT testrun.run_id, source, collection, runtime_secs from testrun
 					JOIN multirun ON multirun.multirun_id = testrun.multirun_id
 					JOIN testsummary ON testsummary.run_id = testrun.run_id
-					WHERE (testrun.status = 'finished') AND (testsummary.status = 'pass') AND (testsummary.count = testcase_count)
-					GROUP BY source, collection
+					WHERE (testrun.status = 'finished') AND (testsummary.status = 'pass') AND (testsummary.count = testcase_count) AND (runtime_secs IS NOT NULL)
 			;""")
 
 	def create_testcase(self, action: str, arguments: dict, created_utcts: datetime.datetime, correct_reply: dict | None = None, dependencies: dict | None = None):
