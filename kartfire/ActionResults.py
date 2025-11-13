@@ -66,7 +66,7 @@ class ActionResults(CmdlineAction):
 		elif self._args.detail_level == 1:
 			self._result_printer.print_table(multirun_list, overview_type = ResultPrinter.OverviewType.RunOverview)
 		else:
-			self._result_printer.print_details(multirun_list)
+			self._result_printer.print_table(multirun_list, overview_type = ResultPrinter.OverviewType.DetailOverview)
 
 	def _show_runs(self):
 		raise NotImplementedError()
@@ -87,29 +87,3 @@ class ActionResults(CmdlineAction):
 		self._result_printer = ResultPrinter(self._db)
 		handler = getattr(self, f"_show_{self._args.show.replace('-', '_')}")
 		return handler()
-#		self._multiruns = list(self._load_multiruns())
-
-
-
-
-
-#		if self._args.html_template is None:
-#			if len(self._args.run_multirun_id) == 0:
-#				if self._args.summary_by_run:
-#					self._print_summary_by_run()
-#				else:
-#					self._print_summary_by_multirun()
-#			else:
-#				for multirun in self._multiruns:
-#					self._result_printer.print_details(multirun)
-#		else:
-#			html_generator = ResultHTMLGenerator(self._db)
-#			for multirun in self._multiruns:
-#				result = html_generator.create(multirun = multirun, template_name = self._args.html_template)
-#				print(result)
-#
-#		if self._args.send_email:
-#			html_generator = ResultHTMLGenerator(self._db)
-#			dropoff = mailcoil.MailDropoff.parse_uri(self._test_fixture_config.email_via_uri)
-#			for multirun in self._multiruns:
-#				multirun.send_email(test_fixture_config = self._test_fixture_config, html_generator = html_generator, dropoff = dropoff)

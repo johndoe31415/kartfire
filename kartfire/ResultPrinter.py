@@ -111,6 +111,7 @@ class ResultPrinter():
 	class OverviewType(enum.IntEnum):
 		BasicOverview = enum.auto()
 		RunOverview = enum.auto()
+		DetailOverview = enum.auto()
 
 	def __init__(self, db: "Database"):
 		self._db = db
@@ -172,7 +173,7 @@ class ResultPrinter():
 			print_dict(received_reply_json, color = self._color.red)
 			print()
 
-	def print_details(self, multirun_result: "MultiRunResult"):
+	def _print_failure_details(self, multirun_result: "MultiRunResult"):
 		if multirun_result.build_failed:
 			# Build failed.
 			print(f"Showing build output of {multirun_result.source} of {multirun_result.solution_author or 'unknown author'}. {self._color.red}Build status {multirun_result.overview['build_status'].name}{self._color.clr} after {multirun_result.build_runtime:r} secs:")
@@ -185,6 +186,8 @@ class ResultPrinter():
 			print(f"Showing testrun summary of {multirun_result.source} of {multirun_result.solution_author or 'unknown author'}. {self._color.green}Build status {multirun_result.overview['build_status'].name}{self._color.clr} after {multirun_result.build_runtime:r} secs:")
 
 			for run_result in multirun_result:
+				if run_result.all_pass:
+					continue
 				tr = f"Testrun {multirun_result.multirun_id}.{run_result.run_id}"
 				tm = f"{run_result.runtime:r}/{run_result.runtime_allowance:r}"
 				print(f"{tr:<17s} {self._color.green if run_result.run_completed else self._color.red}{run_result.collection_name:<25s} {run_result.overview['status'].name:<10s} {tm:<18s}{self._color.clr} {self._color.green if run_result.all_pass else self._color.red}{run_result.status_text}{self._color.clr}")
@@ -215,7 +218,8 @@ class ResultPrinter():
 					collection_set.add(collection)
 		return collection_list
 
-	def print_table(self, multirun_list: list["MultiRunResult"], overview_type: OverviewType = OverviewType.BasicOverview):
+
+	def _initialize_table(self):
 		table = Table()
 		table.format_columns({
 			"source":		CellFormatter(max_length = 18),
@@ -238,7 +242,10 @@ class ResultPrinter():
 			"percentage": table["percentage"].override(content_to_str_fnc = str),
 		})
 		table.add_separator_row()
+		return table
 
+	def print_table(self, multirun_list: list["MultiRunResult"], overview_type: OverviewType = OverviewType.BasicOverview):
+		table = self._initialize_table()
 		collection_list = self._find_all_collections(multirun_list)
 
 		for multirun_result in multirun_list:
@@ -278,7 +285,7 @@ class ResultPrinter():
 				"run_ts": multirun_result.build_start_utcts,
 			}, cell_formatters = cell_formatters)
 
-			if overview_type == self.OverviewType.RunOverview:
+			if overview_type in [ self.OverviewType.RunOverview, self.OverviewType.DetailOverview ]:
 				# Print results for each run
 				for run_result in multirun_result:
 					cell_formatters = { }
@@ -299,6 +306,10 @@ class ResultPrinter():
 						"fail_count": run_result.nonpass_count,
 						"percentage": run_result.pass_percentage,
 					}, cell_formatters = cell_formatters)
+				if overview_type == self.OverviewType.DetailOverview:
+					table.print("source", "name", "result_indicator", "pass_count", "fail_count", "percentage")
+					self._print_failure_details(multirun_result)
+					table = self._initialize_table()
 
 		match overview_type:
 			case self.OverviewType.BasicOverview:
@@ -306,6 +317,9 @@ class ResultPrinter():
 
 			case self.OverviewType.RunOverview:
 				table.print("source", "name", "result_indicator", "pass_count", "fail_count", "percentage")
+
+			case self.OverviewType.DetailOverview:
+				pass
 
 			case _:
 				raise NotImplementedError(overview_type)
