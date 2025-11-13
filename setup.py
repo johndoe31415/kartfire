@@ -18,7 +18,7 @@ setuptools.setup(
 	keywords = [ "testcase", "runner", "docker" ],
 	install_requires = [
 		"tzlocal",
-		"pytz",
+		"mailcoil>=v0.0.9",
 	],
 	entry_points = {
 		"console_scripts": [
