@@ -75,6 +75,5 @@ class ActionRun(CmdlineAction):
 			print("No submissions to test found.", file = sys.stderr)
 		runner.run(submissions)
 
-		print("=" * 120)
-		for multirun_result in sorted(self._multiruns, key = lambda multirun: (multirun.shortname, multirun.multirun_id)):
-			self._rp.print_multirun_overview(multirun_result)
+		print("═" * 120)
+		self._rp.print_table(sorted(self._multiruns, key = lambda multirun: (multirun.shortname, multirun.multirun_id)))
