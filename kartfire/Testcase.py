@@ -181,3 +181,10 @@ class TestcaseCollection():
 
 	def __str__(self):
 		return f"Collection \"{self.name}\": {len(self._testcases)} TCs, nominal runtime {'unknown' if (self.reference_runtime_secs is None) else f'{self.reference_runtime_secs:.0f} secs'}"
+
+	def to_dict(self):
+		return {
+			"name": self.name,
+			"length": len(self),
+			"reference_runtime_secs": self.reference_runtime_secs,
+		}

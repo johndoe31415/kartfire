@@ -104,10 +104,11 @@ def main():
 	mc.register("alias", "Import aliases for sources into database for leaderboard display", genparser, action = ActionAlias)
 
 	def genparser(parser):
+		parser.add_argument("-e", "--export-json", metavar = "filename", help = "Export the data into the given JSON file instead of printing it on stdout.")
 		parser.add_argument("-r", "--show-real-name", action = "store_true", help = "By default, only the solution name is shown. This also shows the real name of the author (not just the alias).")
 		parser.add_argument("-D", "--database-filename", metavar = "file", default = "kartfire.sqlite3", help = "Database filename to use. Defaults to %(default)s.")
 		parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increases verbosity. Can be specified multiple times to increase.")
-		parser.add_argument("collection_name", help = "Test collection name(s) to judge, possibly separated by commas.")
+		parser.add_argument("collection_name", nargs = "+", help = "Test collection name(s) to judge, possibly separated by commas.")
 	mc.register("leaderboard", "Get a leaderboard that comares the runtimes of runs that achieved all passes", genparser, action = ActionLeaderboard)
 
 	def genparser(parser):

@@ -30,7 +30,7 @@ class Leaderboard():
 		self._leaderboard = self._db.get_leaderboard(collection_name)
 		for entry in self._leaderboard:
 			filetypes = entry["source_metadata"]["meta"]["filetypes"]
-			(entry["loc"], entry["language_breakdown_text"]) = self._pgm_language_breakdown(filetypes)
+			(entry["loc"], entry["language_breakdown"], entry["language_breakdown_text"]) = self._pgm_language_breakdown(filetypes)
 			entry["reltime"] = entry["min_runtime_secs"] / self._collection.reference_runtime_secs
 
 	@property
@@ -73,7 +73,23 @@ class Leaderboard():
 			return (total_lines, "-")
 
 		breakdown = ", ".join(f"{linecount / total_lines * 100:.0f}% {language}" for (language, linecount) in counter.most_common(3))
-		return (total_lines, breakdown)
+		return (total_lines, counter, breakdown)
 
 	def __iter__(self):
 		return iter(self._leaderboard)
+
+	def to_dict(self):
+		def _entry_to_dict(entry):
+			return {
+				"run_id": entry["run_id"],
+				"alias": entry["alias"],
+				"source": entry["source"],
+				"min_runtime_secs": entry["min_runtime_secs"],
+				"loc_by_language": entry["language_breakdown"].most_common(3),
+				"loc": entry["loc"],
+			}
+
+		return {
+			"collection": self._collection.to_dict(),
+			"entries": [ _entry_to_dict(entry) for entry in self._leaderboard ],
+		}
