@@ -63,6 +63,8 @@ class Leaderboard():
 			".py":		"Python",
 			".go":		"Go",
 			".rs":		"Rust",
+			".s":		"Assembly",
+			".S":		"Assembly",
 		}
 		counter = collections.Counter()
 		for (filetype, linecount) in filetypes.items():
