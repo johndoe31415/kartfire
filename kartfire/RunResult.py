@@ -42,7 +42,10 @@ class RunResult():
 
 	@property
 	def stderr_text(self):
-		return self.stderr.decode("ascii", errors = "ignore").strip("\r\n\t ")
+		if self.stderr is None:
+			return "N/A"
+		else:
+			return self.stderr.decode("ascii", errors = "ignore").strip("\r\n\t ")
 
 	@property
 	def full_id(self):

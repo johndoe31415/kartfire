@@ -324,7 +324,7 @@ class ResultPrinter():
 						"pass_count": run_result.pass_count,
 						"fail_count": run_result.nonpass_count,
 						"percentage": run_result.pass_percentage,
-						"time_percentage": 100 * run_result.relative_runtime or 0,
+						"time_percentage": 100 * (run_result.relative_runtime or 0),
 					}, cell_formatters = cell_formatters)
 				if overview_type == self.OverviewType.DetailOverview:
 					table.print("source", "name", "result_indicator", "pass_count", "fail_count", "percentage")

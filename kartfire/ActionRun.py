@@ -33,7 +33,7 @@ class ActionRun(CmdlineAction):
 	def _build_finished_callback(self, multirun_id: int):
 		multirun_result = MultiRunResult(self._db, multirun_id)
 		if multirun_result.build_failed:
-			self._rp.print_multirun_overview(multirun_result)
+			print(f"Build failed: {multirun_result.multirun_id} {multirun_result.source}")
 
 	def _run_finished_callback(self, submission: Submission, run_id: int):
 		run_result = MultiRunResult.load_single_run(self._db, run_id)
