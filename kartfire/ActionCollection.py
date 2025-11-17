@@ -35,7 +35,7 @@ class ActionCollection(CmdlineAction):
 				self._db.create_collection(self._args.collection_name)
 			else:
 				print(f"No such collection: {self._args.collection_name}")
-				return
+				return 1
 
 		if (self._args.testcase_selector is not None):
 			tc_ids = self._db.get_tc_ids_by_selector(self._args.testcase_selector)
@@ -48,3 +48,4 @@ class ActionCollection(CmdlineAction):
 
 		self._db.commit()
 		print(collection)
+		return 0
