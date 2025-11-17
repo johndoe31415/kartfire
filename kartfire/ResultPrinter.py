@@ -119,6 +119,13 @@ class ResultPrinter():
 		self._color = ResultColorizer()
 		self._max_failed_cases_per_action = 2
 
+	@classmethod
+	def overview_type_by_detail_level(cls, detail_level: int) -> OverviewType:
+		match detail_level:
+			case 0: return cls.OverviewType.BasicOverview
+			case 1: return cls.OverviewType.RunOverview
+			case _: return cls.OverviewType.DetailOverview
+
 	def _fmtts(self, utc_ts: datetime.datetime, format_str: str = "full"):
 		local_ts = utc_ts.astimezone(self._output_tz)
 		match format_str:
@@ -237,6 +244,7 @@ class ResultPrinter():
 			"pass_count":	CellFormatter.basic_ralign(),
 			"fail_count":	CellFormatter.basic_ralign(),
 			"percentage":	CellFormatter(align = CellFormatter.Alignment.Right, content_to_str_fnc = lambda content: f"{content:.1f}"),
+			"time_percentage":	CellFormatter(align = CellFormatter.Alignment.Right, content_to_str_fnc = lambda content: f"{content:.1f}"),
 		})
 		table.add_row({
 			"source":			"Source",
@@ -246,9 +254,11 @@ class ResultPrinter():
 			"pass_count":		"Pass",
 			"fail_count":		"Fail",
 			"percentage":		"%",
+			"time_percentage":	"Time %",
 		}, cell_formatters = {
 			"run_ts": table["run_ts"].override(content_to_str_fnc = str),
 			"percentage": table["percentage"].override(content_to_str_fnc = str),
+			"time_percentage": table["time_percentage"].override(content_to_str_fnc = str),
 		})
 		table.add_separator_row()
 		return table
@@ -314,6 +324,7 @@ class ResultPrinter():
 						"pass_count": run_result.pass_count,
 						"fail_count": run_result.nonpass_count,
 						"percentage": run_result.pass_percentage,
+						"time_percentage": 100 * run_result.relative_runtime or 0,
 					}, cell_formatters = cell_formatters)
 				if overview_type == self.OverviewType.DetailOverview:
 					table.print("source", "name", "result_indicator", "pass_count", "fail_count", "percentage")
@@ -325,7 +336,7 @@ class ResultPrinter():
 				table.print("source", "run_ts", "name", "result_indicator", "pass_count", "fail_count", "percentage")
 
 			case self.OverviewType.RunOverview:
-				table.print("source", "name", "result_indicator", "pass_count", "fail_count", "percentage")
+				table.print("source", "name", "result_indicator", "pass_count", "fail_count", "percentage", "time_percentage")
 
 			case self.OverviewType.DetailOverview:
 				pass

@@ -76,4 +76,4 @@ class ActionRun(CmdlineAction):
 		runner.run(submissions)
 
 		print("═" * 120)
-		self._rp.print_table(sorted(self._multiruns, key = lambda multirun: (multirun.shortname, multirun.multirun_id)))
+		self._rp.print_table(sorted(self._multiruns, key = lambda multirun: (multirun.shortname, multirun.multirun_id)), overview_type = ResultPrinter.overview_type_by_detail_level(self._args.detail_level))
