@@ -251,6 +251,13 @@ class MultiRunResult():
 			return ""
 
 	@property
+	def build_stderr_text(self):
+		if self.full_overview["build_stderr"] is None:
+			return "N/A"
+		else:
+			return self.full_overview["build_stderr"].decode("ascii", errors = "ignore").strip("\r\n\t ")
+
+	@property
 	def build_allowance(self):
 		return TimeDelta(self.overview["build_runtime_allowance_secs"])
 
