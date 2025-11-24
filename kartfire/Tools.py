@@ -101,10 +101,25 @@ class MiscTools():
 			return line_count
 		except (UnicodeDecodeError, FileNotFoundError, PermissionError):
 			return 0
+	
+	@classmethod
+	def check_labels(cls, filename: str, labels: dict) -> set:
+		searchterms = labels.keys()
+		included_terms = set()
+		try:
+			with open(filename) as f:
+				content = f.read()
+				for term in searchterms:
+					if term  in content:
+						included_terms.add(labels[term])
+			return included_terms
+		except (UnicodeDecodeError, FileNotFoundError, PermissionError):
+			return included_terms
 
 	@classmethod
-	def determine_lines_by_file_extension(cls, path: str) -> dict:
+	def determine_lines_by_file_extension(cls, path: str, code_labels: dict) -> tuple[dict, list]:
 		line_count = collections.defaultdict(int)
+		labels = set()
 		path = os.path.expanduser(path)
 		for (basedir, subdirs, files) in os.walk(path):
 			for remove_subdir in [ subdir for subdir in subdirs if subdir.startswith(".") ]:
@@ -114,9 +129,12 @@ class MiscTools():
 				full_filename = basedir + "/" + filename
 				extension = os.path.splitext(filename)[1]
 				cnt = cls.count_lines(full_filename)
+				if extension in code_labels.keys():
+					labels |= cls.check_labels(full_filename, code_labels.get(extension))
+
 				if cnt > 0:
 					line_count[extension] += cnt
-		return line_count
+		return line_count, list(labels)
 
 class GitTools():
 	@classmethod

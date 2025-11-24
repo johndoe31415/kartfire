@@ -53,7 +53,7 @@ class Submission():
 		if os.path.isfile(json_filename):
 			with open(json_filename) as f:
 				meta["json"] = json.load(f)
-		meta["filetypes"] = MiscTools.determine_lines_by_file_extension(self._submission_dir)
+		meta["filetypes"], meta["code_labels"] = MiscTools.determine_lines_by_file_extension(self._submission_dir, self._test_fixture_config.code_labels)
 		return meta
 
 	@property

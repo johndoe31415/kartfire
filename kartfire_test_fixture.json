@@ -14,5 +14,18 @@
 	"email": {
 		"from": "Kartfire CI/CD <cicd@kartfire-pipeline.org>",
 		"via_uri": "file:///tmp/foobar.txt"
-	}
+	},
+   "code_labels": {
+      ".rs": {
+         "unsafe {": "unsafe",
+         "x86_64::": "CPU-intrinsics",
+         "asm!(": "inline-assembly"
+      },
+      ".py": {
+         "ctypes": "C-extension"
+      },
+      ".c": {
+         "__asm__": "inline-assembly"
+      }
+   }
 }

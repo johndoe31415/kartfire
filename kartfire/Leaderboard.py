@@ -32,6 +32,7 @@ class Leaderboard():
 			filetypes = entry["source_metadata"]["meta"]["filetypes"]
 			(entry["loc"], entry["language_breakdown"], entry["language_breakdown_text"]) = self._pgm_language_breakdown(filetypes)
 			entry["reltime"] = entry["min_runtime_secs"] / self._collection.reference_runtime_secs
+			entry["code_labels"] = entry["source_metadata"]["meta"]["code_labels"]
 
 	@property
 	def collection(self):
@@ -89,6 +90,7 @@ class Leaderboard():
 				"min_runtime_secs": entry["min_runtime_secs"],
 				"loc_by_language": entry["language_breakdown"].most_common(3),
 				"loc": entry["loc"],
+				"code_labels": entry["code_labels"],
 			}
 
 		return {
