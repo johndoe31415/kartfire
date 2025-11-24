@@ -284,7 +284,7 @@ class TestRunner():
 					task_group.create_task(_stoprm(dependency_container))
 
 		timeout = self._determine_runtime_allowance_secs(collection)
-		return await self._execute_docker_container_run(docker = docker, image_name = base_image_name, container_command = [ "/container_testrunner", "--execute-run" ], prefix = f"run_{submission.shortname}", pre_run_hook = pre_run_hook, post_run_hook = post_run_hook, timeout_secs = timeout)
+		return await self._execute_docker_container_run(docker = docker, image_name = base_image_name, container_command = [ "/container_testrunner", "--execute-run" ], prefix = f"run_{submission.shortname}_{collection.name}", pre_run_hook = pre_run_hook, post_run_hook = post_run_hook, timeout_secs = timeout)
 
 	async def run_submission(self, submission: "Submission"):
 		_log.info("Starting testing of submission \"%s\"", submission)
