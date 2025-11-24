@@ -27,6 +27,7 @@ import json
 import asyncio
 import subprocess
 import collections
+import dataclasses
 from .Exceptions import InternalError, SubprocessRunError
 from .CmdlineEscape import CmdlineEscape
 
@@ -90,6 +91,19 @@ class ExecTools():
 		result = await proc.wait()
 		return result
 
+@dataclasses.dataclass
+class CodeSummary():
+	info: dict[str, int]
+	labels: set[str]
+
+	# can't do dataclasses.asdict(self) as info is a defaultdict
+	def to_dict(self):
+		return {
+			"info": dict(self.info),
+			"labels": list(self.labels),
+		}
+
+
 class MiscTools():
 	@classmethod
 	def count_lines(cls, filename: str) -> int:
@@ -103,8 +117,23 @@ class MiscTools():
 			return 0
 
 	@classmethod
-	def determine_lines_by_file_extension(cls, path: str) -> dict:
+	def check_labels(cls, filename: str, labels: dict) -> set:
+		searchterms = labels.keys()
+		included_terms = set()
+		try:
+			with open(filename) as f:
+				content = f.read()
+			for term in searchterms:
+				if term in content:
+					included_terms.add(labels[term])
+		except (UnicodeDecodeError, FileNotFoundError, PermissionError):
+			pass
+		return included_terms
+
+	@classmethod
+	def analyze_files_by_file_extension(cls, path: str, code_labels: dict) -> CodeSummary:
 		line_count = collections.defaultdict(int)
+		labels = set()
 		path = os.path.expanduser(path)
 		for (basedir, subdirs, files) in os.walk(path):
 			for remove_subdir in [ subdir for subdir in subdirs if subdir.startswith(".") ]:
@@ -114,9 +143,12 @@ class MiscTools():
 				full_filename = basedir + "/" + filename
 				extension = os.path.splitext(filename)[1]
 				cnt = cls.count_lines(full_filename)
+				if extension in code_labels.keys():
+					labels |= cls.check_labels(full_filename, code_labels.get(extension))
+
 				if cnt > 0:
 					line_count[extension] += cnt
-		return line_count
+		return CodeSummary(line_count, labels)
 
 class GitTools():
 	@classmethod

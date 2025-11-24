@@ -100,3 +100,7 @@ class TestFixtureConfig():
 	@property
 	def email_via_uri(self):
 		return self.email["via_uri"]
+
+	@property
+	def code_labels(self):
+		return self._config.get("code_labels", { })
