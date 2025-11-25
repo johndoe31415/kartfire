@@ -296,7 +296,7 @@ class ResultPrinter():
 				cell_formatters["name"] = table["name"].override(color = CellFormatter.Color.Yellow)
 			table.add_row({
 				"source": multirun_result.source,
-				"name": multirun_result.solution_author,
+				"name": multirun_result.solution_author or "N/A",
 				"result_indicator": "".join(result_indicator),
 				"pass_count": multirun_result.pass_count,
 				"fail_count": multirun_result.nonpass_count,
