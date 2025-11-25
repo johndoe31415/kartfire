@@ -27,6 +27,7 @@ import json
 import asyncio
 import subprocess
 import collections
+import dataclasses
 from .Exceptions import InternalError, SubprocessRunError
 from .CmdlineEscape import CmdlineEscape
 
@@ -90,6 +91,19 @@ class ExecTools():
 		result = await proc.wait()
 		return result
 
+@dataclasses.dataclass
+class CodeSummary():
+	info: dict[str, int]
+	labels: set[str]
+	
+	# can't do dataclasses.asdict(self) as info is a defaultdict
+	def to_dict(self):
+		return {
+			"info": dict(self.info),
+			"labels": list(self.labels),
+		}
+
+
 class MiscTools():
 	@classmethod
 	def count_lines(cls, filename: str) -> int:
@@ -109,15 +123,15 @@ class MiscTools():
 		try:
 			with open(filename) as f:
 				content = f.read()
-				for term in searchterms:
-					if term  in content:
-						included_terms.add(labels[term])
-			return included_terms
+			for term in searchterms:
+				if term in content:
+					included_terms.add(labels[term])
 		except (UnicodeDecodeError, FileNotFoundError, PermissionError):
-			return included_terms
+			pass
+		return included_terms
 
 	@classmethod
-	def determine_lines_by_file_extension(cls, path: str, code_labels: dict) -> tuple[dict, list]:
+	def analyze_files_by_file_extension(cls, path: str, code_labels: dict) -> CodeSummary:
 		line_count = collections.defaultdict(int)
 		labels = set()
 		path = os.path.expanduser(path)
@@ -134,7 +148,7 @@ class MiscTools():
 
 				if cnt > 0:
 					line_count[extension] += cnt
-		return line_count, list(labels)
+		return CodeSummary(line_count, labels)
 
 class GitTools():
 	@classmethod

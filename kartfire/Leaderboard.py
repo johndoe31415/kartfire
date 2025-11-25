@@ -29,10 +29,10 @@ class Leaderboard():
 		self._collection = self._db.get_testcase_collection(collection_name)
 		self._leaderboard = self._db.get_leaderboard(collection_name)
 		for entry in self._leaderboard:
-			filetypes = entry["source_metadata"]["meta"]["filetypes"]
+			filetypes = entry["source_metadata"]["meta"]["code_summary"]["info"]
 			(entry["loc"], entry["language_breakdown"], entry["language_breakdown_text"]) = self._pgm_language_breakdown(filetypes)
 			entry["reltime"] = entry["min_runtime_secs"] / self._collection.reference_runtime_secs
-			entry["code_labels"] = entry["source_metadata"]["meta"]["code_labels"]
+			entry["code_labels"] = entry["source_metadata"]["meta"]["code_summary"]["labels"]
 
 	@property
 	def collection(self):
