@@ -84,6 +84,13 @@ class ActionResults(CmdlineAction):
 		self._print_multiruns(multiruns)
 
 	def run(self):
-		self._result_printer = ResultPrinter(self._db)
+		sort_order = {
+			"source": ResultPrinter.SortOrder.Source,
+			"datetime": ResultPrinter.SortOrder.DateTime,
+			"author": ResultPrinter.SortOrder.Author,
+			"pass": ResultPrinter.SortOrder.PassCount,
+			"fail": ResultPrinter.SortOrder.FailCount,
+		}[self._args.sort_order]
+		self._result_printer = ResultPrinter(self._db, sort_order = sort_order)
 		handler = getattr(self, f"_show_{self._args.show.replace('-', '_')}")
 		return handler()

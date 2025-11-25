@@ -113,8 +113,16 @@ class ResultPrinter():
 		RunOverview = enum.auto()
 		DetailOverview = enum.auto()
 
-	def __init__(self, db: "Database"):
+	class SortOrder(enum.IntEnum):
+		Source = enum.auto()
+		DateTime = enum.auto()
+		Author = enum.auto()
+		PassCount = enum.auto()
+		FailCount = enum.auto()
+
+	def __init__(self, db: "Database", sort_order: SortOrder = SortOrder.Source):
 		self._db = db
+		self._sort_order = sort_order
 		self._output_tz = tzlocal.get_localzone()
 		self._color = ResultColorizer()
 		self._max_failed_cases_per_action = 2
@@ -263,10 +271,19 @@ class ResultPrinter():
 		table.add_separator_row()
 		return table
 
+	def _sort_key(self, multi_run_result: "MultiRunResult"):
+		match self._sort_order:
+			case self.SortOrder.Source: return multi_run_result.source
+			case self.SortOrder.DateTime: return multi_run_result.build_start_utcts
+			case self.SortOrder.FailCount: return multi_run_result.nonpass_count
+			case self.SortOrder.PassCount: return multi_run_result.pass_count
+			case self.SortOrder.Author: return (multi_run_result.solution_author or "", multi_run_result.source, )
+
 	def print_table(self, multirun_list: list["MultiRunResult"], overview_type: OverviewType = OverviewType.BasicOverview):
 		table = self._initialize_table()
 		collection_list = self._find_all_collections(multirun_list)
 
+		multirun_list.sort(key = self._sort_key)
 		for multirun_result in multirun_list:
 			result_indicator = [ ]
 			for collection_name in collection_list:
