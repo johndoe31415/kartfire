@@ -29,10 +29,15 @@ class Leaderboard():
 		self._collection = self._db.get_testcase_collection(collection_name)
 		self._leaderboard = self._db.get_leaderboard(collection_name)
 		for entry in self._leaderboard:
-			filetypes = entry["source_metadata"]["meta"]["code_summary"]["info"]
+			if "code_summary" in entry["source_metadata"]["meta"]:
+				filetypes = entry["source_metadata"]["meta"]["code_summary"]["info"]
+				entry["code_labels"] = entry["source_metadata"]["meta"]["code_summary"]["labels"]
+			else:
+				# Use previous data structure for backwards compatibility
+				filetypes = entry["source_metadata"]["meta"]["filetypes"]
+				entry["code_labels"] = [ ]
 			(entry["loc"], entry["language_breakdown"], entry["language_breakdown_text"]) = self._pgm_language_breakdown(filetypes)
 			entry["reltime"] = entry["min_runtime_secs"] / self._collection.reference_runtime_secs
-			entry["code_labels"] = entry["source_metadata"]["meta"]["code_summary"]["labels"]
 
 	@property
 	def collection(self):
