@@ -1,4 +1,4 @@
-# KArTFire
+# 🛒🔥 KArTFire
 kartfire is the "Known-Answer-Testing Framework". It is intended to run a
 number of student's solutions inside a well-defined, network-isolated runtime
 environment defined by a Docker container. The solutions can be
