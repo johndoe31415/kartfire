@@ -103,7 +103,6 @@ class CodeSummary():
 			"labels": list(self.labels),
 		}
 
-
 class MiscTools():
 	@classmethod
 	def count_lines(cls, filename: str) -> int:
@@ -148,7 +147,7 @@ class MiscTools():
 
 				if cnt > 0:
 					line_count[extension] += cnt
-		return CodeSummary(line_count, labels)
+		return CodeSummary(info = line_count, labels = labels)
 
 class GitTools():
 	@classmethod
